@@ -1,0 +1,15 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Deployment Environments",
+    "description": "A list of deployment targets that are supported",
+    "type": "object",
+    "properties": {
+        "environments": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        }
+    },
+    "required": ["environments"]
+}
