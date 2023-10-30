@@ -20,7 +20,7 @@ jobs:
       - name: Get Model
         id: get-model
         # for the cases where the repo name is in uppercase but the package name is lowercase (eg. access-nri/MOM5)
-        run: echo "package=$(echo ${{ github.event.repository.name }} | tr [:upper:] [:lower:])" >> $GITHUB_OUTPUT
+        run: echo "model=$(echo ${{ github.event.repository.name }} | tr [:upper:] [:lower:])" >> $GITHUB_OUTPUT
       - name: Get Model Version
         id: get-model-version
         # Unfragment the tag history so we can get the latest tag on main
@@ -55,3 +55,4 @@ jobs:
       version: ${{ needs.setup.outputs.version }}
       env-name: ${{ needs.setup.outputs.env-name }}
       deployment-environment: ${{ matrix.deployment-environment }}
+    secrets: inherit
