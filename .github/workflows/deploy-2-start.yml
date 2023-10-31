@@ -1,0 +1,72 @@
+name: Deploy Start
+concurrency: ${{ inputs.deployment-environment }}
+on:
+  workflow_call:
+    inputs:
+      model:
+        type: string
+        required: true
+        description: The model to deploy
+      version:
+        type: string
+        required: true
+        description: The version of the model to deploy
+      env-name:
+        type: string
+        required: true
+        description: The spack-env-compliant environment name for the model
+      deployment-environment:
+        type: string
+        required: true
+        description: The GitHub deployment environment name 
+
+jobs:
+  deploy-to-environment:
+    name: Deploy to ${{ inputs.deployment-environment }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.deployment-environment }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.version }}
+      - name: Copy spack.yaml
+        run: rsync spack.yaml ${{ secrets.USER }}@${{ secrets.HOST_DATA }}:${{ vars.SPACK_YAML_LOCATION }}
+      - name: Deploy on gadi
+        # ssh into deployment environment, create and activate the env, install the spack.yaml. 
+        run: |
+          ssh ${{ secrets.USER}}@${{ secrets.HOST }} /bin/bash <<'EOT'
+          . ${{ vars.SPACK_LOCATION }}/share/spack/setup-env.sh
+          module load intel-compiler/2019.5.281
+          spack env create ${{ inputs.env-name }} ${{ vars.SPACK_YAML_LOCATION }}/spack.yaml
+          spack env activate ${{ inputs.env-name }}
+          spack install
+          spack find --paths > ${{ vars.SPACK_LOCATION }}/var/spack/environments/${{ inputs.env-name }}/spack.location.txt
+          spack env deactivate
+          module unload intel-compiler/2019.5.281
+          EOT
+
+  create-release:
+    name: Create Release for ${{ inputs.deployment-environment }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.deployment-environment }}
+    needs:
+      - deploy-to-environment
+    permissions:
+      contents: write
+    steps:
+      - name: Get Release Metadata
+        run: |
+          rsync \
+            '${{ secrets.USER}}@${{ secrets.HOST_DATA }}:${{ vars.SPACK_LOCATION }}/var/spack/environments/${{ inputs.env-name }}/spack.*' \
+            ${{ vars.RELEASE_LOCATION }}/${{ inputs.env-name }}
+      - name: Create Release
+        uses: softprops/action-gh-release@v0.1.15
+        with:
+          body: "${{ inputs.model }} ${{ inputs.version }} contains: mom5 vX, cice5 vY, libaccess-om2 vZ"  #TODO: GET FROM file?
+          tag_name: ${{ inputs.version }}
+          name: ${{ inputs.model}} ${{ inputs.version }}
+          fail_on_unmatched_files: true
+          files: |
+            ${{ vars.RELEASE_LOCATION }}/${{ inputs.env-name }}/spack.yaml
+            ${{ vars.RELEASE_LOCATION }}/${{ inputs.env-name }}/spack.lock
+            ${{ vars.RELEASE_LOCATION }}/${{ inputs.env-name }}/spack.location
