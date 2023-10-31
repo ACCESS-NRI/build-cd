@@ -13,6 +13,7 @@ jobs:
       - name: Checkout caller workflow
         uses: actions/checkout@v4
         with:
+          fetch-depth: 1
           fetch-tags: true
       - name: Get Model
         id: get-model
