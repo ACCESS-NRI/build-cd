@@ -40,6 +40,8 @@ jobs:
           spack env create ${{ inputs.env-name }} ${{ vars.SPACK_YAML_LOCATION }}/spack.yaml
           spack env activate ${{ inputs.env-name }}
           spack install
+          spack find --paths > ${{ vars.SPACK_LOCATION }}/var/spack/environments/${{ inputs.env-name }}/spack.location.txt
+          spack env deactivate
           module unload intel-compiler/2019.5.281
           EOT
 
@@ -67,3 +69,4 @@ jobs:
           files: |
             ${{ vars.RELEASE_LOCATION }}/${{ inputs.env-name }}/spack.yaml
             ${{ vars.RELEASE_LOCATION }}/${{ inputs.env-name }}/spack.lock
+            ${{ vars.RELEASE_LOCATION }}/${{ inputs.env-name }}/spack.location
