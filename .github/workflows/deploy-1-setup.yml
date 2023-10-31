@@ -4,7 +4,7 @@ on:
 jobs:
   setup-spack-env:
     name: Setup Spack Environment
-    runs-on: [self-hosted, Linux, x64]
+    runs-on: ubuntu-latest
     outputs:
       model: ${{ steps.get-model.outputs.model }}
       version: ${{ steps.get-model-version.outputs.version }}
@@ -31,7 +31,7 @@ jobs:
   
   setup-deployment-env:
     name: Setup Deployment Environment
-    runs-on: [self-hosted, Linux, x64]
+    runs-on: ubuntu-latest
     outputs:
       deployment-environments: ${{ steps.get-deployment-environment.outputs.deployment-environments }}
     steps:

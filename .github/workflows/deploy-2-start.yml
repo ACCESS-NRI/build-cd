@@ -23,7 +23,7 @@ on:
 jobs:
   deploy-to-environment:
     name: Deploy to ${{ inputs.deployment-environment }}
-    runs-on: [self-hosted, Linux, x64]
+    runs-on: ubuntu-latest
     environment: ${{ inputs.deployment-environment }}
     steps:
       - uses: actions/checkout@v4
@@ -47,7 +47,7 @@ jobs:
 
   create-release:
     name: Create Release for ${{ inputs.deployment-environment }}
-    runs-on: [self-hosted, Linux, x64]
+    runs-on: ubuntu-latest
     environment: ${{ inputs.deployment-environment }}
     needs:
       - deploy-to-environment
