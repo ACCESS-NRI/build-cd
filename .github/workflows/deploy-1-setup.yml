@@ -2,20 +2,17 @@ name: Deployment Setup
 on:
   workflow_call:
 jobs:
-  setup:
-    name: Setup Tasks
+  setup-spack-env:
+    name: Setup Spack Environment
     runs-on: [self-hosted, Linux, x64]
     outputs:
       model: ${{ steps.get-model.outputs.model }}
       version: ${{ steps.get-model-version.outputs.version }}
       env-name: ${{ steps.get-env-name.outputs.env-name }}
-      deployment-environments: ${{ steps.get-deployment-environment.outputs.deployment-environments }}
     steps:
       - name: Checkout caller workflow
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
-          repository: ${{ github.event.repository.name }}
-          path: model
           fetch-tags: true
       - name: Get Model
         id: get-model
@@ -31,11 +28,17 @@ jobs:
         id: get-env-name
         # replace occurences of '.' with '_' in environment name as spack doesn't support '.'. Ex: 'access-om2-v1.0.0' -> 'access-om2-v1_0_0'.  
         run: echo "env-name=$(echo '${{ steps.get-model.outputs.model }}-${{ steps.get-model-version.outputs.version }}' | tr '.' '_')" >> $GITHUB_OUTPUT
-
+  
+  setup-deployment-env:
+    name: Setup Deployment Environment
+    runs-on: [self-hosted, Linux, x64]
+    outputs:
+      deployment-environments: ${{ steps.get-deployment-environment.outputs.deployment-environments }}
+    steps:
       - name: Checkout config
         uses: actions/checkout@v4
         with:
-          path: build-cd
+          repository: access-nri/build-cd
       - name: Get environments
         id: get-deployment-environment
         run: echo "deployment-environments=$(jq --compact-output '.environments' ./config/deployment-environment.json)" >> $GITHUB_OUTPUT
@@ -44,15 +47,16 @@ jobs:
   deployment:
     name: Deployment
     needs:
-      - setup
+      - setup-spack-env
+      - setup-deployment-env
     strategy:
       fail-fast: false
       matrix:
-        deployment-environment: ${{ fromJson(needs.setup.outputs.deployment-environments) }}
+        deployment-environment: ${{ fromJson(needs.setup-deployment-env.outputs.deployment-environments) }}
     uses: access-nri/build-cd/.github/workflows/deploy-2-start.yml@main
     with:
-      model: ${{ needs.setup.outputs.model }}
-      version: ${{ needs.setup.outputs.version }}
-      env-name: ${{ needs.setup.outputs.env-name }}
+      model: ${{ needs.setup-spack-env.outputs.model }}
+      version: ${{ needs.setup-spack-env.outputs.version }}
+      env-name: ${{ needs.setup-spack-env.outputs.env-name }}
       deployment-environment: ${{ matrix.deployment-environment }}
     secrets: inherit
