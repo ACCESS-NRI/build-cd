@@ -12,9 +12,6 @@ jobs:
     steps:
       - name: Checkout caller workflow
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-          fetch-tags: true
       - name: Get Model
         id: get-model
         # for the cases where the repo name is in uppercase but the package name is lowercase (eg. access-nri/MOM5)
