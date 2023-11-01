@@ -1,0 +1,45 @@
+name: Run ssh
+inputs:
+  host:
+    type: string
+    required: true
+    description: Host name used in ssh call 
+  user:
+    type: string
+    required: true
+    description: User name used in ssh call
+  private-key:
+    type: string
+    required: true
+    description: Raw private key used in ssh call
+  script:
+    type: string
+    required: true
+    description: List of commands to run in the ssh call
+runs:
+  using: "composite"
+  steps:
+    - name: Setup ssh
+      shell: bash
+      env:
+        HOST: ${{ inputs.host }}
+        KEY: ${{ inputs.private-key }}
+      run: |
+        mkdir -p ~/.ssh
+        chmod 700 ~/.ssh
+        echo "$KEY" > ~/.ssh/priv.key
+        chmod 600 ~/.ssh/priv.key
+        ssh-keyscan $HOST >> ~/.ssh/known_hosts
+        chmod 600 ~/.ssh/known_hosts 
+    - name: Run script
+      shell: bash
+      env:
+        USER: ${{ inputs.user }}
+        HOST: ${{ inputs.host }}
+      run: |
+        ssh -i ~/.ssh/priv.key $USER@$HOST /bin/bash <<EOT
+        ${{ inputs.script }}
+        EOT
+    - name: Remove ssh information
+      shell: bash
+      run: rm -rf ~/.ssh

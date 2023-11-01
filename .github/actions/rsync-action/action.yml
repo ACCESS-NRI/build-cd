@@ -1,0 +1,39 @@
+name: Run ssh
+inputs:
+  host:
+    type: string
+    required: true
+    description: Host name used in ssh call 
+  private-key:
+    type: string
+    required: true
+    description: Raw private key used in ssh call
+  source:
+    type: string
+    required: true
+    description: Files or folders to send
+  destination:
+    type: string
+    required: true
+    description: File or folder location to receive
+runs:
+  using: "composite"
+  steps:
+    - name: Setup ssh
+      shell: bash
+      env:
+        HOST: ${{ inputs.host }}
+        KEY: ${{ inputs.private-key }}
+      run: |
+        mkdir -p ~/.ssh
+        chmod 700 ~/.ssh
+        echo "$KEY" > ~/.ssh/priv.key
+        chmod 600 ~/.ssh/priv.key
+        ssh-keyscan $HOST >> ~/.ssh/known_hosts
+        chmod 600 ~/.ssh/known_hosts 
+    - name: Run rsync
+      shell: bash
+      run: rsync -e 'ssh -i ~/.ssh/priv.key' ${{ inputs.source }} ${{ inputs.destination }}
+    - name: Remove ssh information
+      shell: bash
+      run: rm -rf ~/.ssh
