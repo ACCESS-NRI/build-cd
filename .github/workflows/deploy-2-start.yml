@@ -26,6 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ inputs.deployment-environment }}
     steps:
+      # Deployment
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.version }}
@@ -51,34 +52,18 @@ jobs:
           module load intel-compiler/2019.5.281
           spack env create ${{ inputs.env-name }} ${{ vars.SPACK_YAML_LOCATION }}/spack.yaml
           spack env activate ${{ inputs.env-name }}
-          spack install
+          spack install || exit $?
           spack find --paths > ${{ vars.SPACK_LOCATION }}/var/spack/environments/${{ inputs.env-name }}/spack.location.txt
           spack env deactivate
           module unload intel-compiler/2019.5.281
           EOT
 
-  create-release:
-    name: Create Release for ${{ inputs.deployment-environment }}
-    runs-on: ubuntu-latest
-    environment: ${{ inputs.deployment-environment }}
-    needs:
-      - deploy-to-environment
-    permissions:
-      contents: write
-    steps:
-      - name: Setup ssh
-        run: |
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          echo '${{ secrets.SSH_KEY }}' > ~/.ssh/priv.key
-          chmod 600 ~/.ssh/priv.key
-          ssh-keyscan ${{ secrets.HOST_DATA }} >> ~/.ssh/known_hosts
-          chmod 600 ~/.ssh/known_hosts 
+      # Release
       - name: Get Release Metadata
         run: |
           rsync -e 'ssh -i ~/.ssh/priv.key' \
             '${{ secrets.USER}}@${{ secrets.HOST_DATA }}:${{ vars.SPACK_LOCATION }}/var/spack/environments/${{ inputs.env-name }}/spack.*' \
-            ${{ vars.RELEASE_LOCATION }}/${{ inputs.env-name }}
+            ./${{ inputs.env-name }}
       - name: Create Release
         uses: softprops/action-gh-release@v0.1.15
         with:
@@ -87,6 +72,6 @@ jobs:
           name: ${{ inputs.model}} ${{ inputs.version }}
           fail_on_unmatched_files: true
           files: |
-            ${{ vars.RELEASE_LOCATION }}/${{ inputs.env-name }}/spack.yaml
-            ${{ vars.RELEASE_LOCATION }}/${{ inputs.env-name }}/spack.lock
-            ${{ vars.RELEASE_LOCATION }}/${{ inputs.env-name }}/spack.location
+            ./${{ inputs.env-name }}/spack.yaml
+            ./${{ inputs.env-name }}/spack.lock
+            ./${{ inputs.env-name }}/spack.location

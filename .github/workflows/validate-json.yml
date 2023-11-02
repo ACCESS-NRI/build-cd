@@ -1,0 +1,11 @@
+name: Validate JSON files
+on:
+  pull_request:
+    paths:
+      - '**.json' 
+jobs:
+  validate:
+    name: Validate
+    uses: access-nri/build-ci/.github/workflows/validate-json.yml@main
+    with:
+      src: "config"
