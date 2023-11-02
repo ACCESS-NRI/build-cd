@@ -43,10 +43,10 @@ jobs:
           rsync -e 'ssh -i ~/.ssh/priv.key' \
             spack.yaml \
             ${{ secrets.USER }}@${{ secrets.HOST_DATA }}:${{ vars.SPACK_YAML_LOCATION }}
-      - name: Deploy on gadi
+      - name: Deploy to ${{ inputs.deployment-environment }}
         # ssh into deployment environment, create and activate the env, install the spack.yaml. 
         run: |
-          ssh ${{ secrets.USER}}@${{ secrets.HOST }} -i ~/.ssh/deploy.priv /bin/bash <<'EOT'
+          ssh ${{ secrets.USER}}@${{ secrets.HOST }} -i ~/.ssh/priv.key /bin/bash <<'EOT'
           . ${{ vars.SPACK_LOCATION }}/share/spack/setup-env.sh
           module load intel-compiler/2019.5.281
           spack env create ${{ inputs.env-name }} ${{ vars.SPACK_YAML_LOCATION }}/spack.yaml
