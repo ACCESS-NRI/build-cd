@@ -39,9 +39,10 @@ jobs:
           ssh-keyscan ${{ secrets.HOST_DATA }} >> ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts 
       - name: Copy spack.yaml
-        run: rsync -e 'ssh -i ~/.ssh/priv.key' \
-               spack.yaml \
-               ${{ secrets.USER }}@${{ secrets.HOST_DATA }}:${{ vars.SPACK_YAML_LOCATION }}
+        run: |
+          rsync -e 'ssh -i ~/.ssh/priv.key' \
+            spack.yaml \
+            ${{ secrets.USER }}@${{ secrets.HOST_DATA }}:${{ vars.SPACK_YAML_LOCATION }}
       - name: Deploy on gadi
         # ssh into deployment environment, create and activate the env, install the spack.yaml. 
         run: |

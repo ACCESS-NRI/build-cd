@@ -1,6 +1,6 @@
 {
     "$schema": "./deployment-environment.schema.json",
     "environments": [
-        "gadi"
+        "Gadi"
     ]
 }
