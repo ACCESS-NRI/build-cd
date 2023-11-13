@@ -52,7 +52,7 @@ jobs:
           module load intel-compiler/2019.5.281
           spack env create ${{ inputs.env-name }} ${{ vars.SPACK_YAML_LOCATION }}/spack.yaml
           spack env activate ${{ inputs.env-name }}
-          spack install || exit $?
+          spack --debug install --fresh || exit $?
           spack find --paths > ${{ vars.SPACK_LOCATION }}/var/spack/environments/${{ inputs.env-name }}/spack.location.txt
           spack env deactivate
           module unload intel-compiler/2019.5.281
