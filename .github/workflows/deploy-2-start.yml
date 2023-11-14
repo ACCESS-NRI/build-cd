@@ -53,7 +53,7 @@ jobs:
           spack env create ${{ inputs.env-name }} ${{ vars.SPACK_YAML_LOCATION }}/spack.yaml
           spack env activate ${{ inputs.env-name }}
           spack --debug install --fresh || exit $?
-          spack find --paths > ${{ vars.SPACK_LOCATION }}/var/spack/environments/${{ inputs.env-name }}/spack.location.txt
+          spack find --paths > ${{ vars.SPACK_LOCATION }}/var/spack/environments/${{ inputs.env-name }}/spack.location
           spack env deactivate
           module unload intel-compiler/2019.5.281
           EOT
@@ -67,9 +67,9 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v0.1.15
         with:
-          body: "${{ inputs.model }} ${{ inputs.version }} contains: mom5 vX, cice5 vY, libaccess-om2 vZ"  #TODO: GET FROM file?
           tag_name: ${{ inputs.version }}
           name: ${{ inputs.model}} ${{ inputs.version }}
+          generate_release_notes: true
           fail_on_unmatched_files: true
           files: |
             ./${{ inputs.env-name }}/spack.yaml
