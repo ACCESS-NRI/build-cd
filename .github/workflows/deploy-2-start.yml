@@ -49,13 +49,11 @@ jobs:
         run: |
           ssh ${{ secrets.USER}}@${{ secrets.HOST }} -i ~/.ssh/priv.key /bin/bash <<'EOT'
           . ${{ vars.SPACK_LOCATION }}/share/spack/setup-env.sh
-          module load intel-compiler/2019.5.281
           spack env create ${{ inputs.env-name }} ${{ vars.SPACK_YAML_LOCATION }}/spack.yaml
           spack env activate ${{ inputs.env-name }}
           spack --debug install --fresh || exit $?
           spack find --paths > ${{ vars.SPACK_LOCATION }}/var/spack/environments/${{ inputs.env-name }}/spack.location
           spack env deactivate
-          module unload intel-compiler/2019.5.281
           EOT
 
       # Release
