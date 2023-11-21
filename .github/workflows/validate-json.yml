@@ -6,6 +6,6 @@ on:
 jobs:
   validate:
     name: Validate
-    uses: access-nri/build-ci/.github/workflows/validate-json.yml@main
+    uses: access-nri/actions/.github/workflows/validate-json.yml@main
     with:
       src: "config"
