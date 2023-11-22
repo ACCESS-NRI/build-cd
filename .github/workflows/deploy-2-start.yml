@@ -30,24 +30,23 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.version }}
-      - name: Setup ssh
-        run: |
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          echo '${{ secrets.SSH_KEY }}' > ~/.ssh/priv.key
-          chmod 600 ~/.ssh/priv.key
-          ssh-keyscan ${{ secrets.HOST }} >> ~/.ssh/known_hosts
-          ssh-keyscan ${{ secrets.HOST_DATA }} >> ~/.ssh/known_hosts
-          chmod 600 ~/.ssh/known_hosts 
+      - name: Setup SSH
+        id: ssh
+        uses: access-nri/actions/.github/actions/setup-ssh@main
+        with:
+          private-key: ${{ secrets.SSH_KEY }}
+          hosts: |
+            ${{ secrets.HOST }}
+            ${{ secrets.HOST_DATA }}
       - name: Copy spack.yaml
         run: |
-          rsync -e 'ssh -i ~/.ssh/priv.key' \
+          rsync -e 'ssh -i ${{ steps.ssh.outputs.private-key-path }}' \
             spack.yaml \
             ${{ secrets.USER }}@${{ secrets.HOST_DATA }}:${{ vars.SPACK_YAML_LOCATION }}
       - name: Deploy to ${{ inputs.deployment-environment }}
         # ssh into deployment environment, create and activate the env, install the spack.yaml. 
         run: |
-          ssh ${{ secrets.USER}}@${{ secrets.HOST }} -i ~/.ssh/priv.key /bin/bash <<'EOT'
+          ssh ${{ secrets.USER}}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
           . ${{ vars.SPACK_LOCATION }}/share/spack/setup-env.sh
           spack env create ${{ inputs.env-name }} ${{ vars.SPACK_YAML_LOCATION }}/spack.yaml
           spack env activate ${{ inputs.env-name }}
@@ -59,7 +58,7 @@ jobs:
       # Release
       - name: Get Release Metadata
         run: |
-          rsync -e 'ssh -i ~/.ssh/priv.key' \
+          rsync -e 'ssh -i ${{ steps.ssh.outputs.private-key-path }}' \
             '${{ secrets.USER}}@${{ secrets.HOST_DATA }}:${{ vars.SPACK_LOCATION }}/var/spack/environments/${{ inputs.env-name }}/spack.*' \
             ./${{ inputs.env-name }}
       - name: Create Release
