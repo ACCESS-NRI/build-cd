@@ -1,0 +1,52 @@
+name: Create Deployment Spack
+on:
+  workflow_dispatch:
+    inputs:
+      spack-version:
+        type: string
+        required: true
+        description: A version of spack
+      spack-packages-version:
+        type: string
+        required: true
+        default: main
+        description: A version of ACCESS-NRI/spack-packages
+      spack-config-version:
+        type: string
+        required: true
+        default: main
+        description: A version of ACCESS-NRI/spack-config
+jobs:
+  create-spack:
+    name: Spack
+    runs-on: ubuntu-latest
+    # all `secrets` and `vars` inherit from the 'Gadi Spack' GitHub Environment,
+    # which can be found in the Settings of the repository.
+    environment: "Gadi Spack"
+    steps:
+      - name: Setup SSH
+        id: ssh
+        uses: access-nri/actions/.github/actions/setup-ssh@main
+        with:
+          hosts: ${{ secrets.SSH_HOST }}
+          private-key: ${{ secrets.SSH_KEY }}
+
+      - name: Strip Spack Version
+        id: strip
+        # this step removes the 'release/' part from some spack tags, so our
+        # directory structure doesn't contain a 'releases' subdirectory
+        run: echo "version-dir=$(echo '${{ inputs.spack-version }}' | cut --delimiter '/' --fields 2)" >> $GITHUB_OUTPUT
+
+      - name: Install
+        env:
+          ROOT_VERSION_LOCATION: ${{ vars.ROOT_SPACK_LOCATION }}/${{ steps.strip.outputs.version-dir }}
+        # This step will fail if `mkdir` fails to create a version directory (e.g. `0.20` is already deployed and exists)
+        run: |
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
+          mkdir ${{ env.ROOT_VERSION_LOCATION }} || exit $?
+          git -C ${{ env.ROOT_VERSION_LOCATION }} clone -c feature.manyFiles=true https://github.com/spack/spack.git --branch ${{ inputs.spack-version }} --single-branch --depth=1
+          git -C ${{ env.ROOT_VERSION_LOCATION }} clone https://github.com/ACCESS-NRI/spack-packages.git --branch ${{ inputs.spack-packages-version }}
+          git -C ${{ env.ROOT_VERSION_LOCATION }} clone https://github.com/ACCESS-NRI/spack-config.git --branch ${{ inputs.spack-config-version }}
+          ln -s -r -v ${{ env.ROOT_VERSION_LOCATION }}/spack-config/* ${{ env.ROOT_VERSION_LOCATION }}/spack/etc/spack/
+          mkdir ${{ env.ROOT_VERSION_LOCATION }}/release
+          EOT
