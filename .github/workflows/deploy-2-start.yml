@@ -60,7 +60,7 @@ jobs:
           git -C ${{ vars.SPACK_PACKAGES_LOCATION }} checkout --force ${{ steps.versions.outputs.packages }}
           git -C ${{ vars.SPACK_CONFIG_LOCATION }} fetch
           git -C ${{ vars.SPACK_CONFIG_LOCATION }} checkout --force ${{ steps.versions.outputs.config }}
-          . ${{ vars.SPACK_CONFIG_LOCATION }}/spack-start.bash
+          . ${{ vars.SPACK_CONFIG_LOCATION }}/spack-enable.bash
           spack env create ${{ inputs.env-name }} ${{ vars.SPACK_YAML_LOCATION }}/spack.yaml
           spack env activate ${{ inputs.env-name }}
           spack --debug install --fresh || exit $?
