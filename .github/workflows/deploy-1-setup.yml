@@ -1,6 +1,16 @@
 name: Deployment Setup
 on:
   workflow_call:
+    inputs:
+      type:
+        type: string
+        required: false
+        default: release
+        description: The type of deployment - either 'release' or 'prerelease'
+      version:
+        type: string
+        required: true
+        description: The version of the model being deployed
 jobs:
   setup-spack-env:
     name: Setup Spack Environment
@@ -15,22 +25,31 @@ jobs:
         run: echo "model=$(echo ${{ github.event.repository.name }} | tr [:upper:] [:lower:])" >> $GITHUB_OUTPUT
       - name: Set Spack Env Name String
         id: get-env-name
-        # replace occurences of '.' with '_' in environment name as spack doesn't support '.'. Ex: 'access-om2-v1.0.0' -> 'access-om2-v1_0_0'.  
-        run: echo "env-name=$(echo '${{ steps.get-model.outputs.model }}-${{ github.ref_name }}' | tr '.' '_')" >> $GITHUB_OUTPUT
-  
+        # replace occurences of '.' with '_' in environment name as spack doesn't support '.'. Ex: 'access-om2-v1.0.0' -> 'access-om2-v1_0_0'.
+        run: echo "env-name=$(echo '${{ steps.get-model.outputs.model }}-${{ inputs.version }}' | tr '.' '_')" >> $GITHUB_OUTPUT
+
   setup-deployment-env:
     name: Setup Deployment Environment
     runs-on: ubuntu-latest
     outputs:
       deployment-environments: ${{ steps.get-deployment-environment.outputs.deployment-environments }}
     steps:
-      - name: Checkout config
+      - name: Checkout Config
         uses: actions/checkout@v4
         with:
           repository: access-nri/build-cd
-      - name: Get environments
+
+      - name: Get Environments
         id: get-deployment-environment
-        run: echo "deployment-environments=$(jq --compact-output '.environments' ./config/deployment-environment.json)" >> $GITHUB_OUTPUT
+        run: |
+          if [[ "${{ inputs.type }}" == "release" ]]; then
+            echo "deployment-environments=$(jq --compact-output '.environments' ./config/deployment-environment.json)" >> $GITHUB_OUTPUT
+          else if [[ "${{ inputs.type }}" == "prerelease" ]]; then
+            echo "deployment-environments=$(jq --compact-output '.prerelease-environments' ./config/deployment-environment.json)" >> $GITHUB_OUTPUT
+          else
+            echo "::error::The 'type' input was invalid. Check the inputs documentation."
+            exit 1
+          fi
 
   deployment:
     name: Deployment
@@ -43,8 +62,9 @@ jobs:
         deployment-environment: ${{ fromJson(needs.setup-deployment-env.outputs.deployment-environments) }}
     uses: access-nri/build-cd/.github/workflows/deploy-2-start.yml@main
     with:
+      type: ${{ inputs.type }}
       model: ${{ needs.setup-spack-env.outputs.model }}
-      version: ${{ github.ref_name }}
+      version: ${{ inputs.version }}
       env-name: ${{ needs.setup-spack-env.outputs.env-name }}
       deployment-environment: ${{ matrix.deployment-environment }}
     secrets: inherit
