@@ -16,6 +16,12 @@ on:
         required: true
         default: main
         description: A version of ACCESS-NRI/spack-config
+      deployment-location:
+        type: string
+        required: true
+        description: |
+          A path in the deployment environment where Spack should be created.
+          For example, if it is `opt/spack`, spack will be installed under `opt/spack/<spack-version>/`
 jobs:
   create-spack:
     name: Spack
@@ -39,7 +45,7 @@ jobs:
 
       - name: Install
         env:
-          ROOT_VERSION_LOCATION: ${{ vars.ROOT_SPACK_LOCATION }}/${{ steps.strip.outputs.version-dir }}
+          ROOT_VERSION_LOCATION: ${{ inputs.deployment-location }}/${{ steps.strip.outputs.version-dir }}
         # This step will fail if `mkdir` fails to create a version directory (e.g. `0.20` is already deployed and exists)
         run: |
           ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
