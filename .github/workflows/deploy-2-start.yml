@@ -3,6 +3,10 @@ concurrency: ${{ inputs.deployment-environment }}
 on:
   workflow_call:
     inputs:
+      type:
+        type: string
+        required: true
+        description: The type of deployment - either 'release' or 'prerelease'
       model:
         type: string
         required: true
@@ -72,11 +76,14 @@ jobs:
 
       # Release
       - name: Get Release Metadata
+        if: inputs.type == 'release'
         run: |
           rsync -e 'ssh -i ${{ steps.ssh.outputs.private-key-path }}' \
             '${{ secrets.USER}}@${{ secrets.HOST_DATA }}:${{ vars.SPACK_LOCATION }}/var/spack/environments/${{ inputs.env-name }}/spack.*' \
             ./${{ inputs.env-name }}
+
       - name: Create Release
+        if: inputs.type == 'release'
         uses: softprops/action-gh-release@v0.1.15
         with:
           tag_name: ${{ inputs.version }}
