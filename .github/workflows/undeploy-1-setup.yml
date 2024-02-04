@@ -39,8 +39,8 @@ jobs:
         run: echo "deployment-environments=$(jq --compact-output '.prerelease-environments' ./config/deployment-environment.json)" >> $GITHUB_OUTPUT
 
 
-  deployment:
-    name: Deployment
+  undeployment:
+    name: Remove Deployment
     needs:
       - get-spack-env
       - get-prerelease-deployment-env
