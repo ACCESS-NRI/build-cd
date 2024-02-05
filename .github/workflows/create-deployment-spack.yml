@@ -41,7 +41,7 @@ jobs:
         id: strip
         # this step removes the 'release/' part from some spack tags, so our
         # directory structure doesn't contain a 'releases' subdirectory
-        run: echo "version-dir=$(echo '${{ inputs.spack-version }}' | cut --delimiter '/' --fields 2)" >> $GITHUB_OUTPUT
+        run: echo "version-dir=$(echo '${{ inputs.spack-version }}' | cut --delimiter 'v' --fields 2)" >> $GITHUB_OUTPUT
 
       - name: Install
         env:
