@@ -49,18 +49,10 @@ deploy:
 
 ### `undeploy-*`
 
-For given `spack` environments, we can also remove deployments. For example:
+For given `spack` environments, we can also remove deployments.
 
-```yml
-remove-prereleases:
-  uses: access-nri/build-cd/.github/workflows/undeploy-2-setup.yml@main
-  with:
-    version-pattern: ${{ inputs.model }}-*
-  secrets: inherit
-```
-
-This will remove every `spack` environment from the deployment target that matches `<model>-*`.
-
+> [!NOTE]
+> This workflow is not one that should be used directly. It is used within the automated deployment pipeline to remove prerelease builds of models.
 
 #### Inputs
 
@@ -81,8 +73,6 @@ This workflow obtains the relevant spack and GitHub Environment information, and
 Using the GitHub Environment, it `ssh`s into the deployment environments `spack` instance, and installs the model associated with the repository that called it. It then copies back relevant metadata and creates a versioned GitHub Release in the caller repository, if it is not a `prerelease` deployment.
 
 #### Usage
-
-For given `spack` environments, we can also remove deployments. For example:
 
 ```yml
 remove-prereleases:
