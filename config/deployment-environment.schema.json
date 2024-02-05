@@ -12,8 +12,14 @@
             "items": {
                 "type": "string"
             }
+        },
+        "prerelease-environments": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
         }
     },
-    "required": ["environments"],
+    "required": ["environments", "prerelease-environments"],
     "additionalProperties": false
 }

@@ -1,0 +1,52 @@
+name: Undeployment Start
+on:
+  workflow_call:
+    inputs:
+      env-name:
+        type: string
+        required: true
+        description: The spack-env-compliant model name to remove
+      deployment-environment:
+        type: string
+        required: true
+        description: The GitHub deployment environment name
+jobs:
+  undeploy-from-environment:
+    name: Undeploy ${{ inputs.env-name }} from ${{ inputs.deployment-environment }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.deployment-environment }}
+    steps:
+      - name: Setup SSH
+        id: ssh
+        uses: access-nri/actions/.github/actions/setup-ssh@main
+        with:
+          private-key: ${{ secrets.SSH_KEY }}
+          hosts: |
+            ${{ secrets.HOST }}
+            ${{ secrets.HOST_DATA }}
+
+      - name: Undeploy
+        # ssh into deployment environment, create and activate the env, remove all the unneeded environments
+        id: undeploy
+        run: |
+          ssh ${{ secrets.USER}}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
+          . ${{ vars.SPACK_CONFIG_LOCATION }}/spack-enable.bash
+          envs=$(find ${{ vars.SPACK_LOCATION }}/var/spack/environments -type d -name '${{ inputs.env-name }}' -printf '%f ')
+
+          for env in $envs; do
+            spack env activate $env
+            spack uninstall --remove --dependents --yes-to-all --all
+            spack env deactivate $env
+            spack env rm $env --yes-to-all
+          done
+          spack gc --yes-to-all
+          EOT
+
+      - name: Undeploy Status Notifier
+        if: always()
+        run: |
+          if [[ "${{ steps.undeploy.outcome }}" == "success" ]]; then
+            echo "::notice::Deployment ${{ inputs.env-name }} was successfully removed from ${{ inputs.deployment-environment }}, found at ${{ vars.SPACK_LOCATION }}"
+          else
+            echo "::error::Deployment ${{ inputs.env-name }} couldn't be removed from ${{ inputs.deployment-environment}}, found at ${{ vars.SPACK_LOCATION }}. Please check manually."
+          fi

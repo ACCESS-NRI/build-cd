@@ -1,0 +1,55 @@
+name: Undeployment Setup
+on:
+  workflow_call:
+    inputs:
+      version-pattern:
+        type: string
+        required: true
+        description: A wildcard-supported string for version(s) of the model being removed
+jobs:
+  get-spack-env:
+    name: Get Spack Environment
+    runs-on: ubuntu-latest
+    outputs:
+      model: ${{ steps.get-model.outputs.model }}
+      env-name: ${{ steps.get-env-name.outputs.env-name }}
+    steps:
+      - name: Get Model
+        id: get-model
+        # for the cases where the repo name is in uppercase but the package name is lowercase (eg. access-nri/MOM5)
+        run: echo "model=$(echo ${{ github.event.repository.name }} | tr [:upper:] [:lower:])" >> $GITHUB_OUTPUT
+      - name: Set Spack Env Name String
+        id: get-env-name
+        # replace occurences of '.' with '_' in environment name as spack doesn't support '.'. Ex: 'access-om2-v1.0.0' -> 'access-om2-v1_0_0'.
+        run: echo "env-name=$(echo '${{ steps.get-model.outputs.model }}-${{ inputs.version-pattern }}' | tr '.' '_')" >> $GITHUB_OUTPUT
+
+  get-prerelease-deployment-env:
+    name: Get Prerelease Deployment Environment
+    runs-on: ubuntu-latest
+    outputs:
+      deployment-environments: ${{ steps.get-deployment-environment.outputs.deployment-environments }}
+    steps:
+      - name: Checkout Config
+        uses: actions/checkout@v4
+        with:
+          repository: access-nri/build-cd
+
+      - name: Get Environments
+        id: get-deployment-environment
+        run: echo "deployment-environments=$(jq --compact-output '.prerelease-environments' ./config/deployment-environment.json)" >> $GITHUB_OUTPUT
+
+
+  undeployment:
+    name: Remove Deployment
+    needs:
+      - get-spack-env
+      - get-prerelease-deployment-env
+    strategy:
+      fail-fast: false
+      matrix:
+        deployment-environment: ${{ fromJson(needs.get-prerelease-deployment-env.outputs.deployment-environments) }}
+    uses: access-nri/build-cd/.github/workflows/undeploy-2-start.yml@main
+    with:
+      deployment-environment: ${{ matrix.deployment-environment }}
+      env-name: ${{ needs.get-spack-env.outputs.env-name }}
+    secrets: inherit
