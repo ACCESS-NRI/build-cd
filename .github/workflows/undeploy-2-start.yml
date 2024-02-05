@@ -46,7 +46,7 @@ jobs:
         if: always()
         run: |
           if [[ "${{ steps.undeploy.outcome }}" == "success" ]]; then
-            echo "::notice::Deployment ${{ inputs.env-name }} was successfully removed from ${{ inputs.deployment-environment }}"
+            echo "::notice::Deployment ${{ inputs.env-name }} was successfully removed from ${{ inputs.deployment-environment }}, found at ${{ vars.SPACK_LOCATION }}"
           else
-            echo "::error::Deployment ${{ inputs.env-name }} couldn't be removed from ${{ inputs.deployment-environment}}. Please check manually."
+            echo "::error::Deployment ${{ inputs.env-name }} couldn't be removed from ${{ inputs.deployment-environment}}, found at ${{ vars.SPACK_LOCATION }}. Please check manually."
           fi
