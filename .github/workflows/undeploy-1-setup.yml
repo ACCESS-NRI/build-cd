@@ -36,7 +36,7 @@ jobs:
 
       - name: Get Environments
         id: get-deployment-environment
-        run: echo "deployment-environments=$(jq --compact-output '.prerelease-environments' ./config/deployment-environment.json)" >> $GITHUB_OUTPUT
+        run: echo "deployment-environments=$(jq --compact-output '."prerelease-environments"' ./config/deployment-environment.json)" >> $GITHUB_OUTPUT
 
 
   undeployment:
