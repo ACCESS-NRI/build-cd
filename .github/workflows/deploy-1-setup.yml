@@ -44,7 +44,7 @@ jobs:
         run: |
           if [[ "${{ inputs.type }}" == "release" ]]; then
             echo "deployment-environments=$(jq --compact-output '.environments' ./config/deployment-environment.json)" >> $GITHUB_OUTPUT
-          else if [[ "${{ inputs.type }}" == "prerelease" ]]; then
+          elif [[ "${{ inputs.type }}" == "prerelease" ]]; then
             echo "deployment-environments=$(jq --compact-output '.prerelease-environments' ./config/deployment-environment.json)" >> $GITHUB_OUTPUT
           else
             echo "::error::The 'type' input was invalid. Check the inputs documentation."
