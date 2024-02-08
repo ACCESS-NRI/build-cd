@@ -11,10 +11,14 @@ on:
         type: string
         required: true
         description: The model to deploy
+      ref:
+        type: string
+        required: true
+        description: The git commit-ish ref where the `spack.yaml` is located
       version:
         type: string
         required: true
-        description: The version of the model to deploy
+        description: The version for the model being deployed
       env-name:
         type: string
         required: true
@@ -33,7 +37,7 @@ jobs:
       # Deployment
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.version }}
+          ref: ${{ inputs.ref }}
 
       - name: Get packages and config versions
         id: versions
