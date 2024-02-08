@@ -7,10 +7,15 @@ on:
         required: false
         default: release
         description: The type of deployment - either 'release' or 'prerelease'
+      ref:
+        type: string
+        required: true
+        description: The git commit-ish ref where the `spack.yaml` is located
       version:
         type: string
         required: true
-        description: The version of the model being deployed
+        description: The version for the model being deployed
+
 jobs:
   setup-spack-env:
     name: Setup Spack Environment
@@ -64,6 +69,7 @@ jobs:
     with:
       type: ${{ inputs.type }}
       model: ${{ needs.setup-spack-env.outputs.model }}
+      ref: ${{ inputs.ref }}
       version: ${{ inputs.version }}
       env-name: ${{ needs.setup-spack-env.outputs.env-name }}
       deployment-environment: ${{ matrix.deployment-environment }}
