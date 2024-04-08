@@ -1,0 +1,62 @@
+name: Validate Repo Versions
+description: Action that validates that the versions in `config/versions.json` match existing versions in the repository
+inputs:
+  repos-to-check:
+    type: string
+    required: true
+    description: Space-separated list of ACCESS-NRI repositories to check
+outputs:
+  spack-packages-version:
+    value: ${{ steps.versions.outputs.packages }}
+    description: Version of spack-packages from the `config/versions.json`
+  spack-config-version:
+    value: ${{ steps.versions.outputs.config }}
+    description: Version of spack-config from the `config/versions.json`
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@v4
+
+    # The next steps checkout the repos to confirm that the versions in
+    # versions.json exist in the repositories.
+    - name: Setup
+      id: versions
+      run: |
+        if [[ "${{ contains(inputs.repos-to-check, 'spack-packages') }}" == "true" ]]; then
+          echo "packages=$(jq --compact-output --raw-output '."spack-packages"' ./config/versions.json)" >> $GITHUB_OUTPUT
+        fi
+
+        if [[ "${{ contains(inputs.repos-to-check, 'spack-config') }}" == "true" ]]; then
+          echo "config=$(jq --compact-output --raw-output '."spack-config"' ./config/versions.json)" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Spack Packages
+      id: spack-packages
+      if: contains(inputs.repos-to-check, 'spack-packages')
+      continue-on-error: true
+      uses: actions/checkout@v4
+      with:
+        repository: access-nri/spack-packages
+        ref: ${{ steps.versions.outputs.packages }}
+        path: packages
+
+    - name: Spack Config
+      id: spack-config
+      if: contains(inputs.repos-to-check, 'spack-config')
+      continue-on-error: true
+      uses: actions/checkout@v4
+      with:
+        repository: access-nri/spack-config
+        ref: ${{ steps.versions.outputs.config }}
+        path: config
+
+    - name: Failure Notifier
+      if: contains(steps.*.outcome, 'failure')
+      run: |
+        if [[ "${{ steps.spack-packages.outcome }}" == "failure" ]]; then
+          echo "::error::spack-packages at the specified ref (${{ steps.versions.outputs.packages }}) doesn't exist."
+        fi
+        if [[ "${{ steps.spack-config.outcome }}" == "failure" ]]; then
+          echo "::error::spack-config at the specified ref (${{ steps.versions.outputs.config }}) doesn't exist."
+        fi
+        exit 1
