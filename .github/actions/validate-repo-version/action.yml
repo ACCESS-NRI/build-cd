@@ -21,6 +21,7 @@ runs:
     # versions.json exist in the repositories.
     - name: Setup
       id: versions
+      shell: bash
       run: |
         if [[ "${{ contains(inputs.repos-to-check, 'spack-packages') }}" == "true" ]]; then
           echo "packages=$(jq --compact-output --raw-output '."spack-packages"' ./config/versions.json)" >> $GITHUB_OUTPUT
@@ -52,6 +53,7 @@ runs:
 
     - name: Failure Notifier
       if: contains(steps.*.outcome, 'failure')
+      shell: bash
       run: |
         if [[ "${{ steps.spack-packages.outcome }}" == "failure" ]]; then
           echo "::error::spack-packages at the specified ref (${{ steps.versions.outputs.packages }}) doesn't exist."
