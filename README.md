@@ -4,13 +4,15 @@ This repository houses reusable workflows for the building and deployment of ACC
 
 ## Overview
 
-This repository is broken down into two folders: `config` and `.github/workflows`.
+This repository is broken down into two folders: `config` and `.github`.
 
 `config` contains information on the deployment environments that the models deploy to, which is currently just the name of the deployment target. This is used by the aforementioned deployment workflows to gather secrets and configuration details from the associated GitHub Environment.
 
 `.github/workflows` houses validation and reusable deployment workflows that are called by ACCESS-NRI model repositories. Currently, only [ACCESS-NRI/ACCESS-OM2](https://github.com/ACCESS-NRI/access-om2) is supported.
 
-Below is a brief summary of the three pipelines, `deploy-*`, `undeploy-*` and `validate-json`.
+`.github/actions` houses custom actions to do with convenience checks for deployment. More information on these actions can be found in `.github/actions/*/README.md`.
+
+Below is a brief summary of the three pipelines in `.github/workflows`: `deploy-*`, `undeploy-*` and `validate-json`.
 
 ### `deploy-*`
 
