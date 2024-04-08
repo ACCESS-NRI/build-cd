@@ -1,64 +1,49 @@
-name: Validate Repo Versions
-description: Action that validates that the versions in `config/versions.json` match existing versions in the repository
+name: Validate Repo Version
+description: Action that validates that a version in `config/versions.json` matches the version in the repository
 inputs:
-  repos-to-check:
+  repo-to-check:
     type: string
     required: true
-    description: Space-separated list of ACCESS-NRI repositories to check
+    description: ACCESS-NRI repository to validate associated version in `config/versions.json`
 outputs:
-  spack-packages-version:
-    value: ${{ steps.versions.outputs.packages }}
+  version:
+    value: ${{ steps.jq.outputs.version }}
     description: Version of spack-packages from the `config/versions.json`
-  spack-config-version:
-    value: ${{ steps.versions.outputs.config }}
-    description: Version of spack-config from the `config/versions.json`
 runs:
   using: composite
   steps:
+    # Checkout the callers `config/versions.json`
     - uses: actions/checkout@v4
 
-    # The next steps checkout the repos to confirm that the versions in
-    # versions.json exist in the repositories.
+    # Get the version from the `config/versions.json`
     - name: Setup
-      id: versions
+      id: jq
       shell: bash
       run: |
-        if [[ "${{ contains(inputs.repos-to-check, 'spack-packages') }}" == "true" ]]; then
-          echo "packages=$(jq --compact-output --raw-output '."spack-packages"' ./config/versions.json)" >> $GITHUB_OUTPUT
+        version=$(jq --compact-output --raw-output '."${{ inputs.repo-to-check }}"' ./config/versions.json)
+
+        if [[ "${version}" == "null" ]]; then
+          exit 1
+        else
+          echo "version=${version}" >> $GITHUB_OUTPUT
         fi
 
-        if [[ "${{ contains(inputs.repos-to-check, 'spack-config') }}" == "true" ]]; then
-          echo "config=$(jq --compact-output --raw-output '."spack-config"' ./config/versions.json)" >> $GITHUB_OUTPUT
-        fi
-
-    - name: Spack Packages
-      id: spack-packages
-      if: contains(inputs.repos-to-check, 'spack-packages')
-      continue-on-error: true
+    # Verify that the repository exists at the given ref
+    - name: Version Check
+      id: check
       uses: actions/checkout@v4
       with:
-        repository: access-nri/spack-packages
+        repository: access-nri/${{ inputs.repo-to-check }}
         ref: ${{ steps.versions.outputs.packages }}
-        path: packages
-
-    - name: Spack Config
-      id: spack-config
-      if: contains(inputs.repos-to-check, 'spack-config')
-      continue-on-error: true
-      uses: actions/checkout@v4
-      with:
-        repository: access-nri/spack-config
-        ref: ${{ steps.versions.outputs.config }}
-        path: config
+        path: repo
 
     - name: Failure Notifier
-      if: contains(steps.*.outcome, 'failure')
+      if: failure()
       shell: bash
       run: |
-        if [[ "${{ steps.spack-packages.outcome }}" == "failure" ]]; then
-          echo "::error::spack-packages at the specified ref (${{ steps.versions.outputs.packages }}) doesn't exist."
-        fi
-        if [[ "${{ steps.spack-config.outcome }}" == "failure" ]]; then
-          echo "::error::spack-config at the specified ref (${{ steps.versions.outputs.config }}) doesn't exist."
+        if [[ "${{ steps.jq.outcome }}" == "failure" ]]; then
+          echo "::error::There is no ${{ inputs.repo-to-check }} in `config/versions.json`, or the file doesn't exist."
+        elif [[ "${{ steps.check.outcome }}" == "failure" ]]; then
+          echo "::error::${{ inputs.repo-to-check }} at the specified ref (${{ steps.versions.outputs.packages }}) doesn't exist."
         fi
         exit 1

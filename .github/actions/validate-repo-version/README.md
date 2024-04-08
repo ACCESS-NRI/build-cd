@@ -6,14 +6,13 @@ This action checks that the tags specified in a models `config/versions.json` is
 
 | Name | Type | Description | Required | Default | Example |
 | ---- | ---- | ----------- | -------- | ------- | ------- |
-| `repos-to-check` | `string` | Space-separated list of ACCESS-NRI repositories to check | `true` | N/A | `spack-packages spack-config` |
+| `repo-to-check` | `string` | ACCESS-NRI repositories  to validate associated version in `config/versions.json` | `true` | N/A | `spack-packages spack-config` |
 
 ## Outputs
 
 | Name | Type | Description | Example |
 | ---- | ---- | ----------- | ------- |
-| `spack-packages-version` | `string` | Version of spack-packages from the `config/versions.json` | `"2024.03.12"` |
-| `spack-config-version` | `string` | Version of spack-config from the `config/versions.json` | `"2024.12.22"` |
+| `version` | `string` | Version of the repo from the `config/versions.json` | `"2024.03.12"` |
 
 ## Example
 
@@ -22,9 +21,9 @@ This action checks that the tags specified in a models `config/versions.json` is
 - id: validate
   uses: access-nri/build-cd/.github/actions/validate-repo-version@main
   with:
-    repos-to-check: spack-packages
+    repo-to-check: spack-packages
 
-- run: echo "spack-packages has valid version ${{ steps.validate.outputs.spack-packages-version }} in `config/versions.json`"
+- run: echo "spack-packages has valid version ${{ steps.validate.outputs.version }} in `config/versions.json`"
 
 - if: failure() && steps.validate.outcome == 'failure'
   run: echo "The version in spack-packages is not valid."
