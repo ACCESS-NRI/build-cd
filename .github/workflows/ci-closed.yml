@@ -3,6 +3,9 @@ run-name: ${{ inputs.model }} PR Closed Cleanup
 # Remove prereleases that were part of a closed PR, so we save space
 # on our deployment targets. If needed, one can still get the
 # spack.yaml as part of the closed PR and revive it themselves.
+
+# NOTE: the caller requires the following permissions:
+# secrets:inherit
 on:
   workflow_call:
     inputs:

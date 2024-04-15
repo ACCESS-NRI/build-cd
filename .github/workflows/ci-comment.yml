@@ -1,5 +1,7 @@
 name: Comment Command
 run-name: ${{ inputs.model }} Comment Command
+# NOTE: This workflow requires:
+# permissions.contents:write
 on:
   workflow_call:
     inputs:
