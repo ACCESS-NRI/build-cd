@@ -73,7 +73,7 @@ jobs:
           spack env activate ${{ inputs.env-name }}
           spack --debug install --fresh || exit $?
           spack module tcl refresh --delete-tree -y
-          spack find --paths > ${{ vars.SPACK_LOCATION }}/var/spack/environments/${{ inputs.env-name }}/spack.location
+          spack find --paths --json > ${{ vars.SPACK_LOCATION }}/var/spack/environments/${{ inputs.env-name }}/spack.location
           spack env deactivate
           echo "$(date): Deployed ${{ inputs.model }} ${{ inputs.version }} with spack-packages ${{ steps.versions.outputs.packages }}, spack-config ${{ steps.versions.outputs.config }}" >> ${{ vars.SPACK_RELEASE_LOCATION }}/release.log
           EOT
