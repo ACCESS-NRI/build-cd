@@ -73,7 +73,8 @@ jobs:
           spack env activate ${{ inputs.env-name }}
           spack --debug install --fresh || exit $?
           spack module tcl refresh --delete-tree -y
-          spack find --format '{name}@{version} {prefix}' | jq -Rn '[inputs | split(" ") | {(.[0]):(.[1])}] | add' > ${{ vars.SPACK_LOCATION }}/var/spack/environments/${{ inputs.env-name }}/spack.location
+          spack find --paths > ${{ vars.SPACK_LOCATION }}/var/spack/environments/${{ inputs.env-name }}/spack.location
+          spack find --format '{name}@{version} {prefix}' | jq -Rn '[inputs | split(" ") | {(.[0]):(.[1])}] | add' > ${{ vars.SPACK_LOCATION }}/var/spack/environments/${{ inputs.env-name }}/spack.location.json
           spack env deactivate
           echo "$(date): Deployed ${{ inputs.model }} ${{ inputs.version }} with spack-packages ${{ steps.versions.outputs.packages }}, spack-config ${{ steps.versions.outputs.config }}" >> ${{ vars.SPACK_RELEASE_LOCATION }}/release.log
           EOT
@@ -100,3 +101,4 @@ jobs:
             ./${{ inputs.env-name }}/spack.yaml
             ./${{ inputs.env-name }}/spack.lock
             ./${{ inputs.env-name }}/spack.location
+            ./${{ inputs.env-name }}/spack.location.json
