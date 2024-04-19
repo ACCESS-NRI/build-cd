@@ -14,7 +14,7 @@ on:
       root-sbd:
         type: string
         required: false
-        default: ${{ inputs.model }}
+        # default: The ${{ inputs.model }} above
         description: |
           The name of the root Spack Bundle Definition, if it is different from the model name.
           This is often a package named similarly in ACCESS-NRI/spack-packages.
@@ -67,6 +67,16 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Set root-sbd Default
+        id: default
+        # Unfortunately, you can't set a dynamic default value based on `inputs` yet
+        run: |
+          if [[ "${{ inputs.root-sbd }}" == "" ]]; then
+            echo "root-sbd=${{ inputs.model }}" >> $GITHUB_OUTPUT
+          else
+            echo "root-sbd=${{ inputs.root-sbd }}" >> $GITHUB_OUTPUT
+          fi
+
       - name: Check Model Version Modified
         id: version
         run: |
@@ -103,7 +113,7 @@ jobs:
           # for each of the modules
           for DEP in $DEPS; do
             DEP_VER=''
-            if [[ "$DEP" == "${{ inputs.root-sbd }}" ]]; then
+            if [[ "$DEP" == "${{ steps.default.outputs.root-sbd }}" ]]; then
               DEP_VER=$(yq '.spack.specs[0] | split("@git.") | .[1]' spack.yaml)
             else
               DEP_VER=$(yq ".spack.packages.\"$DEP\".require[0] | split(\"@git.\") | .[1]" spack.yaml)
