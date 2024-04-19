@@ -74,7 +74,7 @@ jobs:
           if [[ "${{ inputs.root-sbd }}" == "" ]]; then
             echo "root-sbd=${{ inputs.model }}" >> $GITHUB_OUTPUT
           else
-            echo "root-sbd=${{ inputs.root-sbd }}"
+            echo "root-sbd=${{ inputs.root-sbd }}" >> $GITHUB_OUTPUT
           fi
 
       - name: Check Model Version Modified
