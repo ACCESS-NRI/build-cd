@@ -1,0 +1,199 @@
+name: CI
+run-name: ${{ inputs.model }} CI
+# NOTE: This workflow requires:
+# permissions.pull-requests:write
+# permissions.contents:write
+# secrets:inherit with an appropriate GitHub Environment for deployment in the caller
+on:
+  workflow_call:
+    inputs:
+      model:
+        type: string
+        required: true
+        description: The model that is being tested and deployed
+      root-sbd:
+        type: string
+        required: false
+        default: ${{ inputs.model }}
+        description: |
+          The name of the root Spack Bundle Definition, if it is different from the model name.
+          This is often a package named similarly in ACCESS-NRI/spack-packages.
+  # Callers usually have the trigger:
+  # pull_request:
+  #   branches:
+  #     - main
+  #     - backport/*.*
+  #   paths:
+  #     - config/**
+  #     - spack.yaml
+
+env:
+  SPACK_YAML_MODEL_YQ: .spack.specs[0]
+jobs:
+  validate-json:
+    name: Validate JSON
+    uses: access-nri/actions/.github/workflows/validate-json.yml@main
+    with:
+      src: "config"
+
+  check-config:
+    name: Check Config Fields
+    needs:
+      - validate-json
+    runs-on: ubuntu-latest
+    outputs:
+      spack-packages-version: ${{ steps.spack-packages.outputs.version }}
+      spack-config-version:  ${{ steps.spack-config.outputs.version }}
+    steps:
+      - name: Validate spack-packages version
+        id: spack-packages
+        uses: access-nri/build-cd/.github/actions/validate-repo-version@main
+        with:
+          repo-to-check: spack-packages
+
+      - name: Validate spack-config version
+        id: spack-config
+        uses: access-nri/build-cd/.github/actions/validate-repo-version@main
+        with:
+          repo-to-check: spack-config
+
+  check-spack-yaml:
+    name: Check spack.yaml
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check Model Version Modified
+        id: version
+        run: |
+          git checkout ${{ github.base_ref }}
+          base_version=$(yq e '${{ env.SPACK_YAML_MODEL_YQ }}' spack.yaml)
+
+          git checkout ${{ github.head_ref }}
+          current_version=$(yq e '${{ env.SPACK_YAML_MODEL_YQ }}' spack.yaml)
+          echo "current=${current_version}" >> $GITHUB_OUTPUT
+
+          if [[ "${base_version}" == "${current_version}" ]]; then
+            echo "::warning::The version string hasn't been modified in this PR, but needs to be before merging."
+            exit 1
+          fi
+
+      - name: Same Model Version Failure Notifier
+        if: failure() && steps.version.outcome == 'failure'
+        uses: access-nri/actions/.github/actions/pr-comment@main
+        with:
+          comment: |
+            The model version in the `spack.yaml` has not been updated.
+            Either update it manually, or comment the following to have it updated and committed automatically:
+            * `!bump major` for feature releases
+            * `!bump minor` for bugfixes
+
+      - name: Projection Version Matches
+        # this step checks that the versions of the packages themselves match with the
+        #  names of the modules. For example, access-om3@git.2023.12.12 matches with the
+        #  modulefile access-om3/2023.12.12 (specifically, the version strings match)
+        run: |
+          FAILED='false'
+          DEPS=$(yq ".spack.modules.default.tcl.include | join(\" \")" spack.yaml)
+
+          # for each of the modules
+          for DEP in $DEPS; do
+            DEP_VER=''
+            if [[ "$DEP" == "${{ inputs.root-sbd }}" ]]; then
+              DEP_VER=$(yq '.spack.specs[0] | split("@git.") | .[1]' spack.yaml)
+            else
+              DEP_VER=$(yq ".spack.packages.\"$DEP\".require[0] | split(\"@git.\") | .[1]" spack.yaml)
+            fi
+
+            MODULE_VER=$(yq ".spack.modules.default.tcl.projections.\"$DEP\" | split(\"/\") | .[1]" spack.yaml)
+
+            if [[ "$DEP_VER" != "$MODULE_VER" ]]; then
+              echo "::error::Version of dependency and projection do not match ($DEP_VER != $MODULE_VER)"
+              FAILED='true'
+            fi
+          done
+          if [[ "$FAILED" == "true" ]]; then
+            exit 1
+          fi
+
+  version-tag:
+    name: Get Version and Tag Prerelease
+    needs:
+      - check-spack-yaml
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      release: ${{ steps.version.outputs.release }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+
+      - name: Generate Versions
+        id: version
+        # This step generates the release and prerelease version numbers.
+        # The release is a general version number from the spack.yaml, looking the
+        # same as a regular release build. Ex. 'access-om2@git.2024.01.1' -> '2024.01.1'
+        # The prerelease looks like: `pr<pull request number>-<number of commits on this branch>`.
+        # Ex. Pull Request #12 with 2 commits on branch -> `pr12-2`.
+        run: |
+          echo "release=$(yq '${{ env.SPACK_YAML_MODEL_YQ }} | split("@git.") | .[1]' spack.yaml)" >> $GITHUB_OUTPUT
+
+          number_of_commits=$(git rev-list --count ${{ github.event.pull_request.base.sha }}..HEAD)
+          echo "prerelease=pr${{ github.event.pull_request.number }}-${number_of_commits}" >> $GITHUB_OUTPUT
+
+      - name: Shift Prerelease Tag ${{ steps.version.outputs.release }}
+        # We shift the 'Release' tag along the PR as the spack.yaml will not work without the correct tag in this repostiory.
+        # NOTE: Regarding the config user.name/user.email, see https://github.com/actions/checkout/pull/1184
+        run: |
+          git config user.name ${{ vars.GH_ACTIONS_BOT_GIT_USER_NAME }}
+          git config user.email ${{ vars.GH_ACTIONS_BOT_GIT_USER_EMAIL }}
+          git tag ${{ steps.version.outputs.release }} --force
+          git push --tags --force
+
+  # -----------------------------
+  # | PRERELEASE DEPLOYMENT JOB |
+  # -----------------------------
+  prerelease-deploy:
+    name: Deploy to Prerelease
+    # This will create a `spack` environment with the name `<model>-pr<pull request number>-<commit number>`.
+    # For example, `access-om3-pr13-3` for the deployment of access-om3 based on the third commit on the PR#13.
+    needs:
+      - version-tag  # implies all the spack.yaml-related checks have passed, has appropriate version for the prerelease build
+      - check-config  # implies all the json-related checks have passed
+    uses: access-nri/build-cd/.github/workflows/deploy-1-setup.yml@main
+    with:
+      type: prerelease
+      ref: ${{ github.head_ref }}
+      version: ${{ needs.version-tag.outputs.prerelease }}
+    secrets: inherit
+
+  notifier:
+    name: Notifier
+    needs:
+      - version-tag  # implies all the spack.yaml-related checks have passed, has appropriate version for the prerelease build
+      - check-config  # implies all the json-related checks have passed
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: access-nri/actions/.github/actions/pr-comment@main
+        with:
+          comment: |
+            This `${{ inputs.model }}` model will be deployed with the following versions:
+            * `${{ needs.version-tag.outputs.release }}` as a Release (when merged).
+            * `${{ needs.version-tag.outputs.prerelease }}` as a Prerelease (during this PR). This can be accessed on `Gadi` via `spack` at `/g/data/vk83/prerelease/apps/spack/0.20/spack` once deployed.
+
+            It will be deployed using:
+            * `access-nri/spack-packages` version [`${{ needs.check-config.outputs.spack-packages-version }}`](https://github.com/ACCESS-NRI/spack-packages/releases/tag/${{ needs.check-config.outputs.spack-packages-version }})
+            * `access-nri/spack-config` version [`${{ needs.check-config.outputs.spack-config-version }}`](https://github.com/ACCESS-NRI/spack-config/releases/tag/${{ needs.check-config.outputs.spack-config-version }})
+
+            If this is not what was expected, commit changes to `config/versions.json`.
+

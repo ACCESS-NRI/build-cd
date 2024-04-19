@@ -1,0 +1,59 @@
+name: CD
+run-name: ${{ inputs.model }} CD
+# NOTE: This workflow requires:
+# permissions.contents:write
+# secrets:inherit with an appropriate GitHub Environment for deployment in the caller
+on:
+  workflow_call:
+    inputs:
+      model:
+        type: string
+        required: true
+        description: The model that is being tested and deployed
+  # Callers usually have the trigger:
+  # push:
+  #   branches:
+  #     - main
+  #     - backport/*.*
+  #   paths:
+  #     - config/**
+  #     - spack.yaml
+
+env:
+  SPACK_YAML_MODEL_YQ: .spack.specs[0]
+jobs:
+  push-tag:
+    name: Tag Deployment
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      name: ${{ steps.tag.outputs.name }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate Tag
+        id: tag
+        # Get the tag name from the `spack.yaml` that was merged into main, which
+        # is of the form `<model>@git.<version>`.
+        run: echo "name=$(yq '${{ env.SPACK_YAML_MODEL_YQ }} | split("@git.") | .[1]' spack.yaml)" >> $GITHUB_OUTPUT
+
+      - name: Push Tag
+        # NOTE: Regarding the config user.name/user.email, see https://github.com/actions/checkout/pull/1184
+        run: |
+          git config user.name ${{ vars.GH_ACTIONS_BOT_GIT_USER_NAME }}
+          git config user.email ${{ vars.GH_ACTIONS_BOT_GIT_USER_EMAIL }}
+          git tag ${{ steps.tag.outputs.name }} --force
+          git push --tags --force
+
+  deploy-release:
+    name: Deploy Release
+    needs:
+      - push-tag
+    uses: access-nri/build-cd/.github/workflows/deploy-1-setup.yml@main
+    with:
+      ref: ${{ github.ref_name }}
+      version: ${{ needs.push-tag.outputs.name }}
+    secrets: inherit
+    permissions:
+      contents: write
