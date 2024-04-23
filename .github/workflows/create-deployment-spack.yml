@@ -11,16 +11,6 @@ on:
         type: string
         required: true
         description: A version of spack
-      spack-packages-version:
-        type: string
-        required: true
-        default: main
-        description: A version of ACCESS-NRI/spack-packages
-      spack-config-version:
-        type: string
-        required: true
-        default: main
-        description: A version of ACCESS-NRI/spack-config
       deployment-location:
         type: string
         required: true
@@ -63,8 +53,8 @@ jobs:
           ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
           mkdir ${{ env.ROOT_VERSION_LOCATION }} || exit $?
           git -C ${{ env.ROOT_VERSION_LOCATION }} clone -c feature.manyFiles=true ${{ inputs.spack-git-url }} --branch ${{ inputs.spack-version }} --single-branch --depth=1
-          git -C ${{ env.ROOT_VERSION_LOCATION }} clone https://github.com/ACCESS-NRI/spack-packages.git --branch ${{ inputs.spack-packages-version }}
-          git -C ${{ env.ROOT_VERSION_LOCATION }} clone https://github.com/ACCESS-NRI/spack-config.git --branch ${{ inputs.spack-config-version }}
+          git -C ${{ env.ROOT_VERSION_LOCATION }} clone https://github.com/ACCESS-NRI/spack-packages.git
+          git -C ${{ env.ROOT_VERSION_LOCATION }} clone https://github.com/ACCESS-NRI/spack-config.git
           ln -s -r -v ${{ env.ROOT_VERSION_LOCATION }}/spack-config/v${{ steps.strip.outputs.version-dir }}/${{ vars.DEPLOYMENT_TARGET }}/* ${{ env.ROOT_VERSION_LOCATION }}/spack/etc/spack/
           mkdir ${{ env.ROOT_VERSION_LOCATION }}/release
           EOT
