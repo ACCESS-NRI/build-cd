@@ -77,6 +77,11 @@ jobs:
             echo "root-sbd=${{ inputs.root-sbd }}" >> $GITHUB_OUTPUT
           fi
 
+      - name: Validate ACCESS-NRI spack.yaml Restrictions
+        uses: access-nri/build-cd/.github/actions/validate-spack-yaml@main
+        with:
+          schema-version: 1-0-0
+
       - name: Check Model Version Modified
         id: version
         run: |

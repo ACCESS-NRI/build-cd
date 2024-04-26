@@ -1,0 +1,43 @@
+name: Validate ACCESS-NRI-restrictions on spack.yaml
+description: Action that validates ACCESS-NRI's own spack.yaml format to allow for seamless CI/CD between models
+inputs:
+  schema-version:
+    type: string
+    required: true
+    description: Version of the schema required in SchemaVer
+  schema-repo:
+    type: string
+    required: false
+    default: access-nri/schema
+    description: OWNER/REPO format for the repository containing the schema
+  schema-location:
+    type: string
+    required: false
+    default: au.org.access-nri/model/spack/environment/deployment
+    description: Directory within the schema-repo that contains the schema
+  spack-yaml-location:
+    type: string
+    required: false
+    default: spack.yaml
+    description: Path to the spack.yaml in the callers repository
+runs:
+  using: composite
+  steps:
+      # Checkout the callers `spack.yaml`
+    - uses: actions/checkout@v4
+
+    # Checkout the `schema-repo`
+    - uses: actions/checkout@v4
+      with:
+        repository: ${{ inputs.schema-repo }}
+        path: schema
+
+    - uses: GrantBirki/json-yaml-validate@v2.7.1
+      with:
+        mode: fail
+        files: |
+          ${{ inputs.spack-yaml-location }}
+        json_schema: schema/${{ inputs.schema-location }}/${{ inputs.schema-version }}.json
+        yaml_as_json: true
+        ajv_strict_mode: false
+        use_gitignore: false
