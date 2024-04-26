@@ -65,7 +65,7 @@ jobs:
         # Modifies the name of the prerelease modulefile to the
         # `pr<number>-<commit>` style. For example, `access-om3/pr12-2`
         run: |
-          yq -i '${{ env.SPACK_YAML_MODULEFILE_PROJECTION_YQ }} = {name}/${{ inputs.version }}' spack.yaml
+          yq -i '${{ env.SPACK_YAML_MODULEFILE_PROJECTION_YQ }} = "{name}/${{ inputs.version }}"' spack.yaml
           echo "::notice::Prerelease accessible as module `${{ inputs.model}}/${{ inputs.version }}`"
 
       - name: Copy spack.yaml
