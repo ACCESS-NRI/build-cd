@@ -27,7 +27,13 @@ on:
         type: string
         required: true
         description: The GitHub deployment environment name
-
+      root-sbd:
+        type: string
+        required: false
+        default: ${{ inputs.model }}
+        description: The root SBD that is being used as the modulefile name
+env:
+  SPACK_YAML_MODULEFILE_PROJECTION_YQ: .spack.modules.default.tcl.projections.${{ inputs.root-sbd }}
 jobs:
   deploy-to-environment:
     name: Deploy to ${{ inputs.deployment-environment }}
@@ -53,6 +59,14 @@ jobs:
           hosts: |
             ${{ secrets.HOST }}
             ${{ secrets.HOST_DATA }}
+
+      - name: Prerelease Modulefile Name
+        if: inputs.type == 'prerelease'
+        # Modifies the name of the prerelease modulefile to the
+        # `pr<number>-<commit>` style. For example, `access-om3/pr12-2`
+        run: |
+          yq -i '${{ env.SPACK_YAML_MODULEFILE_PROJECTION_YQ }} = {name}/${{ inputs.version }}' spack.yaml
+          echo "::notice::Prerelease accessible as module `${{ inputs.model}}/${{ inputs.version }}`"
 
       - name: Copy spack.yaml
         run: |

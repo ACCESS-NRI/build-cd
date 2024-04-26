@@ -183,6 +183,7 @@ jobs:
       type: prerelease
       ref: ${{ github.head_ref }}
       version: ${{ needs.version-tag.outputs.prerelease }}
+      root-sbd: ${{ inputs.root-sbd }}
     secrets: inherit
 
   notifier:
