@@ -32,7 +32,7 @@ runs:
         repository: ${{ inputs.schema-repo }}
         path: schema
 
-    - uses: GrantBirki/json-yaml-validate@v2.7.1
+    - uses: GrantBirki/json-yaml-validate@d7814b94473939c1daaca2c96131b891d4703a3c # v2.7.1
       with:
         mode: fail
         files: |
