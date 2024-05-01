@@ -90,7 +90,7 @@ jobs:
           # Create environment and build model
           spack env create ${{ inputs.env-name }} ${{ vars.SPACK_YAML_LOCATION }}/spack.yaml
           spack env activate ${{ inputs.env-name }}
-          spack --debug install --fresh --jobs 4 || exit $?
+          spack --debug install --fresh ${{ vars.SPACK_INSTALL_PARALLEL_JOBS }} || exit $?
           spack module tcl refresh --delete-tree -y
 
           # Obtain metadata
