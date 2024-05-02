@@ -95,7 +95,9 @@ jobs:
 
           # Obtain metadata
           spack find --paths > ${{ vars.SPACK_LOCATION }}/var/spack/environments/${{ inputs.env-name }}/spack.location
-          spack find --format '{name}@{version} {prefix}' | jq --raw-input --null-input '[inputs | split(" ") | {(.[0]):(.[1])}] | add' > ${{ vars.SPACK_LOCATION }}/var/spack/environments/${{ inputs.env-name }}/spack.location.json
+          metadata=$(spack find --format '{name}@{version} {prefix} {hash}')
+          metadata_json=$(jq -R '[inputs | split(" ") | {(.[0]): {'path':.[1], 'spack_hash': .[2]}}] | add' <<< "$metadata")
+          cat <<< "$metadata_json" > ${{ vars.SPACK_LOCATION }}/var/spack/environments/${{ inputs.env-name }}/spack.location.json
 
           spack env deactivate
           echo "$(date): Deployed ${{ inputs.model }} ${{ inputs.version }} with spack-packages ${{ steps.versions.outputs.packages }}, spack-config ${{ steps.versions.outputs.config }}" >> ${{ vars.SPACK_RELEASE_LOCATION }}/release.log
@@ -103,14 +105,35 @@ jobs:
 
       # Release
       - name: Get Release Metadata
-        if: inputs.type == 'release'
         run: |
           rsync -e 'ssh -i ${{ steps.ssh.outputs.private-key-path }}' \
             '${{ secrets.USER}}@${{ secrets.HOST_DATA }}:${{ vars.SPACK_LOCATION }}/var/spack/environments/${{ inputs.env-name }}/spack.*' \
             ./${{ inputs.env-name }}
 
+      - name: Upload Metadata Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.env-name }}
+          path: ./${{ inputs.env-name }}/*
+          overwrite: true
+
+  release:
+    name: Create Release
+    if: inputs.type == 'release'
+    needs:
+      - deploy-to-environment
+    runs-on: ubuntu-latest
+    outputs:
+      url: ${{ steps.release.outputs.url }}
+      created-at: ${{ steps.metadata.outputs.created-at }}
+    steps:
+      - name: Download Metadata Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.env-name }}
+
       - name: Create Release
-        if: inputs.type == 'release'
+        id: release
         uses: softprops/action-gh-release@v0.1.15
         with:
           tag_name: ${{ inputs.version }}
@@ -124,3 +147,37 @@ jobs:
             ./${{ inputs.env-name }}/spack.lock
             ./${{ inputs.env-name }}/spack.location
             ./${{ inputs.env-name }}/spack.location.json
+
+      - name: Release Metadata
+        id: metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: echo "created-at=$(gh release view --json createdAt --jq '.createdAt')" >> $GITHUB_OUTPUT
+
+  build-db:
+    name: Build DB
+    if: inputs.type == 'release'
+    needs:
+      - release
+    runs-on: ubuntu-latest
+    env:
+      METADATA_PATH: /metadata
+    steps:
+      - name: Download Metadata Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.env-name }}
+          path: ${{ env.METADATA_PATH }}
+
+      - name: Checkout Upload Script
+        uses: actions/checkout@v4
+        with:
+          repository: access-nri/build-cd
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.10
+
+      - name: Upload Build Metadata
+        run: ./scripts/upload-build-metadata.bash ${{ needs.release.outputs.url }} ${{ needs.release.outputs.created-at }} ${{ env.METADATA_PATH }} ${{ inputs.root-sbd }} ${{ vars.BUILD_DB_PACKAGES }}
