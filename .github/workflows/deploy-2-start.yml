@@ -91,7 +91,7 @@ jobs:
           spack env create ${{ inputs.env-name }} ${{ vars.SPACK_YAML_LOCATION }}/spack.yaml
           spack env activate ${{ inputs.env-name }}
           spack --debug install --fresh ${{ vars.SPACK_INSTALL_PARALLEL_JOBS }} || exit $?
-          spack module tcl refresh --delete-tree -y
+          spack module tcl refresh -y
 
           # Obtain metadata
           spack find --paths > ${{ vars.SPACK_LOCATION }}/var/spack/environments/${{ inputs.env-name }}/spack.location
