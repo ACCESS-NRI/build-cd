@@ -95,8 +95,8 @@ jobs:
 
           # Obtain metadata
           spack find --paths > ${{ vars.SPACK_LOCATION }}/var/spack/environments/${{ inputs.env-name }}/spack.location
-          metadata=$(spack find --format '{name}@{version} {prefix} {hash}')
-          metadata_json=$(jq -R '[inputs | split(" ") | {(.[0]): {'path':.[1], 'spack_hash': .[2]}}] | add' <<< "$metadata")
+          metadata=$(spack find --format '{name}@{version} {prefix}')
+          metadata_json=$(jq -R '[inputs | split(" ") | {(.[0]): .[1]}] | add' <<< "$metadata")
           cat <<< "$metadata_json" > ${{ vars.SPACK_LOCATION }}/var/spack/environments/${{ inputs.env-name }}/spack.location.json
 
           spack env deactivate
