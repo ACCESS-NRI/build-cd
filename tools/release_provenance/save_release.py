@@ -6,7 +6,7 @@ from sqlalchemy.orm.exc import NoResultFound
 def read_release_data(filename):
     with open(filename) as release_data:
        return json.load(release_data)
-    
+
 def get_component_build(release_data, session):
     component_build = ComponentBuild()
     component_build.model_build = get_model_build(release_data["model_build"], session)
@@ -29,7 +29,7 @@ def get_model_build(model_build_data, session):
         model_build.spec = model_build_data["spec"]
         session.add(model_build)
         session.commit()
-    
+
     return model_build.spack_hash
 
 def get_spack_version(spack_version_data, session):
@@ -43,7 +43,7 @@ def get_spack_version(spack_version_data, session):
         spack_version.version = spack_version_data["version"]
         session.add(spack_version)
         session.commit()
-    
+
     return spack_version.commit
 
 def main():
@@ -54,8 +54,8 @@ def main():
     try:
         session.add(component_build)
         session.commit()
-        print("release data added sucessfully")
-        
+        print("release data added successfully")
+
     except:
         session.rollback()
         raise

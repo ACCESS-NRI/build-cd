@@ -1,20 +1,18 @@
+import os
 from sqlalchemy import (
     DateTime, Text, String, Column, ForeignKey )
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
 
-USERNAME = ""
-PASSWORD = ""
-HOST = "ceqv5w67lzc.db.cloud.edu.au"
-DATABASE = "TEST_RELEASE_PROVENANCE"
-CONNSTR = f'postgresql://{USERNAME}:{PASSWORD}@{HOST}/{DATABASE}'
-
 Base = declarative_base()
 
 def create_session():
+    connection = os.getenv("BUILD_DB_CONNECTION_STR")
+    if connection is None:
+        raise Exception("No BUILD_DB_CONNECTION_STR found, check model repository secrets")
 
-    engine = create_engine(CONNSTR)
+    engine = create_engine(connection)
     Base.metadata.create_all(engine)
 
     Session = sessionmaker(bind=engine, autoflush=False)
