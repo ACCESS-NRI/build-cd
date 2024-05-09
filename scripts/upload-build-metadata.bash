@@ -16,7 +16,11 @@ model_name=$4
 shift 4
 packages=( "$@" )
 
-spack=$(jq '.spack | {version: .version, commit: .commit}' "$json_dir/spack.lock")
+spack=$(jq \
+  '{
+    version: .spack.version,
+    commit: .spack.commit
+  }' "$json_dir/spack.lock")
 
 model=$(jq \
   --arg model "$model_name" \
@@ -30,27 +34,35 @@ model=$(jq \
 )
 
 for pkg in "${packages[@]}"; do
-  install_path=$(jq -r \
+  install_path=$(jq \
     --arg pkg "$pkg" \
     'to_entries[] | select(.key | test($pkg)) | .value' \
     "$json_dir/spack.location.json"
   )
 
-  jq \
+  component=$(jq \
     --arg pkg "$pkg" \
     --arg release_url "$release_url" \
     --arg release_time "$release_time" \
     --arg install_path "$install_path" \
-    --argjson model "$model" \
     '.concrete_specs | to_entries[] | select(.value.name == $pkg)
     | {
       spack_hash: .key,
       spec: (.value.name + "@" + .value.version),
-      model_build: $model,
       install_path: $install_path,
       created_at: $release_time,
       release_url: $release_url
-    }' "$json_dir/spack.lock" > package.json
+    }' "$json_dir/spack.lock"
+  )
+
+  # construction of the entire package.json
+  jq --null-input \
+    --argjson model "$model" \
+    --argjson component "$component" \
+    '{
+      component_build: $component,
+      model_build: $model
+    }' > package.json
 
   cat package.json
 
