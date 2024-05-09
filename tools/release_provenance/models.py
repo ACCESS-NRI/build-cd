@@ -26,7 +26,7 @@ class ComponentBuild(Base):
     spec = Column(String, nullable=False)
     install_path = Column(String, nullable=False, unique=True)
     created_at = Column(DateTime, nullable=False)
-    release_url = Column(Text, nullable=False, unique=True)
+    release_url = Column(Text, nullable=False)
     model_build = Column(String, ForeignKey("model_build.spack_hash"))
 
 
