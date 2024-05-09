@@ -34,11 +34,15 @@ on:
         description: The root SBD that is being used as the modulefile name
 env:
   SPACK_YAML_MODULEFILE_PROJECTION_YQ: .spack.modules.default.tcl.projections.${{ inputs.root-sbd }}
+  METADATA_PATH: /opt/metadata
 jobs:
   deploy-to-environment:
     name: Deploy to ${{ inputs.deployment-environment }}
     runs-on: ubuntu-latest
     environment: ${{ inputs.deployment-environment }}
+    outputs:
+      packages-version: ${{ steps.versions.outputs.packages }}
+      config-version: ${{ steps.versions.outputs.config }}
     steps:
       # Deployment
       - uses: actions/checkout@v4
@@ -127,26 +131,29 @@ jobs:
       url: ${{ steps.release.outputs.url }}
       created-at: ${{ steps.metadata.outputs.created-at }}
     steps:
+      - uses: actions/checkout@v4
+
       - name: Download Metadata Artifact
         uses: actions/download-artifact@v4
         with:
           name: ${{ inputs.env-name }}
+          path: ${{ env.METADATA_PATH }}
 
       - name: Create Release
         id: release
-        uses: softprops/action-gh-release@v0.1.15
+        uses: softprops/action-gh-release@69320dbe05506a9a39fc8ae11030b214ec2d1f87  # v2.0.5
         with:
           tag_name: ${{ inputs.version }}
           name: ${{ inputs.model}} ${{ inputs.version }}
           body: |
-            This release of ${{ inputs.model }} ${{ inputs.version }} uses [spack-packages ${{ steps.versions.outputs.packages }}](https://github.com/ACCESS-NRI/spack-packages/releases/tag/${{ steps.versions.outputs.packages }}) and [spack-config ${{ steps.versions.outputs.config }}](https://github.com/ACCESS-NRI/spack-config/releases/tag/${{ steps.versions.outputs.config }}).
+            This release of ${{ inputs.model }} ${{ inputs.version }} uses [spack-packages ${{ needs.deploy-to-environment.outputs.packages-version }}](https://github.com/ACCESS-NRI/spack-packages/releases/tag/${{ needs.deploy-to-environment.outputs.packages-version }}) and [spack-config ${{ needs.deploy-to-environment.outputs.config-version }}](https://github.com/ACCESS-NRI/spack-config/releases/tag/${{ needs.deploy-to-environment.outputs.config-version }}).
           generate_release_notes: true
           fail_on_unmatched_files: true
           files: |
-            ./${{ inputs.env-name }}/spack.yaml
-            ./${{ inputs.env-name }}/spack.lock
-            ./${{ inputs.env-name }}/spack.location
-            ./${{ inputs.env-name }}/spack.location.json
+            ./${{ env.METADATA_PATH }}/spack.yaml
+            ./${{ env.METADATA_PATH }}/spack.lock
+            ./${{ env.METADATA_PATH }}/spack.location
+            ./${{ env.METADATA_PATH }}/spack.location.json
 
       - name: Release Metadata
         id: metadata
@@ -160,8 +167,6 @@ jobs:
     needs:
       - release
     runs-on: ubuntu-latest
-    env:
-      METADATA_PATH: /metadata
     steps:
       - name: Download Metadata Artifact
         uses: actions/download-artifact@v4
@@ -177,7 +182,10 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: 3.10
+          python-version: "3.10"
+          cache: pip
 
       - name: Upload Build Metadata
-        run: ./scripts/upload-build-metadata.bash ${{ needs.release.outputs.url }} ${{ needs.release.outputs.created-at }} ${{ env.METADATA_PATH }} ${{ inputs.root-sbd }} ${{ vars.BUILD_DB_PACKAGES }}
+        run: |
+          pip install -r tools/release_provenance/requirements.txt
+          ./scripts/upload-build-metadata.bash ${{ needs.release.outputs.url }} ${{ needs.release.outputs.created-at }} ${{ env.METADATA_PATH }} ${{ inputs.root-sbd }} ${{ vars.BUILD_DB_PACKAGES }}
