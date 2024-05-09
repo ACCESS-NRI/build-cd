@@ -8,6 +8,7 @@ from sqlalchemy.orm import relationship, sessionmaker
 Base = declarative_base()
 
 def create_session():
+    # A connection string in postgresql:// style, for example: postgresql://user:pass@host/DB_NAME
     connection = os.getenv("BUILD_DB_CONNECTION_STR")
     if connection is None:
         raise Exception("No BUILD_DB_CONNECTION_STR found, check model repository secrets")
