@@ -1,6 +1,6 @@
 import os
 from sqlalchemy import (
-    DateTime, Text, String, Column, ForeignKey )
+    DateTime, Text, String, Column, ForeignKey, Table, UniqueConstraint, Integer )
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
@@ -28,7 +28,8 @@ class ComponentBuild(Base):
     install_path = Column(String, nullable=False, unique=True)
     created_at = Column(DateTime, nullable=False)
     release_url = Column(Text, nullable=False)
-    model_build = Column(String, ForeignKey("model_build.spack_hash"))
+    model_build = relationship('ModelBuild', secondary="model_component", back_populates='component_build')
+
 
 
 
@@ -38,7 +39,8 @@ class ModelBuild(Base):
     spack_hash = Column(String, primary_key=True, index=True)
     spec = Column(String, nullable=False)
     spack_version = Column(String, ForeignKey("spack_version.commit"))
-    component_build = relationship('ComponentBuild')
+    component_build = relationship('ComponentBuild', secondary="model_component", back_populates='model_build')
+
 
 
 class SpackVersion(Base):
@@ -47,3 +49,13 @@ class SpackVersion(Base):
     commit = Column(String, primary_key=True, index=True)
     version = Column(String, nullable=False)
     model_build = relationship('ModelBuild')
+
+
+model_component_association = Table(
+    "model_component",
+    Base.metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("model_build", ForeignKey(ModelBuild.spack_hash)),
+    Column("component_build", ForeignKey(ComponentBuild.spack_hash)),
+    UniqueConstraint('model_build', 'component_build', name='uix_1')
+)
