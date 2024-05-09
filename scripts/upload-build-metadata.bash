@@ -23,9 +23,9 @@ model=$(jq \
   --argjson spack "$spack" \
   '.concrete_specs | to_entries[] | select(.value.name == $model)
   | {
-      spackhash: .key,
+      spack_hash: .key,
       spec: (.value.name + "@" + .value.version),
-      spackversion: $spack
+      spack_version: $spack
   }' "$json_dir/spack.lock"
 )
 
@@ -44,13 +44,15 @@ for pkg in "${packages[@]}"; do
     --argjson model "$model" \
     '.concrete_specs | to_entries[] | select(.value.name == $pkg)
     | {
-      spackhash: .key,
+      spack_hash: .key,
       spec: (.value.name + "@" + .value.version),
-      modelbuildhash: $model,
-      installpath: $install_path,
+      model_build: $model,
+      install_path: $install_path,
       created_at: $release_time,
       release_url: $release_url
     }' "$json_dir/spack.lock" > package.json
+
+  cat package.json
 
   python ./tools/release_provenance/save_release.py package.json
   echo "Uploaded $pkg to build DB"
