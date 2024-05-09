@@ -162,7 +162,7 @@ jobs:
         run: echo "created-at=$(gh release view --json createdAt --jq '.createdAt')" >> $GITHUB_OUTPUT
 
   build-db:
-    name: Build DB
+    name: Build DB Metadata Upload
     if: inputs.type == 'release'
     needs:
       - release
@@ -185,9 +185,10 @@ jobs:
           python-version: "3.10"
           cache: pip
 
+      - name: Install Build Metadata Script Requirements
+        run: pip install -r tools/release_provenance/requirements.txt
+
       - name: Upload Build Metadata
         env:
           BUILD_DB_CONNECTION_STR: ${{ secrets.BUILD_DB_CONNECTION_STR }}
-        run: |
-          pip install -r tools/release_provenance/requirements.txt
-          ./scripts/upload-build-metadata.bash ${{ needs.release.outputs.url }} ${{ needs.release.outputs.created-at }} ${{ env.METADATA_PATH }} ${{ inputs.root-sbd }} ${{ vars.BUILD_DB_PACKAGES }}
+        run: ./scripts/upload-build-metadata.bash ${{ needs.release.outputs.url }} ${{ needs.release.outputs.created-at }} ${{ env.METADATA_PATH }} ${{ inputs.root-sbd }} ${{ vars.BUILD_DB_PACKAGES }}
