@@ -2,19 +2,25 @@
 set -x
 set -e
 
+### INPUTS ###
 # URL for the associated GitHub Release of $model_name.
 release_url=$1
 # Timestamp for the creation of the $release_url.
 release_time=$2
 # Path to the dir containing the spack.{lock,location.json}.
 json_dir=$3
+# directory that contains the <package>.json files
+output_dir=$4
 # Name of the model (or root-sbd) (eg. access-om2)
-model_name=$4
+model_name=$5
 
 # the rest of the model components for the given $model_name
 # (eg. for access-om2 there would be mom5, cice5, etc...)
-shift 4
+shift 5
 packages=( "$@" )
+
+### SCRIPT ###
+mkdir -p "$output_dir"
 
 spack=$(jq \
   '{
@@ -62,10 +68,7 @@ for pkg in "${packages[@]}"; do
     '{
       component_build: $component,
       model_build: $model
-    }' > package.json
+    }' > "$output_dir/$pkg.json"
 
-  cat package.json
-
-  python ./tools/release_provenance/save_release.py package.json
-  echo "Uploaded $pkg to build DB"
+  cat "$output_dir/$pkg.json"
 done
