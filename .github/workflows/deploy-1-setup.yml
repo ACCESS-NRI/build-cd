@@ -36,7 +36,8 @@ jobs:
       - name: Get Model
         id: get-model
         # for the cases where the repo name is in uppercase but the package name is lowercase (eg. access-nri/MOM5)
-        run: echo "model=$(echo ${{ github.event.repository.name }} | tr [:upper:] [:lower:])" >> $GITHUB_OUTPUT
+        # and also the cases where there is a '.' in the repo name, which isn't spack-compliant (eg. access-nri/ACCESS-ESM1.5)
+        run: echo "model=$(echo ${{ github.event.repository.name }} | tr [:upper:] [:lower:] | tr '.' 'p')" >> $GITHUB_OUTPUT
 
       - name: Set Spack Env Name String
         id: get-env-name
