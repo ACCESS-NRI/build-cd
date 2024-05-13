@@ -34,8 +34,8 @@ jobs:
         id: version
         # For example, `access-om3-pr12-*`
         run: |
-          repo_name_lower=$(echo ${{ github.event.repository.name }} | tr [:upper:] [:lower:])
-          echo "pattern=${repo_name_lower}-pr${{ github.event.pull_request.number }}-*" >> $GITHUB_OUTPUT
+          repo_name_sanitized=$(echo ${{ github.event.repository.name }} | tr [:upper:] [:lower:] | tr '.' 'p' )
+          echo "pattern=${repo_name_sanitized}-pr${{ github.event.pull_request.number }}-*" >> $GITHUB_OUTPUT
 
   undeploy-prereleases:
     name: Undeploy Prereleases Matching ${{ needs.setup.outputs.version-pattern }}
