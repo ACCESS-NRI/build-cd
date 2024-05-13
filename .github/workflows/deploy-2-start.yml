@@ -189,4 +189,12 @@ jobs:
       - name: Upload Build Metadata
         env:
           BUILD_DB_CONNECTION_STR: ${{ secrets.BUILD_DB_CONNECTION_STR }}
-        run: ./scripts/upload-build-metadata.bash ${{ needs.release.outputs.url }} ${{ needs.release.outputs.created-at }} ${{ env.METADATA_PATH }} ${{ inputs.root-sbd }} ${{ vars.BUILD_DB_PACKAGES }}
+          OUTPUT_PATH: ./metadata_output
+        run: |
+          ./scripts/generate-build-metadata.bash ${{ needs.release.outputs.url }} ${{ needs.release.outputs.created-at }} ${{ env.METADATA_PATH }} ${{ env.OUTPUT_PATH }} ${{ inputs.root-sbd }} ${{ vars.BUILD_DB_PACKAGES }}
+
+          for json in ${{ env.OUTPUT_PATH }}/*.json; do
+            echo "Attempting upload of $json"
+            python ./tools/release_provenance/save_release.py "$json"
+          done
+
