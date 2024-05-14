@@ -40,9 +40,17 @@ model=$(jq \
 )
 
 for pkg in "${packages[@]}"; do
-  install_path=$(jq \
+  pkg_hash=$(jq --raw-output \
     --arg pkg "$pkg" \
-    'to_entries[] | select(.key | test($pkg)) | .value' \
+    '.concrete_specs | to_entries[] | select(.value.name == $pkg) | .key' \
+    "$json_dir/spack.lock"
+  )
+
+  echo "Hash of $pkg is $pkg_hash"
+
+  install_path=$(jq --raw-output \
+    --arg pkg_hash "$pkg_hash" \
+    'to_entries[] | select(.key == $pkg_hash) | .value.path' \
     "$json_dir/spack.location.json"
   )
 
