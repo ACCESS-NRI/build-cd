@@ -16,7 +16,6 @@ if [[ $(basename "$PWD") != "generate-build-metadata" ]]; then
   exit 1
 fi
 
-./../../../scripts/generate-build-metadata.bash http://example.org/releases 2024-03-27T05:29:36Z . . access-om2 mom5 cice5
+./../../../scripts/generate-build-metadata.bash http://example.org/releases 2024-03-27T05:29:36Z ./inputs ./outputs access-om2 mom5 cice5
 
-cmp ./cice5.json ./valid/cice5.json
-cmp ./mom5.json ./valid/mom5.json
+cmp ./outputs/build_metadata.json ./valid/build_metadata.json

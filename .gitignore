@@ -1,3 +1,2 @@
 # Files generated during generate-build-metadata tests
-tests/scripts/generate-build-metadata/cice5.json
-tests/scripts/generate-build-metadata/mom5.json
+tests/scripts/generate-build-metadata/outputs
