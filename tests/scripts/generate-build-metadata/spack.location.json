@@ -1,0 +1,14 @@
+{
+    "ucmkt2gy72vvikhstgvoft65wnskr7rd": {
+        "path": "/g/data/vk83/apps/spack/0.20/release/linux-rocky8-x86_64/intel-19.0.5.281/access-om2-git.2024.03.0=2024.03.0-ucmkt2gy72vvikhstgvoft65wnskr7rd"
+    },
+    "v3zncpqjj2gyseudbwiudolcjq3k3leo": {
+        "path": "/g/data/vk83/apps/spack/0.20/release/linux-rocky8-x86_64/intel-19.0.5.281/cice5-git.2023.10.19=2023.10.19-v3zncpqjj2gyseudbwiudolcjq3k3leo"
+    },
+    "qji4nlmr6utrribaiyhewe4je6mifguz": {
+        "path": "/g/data/vk83/apps/spack/0.20/release/linux-rocky8-x86_64/intel-19.0.5.281/mom5-git.2023.11.09=2023.11.09-qji4nlmr6utrribaiyhewe4je6mifguz"
+    },
+    "i3inxzaihefr3rqljoovhyevwai6bsff": {
+        "path": "/g/data/vk83/apps/spack/0.20/release/linux-rocky8-x86_64/intel-19.0.5.281/netcdf-c-4.7.4-i3inxzaihefr3rqljoovhyevwai6bsff"
+    }
+}
