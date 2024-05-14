@@ -19,19 +19,13 @@ def create_session():
     Session = sessionmaker(bind=engine, autoflush=False)
     return Session()
 
-
 class ComponentBuild(Base):
     __tablename__ = "component_build"
 
     spack_hash = Column(String, primary_key=True, index=True)
     spec = Column(String, nullable=False)
     install_path = Column(String, nullable=False, unique=True)
-    created_at = Column(DateTime, nullable=False)
-    release_url = Column(Text, nullable=False)
     model_build = relationship('ModelBuild', secondary="model_component", back_populates='component_build')
-
-
-
 
 class ModelBuild(Base):
     __tablename__ = "model_build"
@@ -39,9 +33,9 @@ class ModelBuild(Base):
     spack_hash = Column(String, primary_key=True, index=True)
     spec = Column(String, nullable=False)
     spack_version = Column(String, ForeignKey("spack_version.commit"))
+    created_at = Column(DateTime, nullable=False)
+    release_url = Column(Text, nullable=False, unique=True)
     component_build = relationship('ComponentBuild', secondary="model_component", back_populates='model_build')
-
-
 
 class SpackVersion(Base):
     __tablename__ = "spack_version"
