@@ -43,6 +43,14 @@ model=$(jq \
   }' "$json_dir/spack.lock"
 )
 
+# construction of the initial build_metadata.json
+jq --null-input \
+  --argjson model "$model" \
+  '{
+    model_build: $model,
+    component_build: [],
+  }' > "$output_dir/build_metadata.json"
+
 for pkg in "${packages[@]}"; do
   pkg_hash=$(jq --raw-output \
     --arg pkg "$pkg" \
@@ -69,14 +77,14 @@ for pkg in "${packages[@]}"; do
     }' "$json_dir/spack.lock"
   )
 
-  # construction of the entire package.json
-  jq --null-input \
-    --argjson model "$model" \
+  # piecewise construction of the entire build_metadata.json for each
+  # build_component
+  jq \
     --argjson component "$component" \
-    '{
-      component_build: $component,
-      model_build: $model
-    }' > "$output_dir/$pkg.json"
+    '.component_build += [$component]' \
+    "$output_dir/build_metadata.json" > "$output_dir/build_metadata.json.tmp"
 
-  cat "$output_dir/$pkg.json"
+  mv "$output_dir/build_metadata.json.tmp" "$output_dir/build_metadata.json"
+
+  cat "$output_dir/build_metadata.json"
 done
