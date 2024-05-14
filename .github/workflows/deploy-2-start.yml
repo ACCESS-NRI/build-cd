@@ -193,8 +193,5 @@ jobs:
         run: |
           ./scripts/generate-build-metadata.bash ${{ needs.release.outputs.url }} ${{ needs.release.outputs.created-at }} ${{ env.METADATA_PATH }} ${{ env.OUTPUT_PATH }} ${{ inputs.root-sbd }} ${{ vars.BUILD_DB_PACKAGES }}
 
-          for json in ${{ env.OUTPUT_PATH }}/*.json; do
-            echo "Attempting upload of $json"
-            python ./tools/release_provenance/save_release.py "$json"
-          done
-
+          echo "Attempting upload of build_metadata.json"
+          python ./tools/release_provenance/save_release.py "${{ env.OUTPUT_PATH }}/build_metadata.json"
