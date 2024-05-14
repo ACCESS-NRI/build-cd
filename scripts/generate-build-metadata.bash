@@ -30,11 +30,15 @@ spack=$(jq \
 
 model=$(jq \
   --arg model "$model_name" \
+  --arg release_url "$release_url" \
+  --arg release_time "$release_time" \
   --argjson spack "$spack" \
   '.concrete_specs | to_entries[] | select(.value.name == $model)
   | {
       spack_hash: .key,
       spec: (.value.name + "@" + .value.version),
+      created_at: $release_time,
+      release_url: $release_url,
       spack_version: $spack
   }' "$json_dir/spack.lock"
 )
@@ -56,16 +60,12 @@ for pkg in "${packages[@]}"; do
 
   component=$(jq \
     --arg pkg "$pkg" \
-    --arg release_url "$release_url" \
-    --arg release_time "$release_time" \
     --arg install_path "$install_path" \
     '.concrete_specs | to_entries[] | select(.value.name == $pkg)
     | {
       spack_hash: .key,
       spec: (.value.name + "@" + .value.version),
-      install_path: $install_path,
-      created_at: $release_time,
-      release_url: $release_url
+      install_path: $install_path
     }' "$json_dir/spack.lock"
   )
 
