@@ -18,7 +18,6 @@ on:
       root-sbd:
         type: string
         required: false
-        # default: The model name, taken from the callers repository name
         description: The root SBD that is being used as the modulefile name
 
 jobs:
@@ -30,8 +29,6 @@ jobs:
       model: ${{ steps.get-model.outputs.model }}
       # Spack env name in form <model>-<version>
       env-name: ${{ steps.get-env-name.outputs.env-name }}
-      # Root SBD that defaults to the model name
-      root-sbd: ${{ steps.set-root-sbd.outputs.root-sbd }}
     steps:
       - name: Get Model
         id: get-model
@@ -43,16 +40,6 @@ jobs:
         id: get-env-name
         # replace occurences of '.' with '_' in environment name as spack doesn't support '.'. Ex: 'access-om2-v1.0.0' -> 'access-om2-v1_0_0'.
         run: echo "env-name=$(echo '${{ steps.get-model.outputs.model }}-${{ inputs.version }}' | tr '.' '_')" >> $GITHUB_OUTPUT
-
-      - name: Set Root SBD Default
-        id: set-root-sbd
-        # We set the default here because we don't have access to the modified repo name in the inputs section yet
-        run: |
-          if [[ "${{ inputs.root-sbd }}" == "" ]]; then
-            echo "root-sbd=${{ steps.get-model.outputs.model }}" >> $GITHUB_OUTPUT
-          else
-            echo "root-sbd=${{ inputs.root-sbd }}" >> $GITHUB_OUTPUT
-          fi
 
   setup-deployment-env:
     name: Setup Deployment Environment
@@ -94,5 +81,5 @@ jobs:
       version: ${{ inputs.version }}
       env-name: ${{ needs.setup-spack-env.outputs.env-name }}
       deployment-environment: ${{ matrix.deployment-environment }}
-      root-sbd: ${{ needs.setup-spack-env.outputs.root-sbd }}
+      root-sbd: ${{ inputs.root-sbd }}
     secrets: inherit
