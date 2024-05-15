@@ -213,13 +213,15 @@ jobs:
       - uses: access-nri/actions/.github/actions/pr-comment@main
         with:
           comment: |
-            This `${{ inputs.model }}` model will be deployed with the following versions:
+            This `${{ inputs.model }}` model will be deployed as:
             * `${{ needs.version-tag.outputs.release }}` as a Release (when merged).
-            * `${{ needs.version-tag.outputs.prerelease }}` as a Prerelease (during this PR). This can be accessed on `Gadi` via `spack` at `/g/data/vk83/prerelease/apps/spack/0.20/spack` once deployed.
+            * `${{ needs.version-tag.outputs.prerelease }}` as a Prerelease (during this PR).
+
+            This Prerelease is accessible on Gadi using `module use /g/data/vk83/prerelease/modules/access-models/ && module load ${{ needs.defaults.outputs.root-sbd }}/${{ needs.version-tag.outputs.prerelease }}`, where the binaries shall be on your `$PATH`.
+            This Prerelease is also accessible on Gadi via `/g/data/vk83/prerelease/apps/spack/0.21/spack` in the `${{ needs.defaults.outputs.root-sbd }}-${{ needs.version-tag.outputs.prerelease }}` environment.
 
             It will be deployed using:
             * `access-nri/spack-packages` version [`${{ needs.check-config.outputs.spack-packages-version }}`](https://github.com/ACCESS-NRI/spack-packages/releases/tag/${{ needs.check-config.outputs.spack-packages-version }})
             * `access-nri/spack-config` version [`${{ needs.check-config.outputs.spack-config-version }}`](https://github.com/ACCESS-NRI/spack-config/releases/tag/${{ needs.check-config.outputs.spack-config-version }})
 
             If this is not what was expected, commit changes to `config/versions.json`.
-
