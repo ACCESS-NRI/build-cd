@@ -34,11 +34,15 @@ on:
         description: The root SBD that is being used as the modulefile name
 env:
   SPACK_YAML_MODULEFILE_PROJECTION_YQ: .spack.modules.default.tcl.projections.${{ inputs.root-sbd }}
+  METADATA_PATH: /opt/metadata
 jobs:
   deploy-to-environment:
     name: Deploy to ${{ inputs.deployment-environment }}
     runs-on: ubuntu-latest
     environment: ${{ inputs.deployment-environment }}
+    outputs:
+      packages-version: ${{ steps.versions.outputs.packages }}
+      config-version: ${{ steps.versions.outputs.config }}
     steps:
       # Deployment
       - uses: actions/checkout@v4
@@ -95,7 +99,7 @@ jobs:
 
           # Obtain metadata
           spack find --paths > ${{ vars.SPACK_LOCATION }}/var/spack/environments/${{ inputs.env-name }}/spack.location
-          spack find --format '{name}@{version} {prefix}' | jq --raw-input --null-input '[inputs | split(" ") | {(.[0]):(.[1])}] | add' > ${{ vars.SPACK_LOCATION }}/var/spack/environments/${{ inputs.env-name }}/spack.location.json
+          spack find --format '{hash} {prefix}' | jq --raw-input --null-input '[inputs | split(" ") | {(.[0]): (.[1])}] | add' > ${{ vars.SPACK_LOCATION }}/var/spack/environments/${{ inputs.env-name }}/spack.location.json
 
           spack env deactivate
           echo "$(date): Deployed ${{ inputs.model }} ${{ inputs.version }} with spack-packages ${{ steps.versions.outputs.packages }}, spack-config ${{ steps.versions.outputs.config }}" >> ${{ vars.SPACK_RELEASE_LOCATION }}/release.log
@@ -103,24 +107,91 @@ jobs:
 
       # Release
       - name: Get Release Metadata
-        if: inputs.type == 'release'
         run: |
           rsync -e 'ssh -i ${{ steps.ssh.outputs.private-key-path }}' \
             '${{ secrets.USER}}@${{ secrets.HOST_DATA }}:${{ vars.SPACK_LOCATION }}/var/spack/environments/${{ inputs.env-name }}/spack.*' \
             ./${{ inputs.env-name }}
 
+      - name: Upload Metadata Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.env-name }}
+          path: ./${{ inputs.env-name }}/*
+          overwrite: true
+
+  release:
+    name: Create Release
+    if: inputs.type == 'release'
+    needs:
+      - deploy-to-environment
+    runs-on: ubuntu-latest
+    outputs:
+      url: ${{ steps.release.outputs.url }}
+      created-at: ${{ steps.metadata.outputs.created-at }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Metadata Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.env-name }}
+          path: ${{ env.METADATA_PATH }}
+
       - name: Create Release
-        if: inputs.type == 'release'
-        uses: softprops/action-gh-release@v0.1.15
+        id: release
+        uses: softprops/action-gh-release@69320dbe05506a9a39fc8ae11030b214ec2d1f87  # v2.0.5
         with:
           tag_name: ${{ inputs.version }}
           name: ${{ inputs.model}} ${{ inputs.version }}
           body: |
-            This release of ${{ inputs.model }} ${{ inputs.version }} uses [spack-packages ${{ steps.versions.outputs.packages }}](https://github.com/ACCESS-NRI/spack-packages/releases/tag/${{ steps.versions.outputs.packages }}) and [spack-config ${{ steps.versions.outputs.config }}](https://github.com/ACCESS-NRI/spack-config/releases/tag/${{ steps.versions.outputs.config }}).
+            This release of ${{ inputs.model }} ${{ inputs.version }} uses [spack-packages ${{ needs.deploy-to-environment.outputs.packages-version }}](https://github.com/ACCESS-NRI/spack-packages/releases/tag/${{ needs.deploy-to-environment.outputs.packages-version }}) and [spack-config ${{ needs.deploy-to-environment.outputs.config-version }}](https://github.com/ACCESS-NRI/spack-config/releases/tag/${{ needs.deploy-to-environment.outputs.config-version }}).
           generate_release_notes: true
           fail_on_unmatched_files: true
           files: |
-            ./${{ inputs.env-name }}/spack.yaml
-            ./${{ inputs.env-name }}/spack.lock
-            ./${{ inputs.env-name }}/spack.location
-            ./${{ inputs.env-name }}/spack.location.json
+            ./${{ env.METADATA_PATH }}/spack.yaml
+            ./${{ env.METADATA_PATH }}/spack.lock
+            ./${{ env.METADATA_PATH }}/spack.location
+            ./${{ env.METADATA_PATH }}/spack.location.json
+
+      - name: Release Metadata
+        id: metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: echo "created-at=$(gh release view --json createdAt --jq '.createdAt')" >> $GITHUB_OUTPUT
+
+  build-db:
+    name: Build DB Metadata Upload
+    if: inputs.type == 'release'
+    needs:
+      - release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Metadata Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.env-name }}
+          path: ${{ env.METADATA_PATH }}
+
+      - name: Checkout Upload Script
+        uses: actions/checkout@v4
+        with:
+          repository: access-nri/build-cd
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+
+      - name: Install Build Metadata Script Requirements
+        run: pip install -r tools/release_provenance/requirements.txt
+
+      - name: Upload Build Metadata
+        env:
+          BUILD_DB_CONNECTION_STR: ${{ secrets.BUILD_DB_CONNECTION_STR }}
+          OUTPUT_PATH: ./metadata_output
+        run: |
+          ./scripts/generate-build-metadata.bash ${{ needs.release.outputs.url }} ${{ needs.release.outputs.created-at }} ${{ env.METADATA_PATH }} ${{ env.OUTPUT_PATH }} ${{ inputs.root-sbd }} ${{ vars.BUILD_DB_PACKAGES }}
+
+          echo "Attempting upload of build_metadata.json"
+          python ./tools/release_provenance/save_release.py "${{ env.OUTPUT_PATH }}/build_metadata.json"

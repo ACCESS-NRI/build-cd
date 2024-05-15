@@ -1,0 +1,883 @@
+{
+  "_meta": {
+    "file-type": "spack-lockfile",
+    "lockfile-version": 4,
+    "specfile-version": 3
+  },
+  "spack": {
+    "version": "0.20.3",
+    "type": "git",
+    "commit": "6812713cf470b473a607f0de0e8e1cf53f804fb7"
+  },
+  "roots": [
+    {
+      "hash": "ucmkt2gy72vvikhstgvoft65wnskr7rd",
+      "spec": "access-om2@git.2024.03.0=2024.03.0"
+    }
+  ],
+  "concrete_specs": {
+    "ucmkt2gy72vvikhstgvoft65wnskr7rd": {
+      "name": "access-om2",
+      "version": "git.2024.03.0=2024.03.0",
+      "arch": {
+        "platform": "linux",
+        "platform_os": "rocky8",
+        "target": "x86_64"
+      },
+      "compiler": {
+        "name": "intel",
+        "version": "19.0.5.281"
+      },
+      "namespace": "access.nri",
+      "parameters": {
+        "build_system": "bundle",
+        "deterministic": false,
+        "cflags": [],
+        "cppflags": [],
+        "cxxflags": [],
+        "fflags": [],
+        "ldflags": [],
+        "ldlibs": []
+      },
+      "package_hash": "34qart4qtjppyclfzfvuo5bbio4fnng475ukwr66m6mk2vd2wfkq====",
+      "dependencies": [
+        {
+          "name": "cice5",
+          "hash": "v3zncpqjj2gyseudbwiudolcjq3k3leo",
+          "type": [
+            "build",
+            "link"
+          ]
+        },
+        {
+          "name": "libaccessom2",
+          "hash": "ltfg7jcn6t4cefotvj3kjnyu5nru26xo",
+          "type": [
+            "build",
+            "link"
+          ]
+        },
+        {
+          "name": "mom5",
+          "hash": "qji4nlmr6utrribaiyhewe4je6mifguz",
+          "type": [
+            "build",
+            "link"
+          ]
+        }
+      ],
+      "hash": "ucmkt2gy72vvikhstgvoft65wnskr7rd"
+    },
+    "v3zncpqjj2gyseudbwiudolcjq3k3leo": {
+      "name": "cice5",
+      "version": "git.2023.10.19=2023.10.19",
+      "arch": {
+        "platform": "linux",
+        "platform_os": "rocky8",
+        "target": "x86_64"
+      },
+      "compiler": {
+        "name": "intel",
+        "version": "19.0.5.281"
+      },
+      "namespace": "access.nri",
+      "parameters": {
+        "build_system": "makefile",
+        "deterministic": false,
+        "optimisation_report": false,
+        "cflags": [],
+        "cppflags": [],
+        "cxxflags": [],
+        "fflags": [],
+        "ldflags": [],
+        "ldlibs": []
+      },
+      "package_hash": "wtk77iqdtv3u7vu3eanc2yqykdxigovezuhuwtjzxkyi273gpvaa====",
+      "dependencies": [
+        {
+          "name": "datetime-fortran",
+          "hash": "aretozixwsdz42owabgzeiuxooyxrspg",
+          "type": [
+            "build",
+            "link"
+          ]
+        },
+        {
+          "name": "libaccessom2",
+          "hash": "ltfg7jcn6t4cefotvj3kjnyu5nru26xo",
+          "type": [
+            "build",
+            "link"
+          ]
+        },
+        {
+          "name": "netcdf-c",
+          "hash": "i3inxzaihefr3rqljoovhyevwai6bsff",
+          "type": [
+            "build",
+            "link"
+          ]
+        },
+        {
+          "name": "netcdf-fortran",
+          "hash": "mnx4gghyb5gngsl3fgosud6k72yu2u6a",
+          "type": [
+            "build",
+            "link"
+          ]
+        },
+        {
+          "name": "oasis3-mct",
+          "hash": "sh2anmtjrygzixya2fjc3p7cg4o5wc5h",
+          "type": [
+            "build",
+            "link"
+          ]
+        },
+        {
+          "name": "openmpi",
+          "hash": "4jwtg3nt7p3zsod4rvn3i3jyyop3arpe",
+          "type": [
+            "build",
+            "link"
+          ]
+        },
+        {
+          "name": "parallelio",
+          "hash": "nwolfzy2xxb4wub65gmvlm3edhuolmlh",
+          "type": [
+            "build",
+            "link"
+          ]
+        }
+      ],
+      "hash": "v3zncpqjj2gyseudbwiudolcjq3k3leo"
+    },
+    "aretozixwsdz42owabgzeiuxooyxrspg": {
+      "name": "datetime-fortran",
+      "version": "1.7.0",
+      "arch": {
+        "platform": "linux",
+        "platform_os": "rocky8",
+        "target": "x86_64"
+      },
+      "compiler": {
+        "name": "intel",
+        "version": "19.0.5.281"
+      },
+      "namespace": "access.nri",
+      "parameters": {
+        "build_system": "autotools",
+        "patches": [
+          "80b95779f1ef33d2326632912d838fc695dd16e60b3f674b67f3e5550c5654d8"
+        ],
+        "cflags": [],
+        "cppflags": [],
+        "cxxflags": [],
+        "fflags": [],
+        "ldflags": [],
+        "ldlibs": []
+      },
+      "patches": [
+        "80b95779f1ef33d2326632912d838fc695dd16e60b3f674b67f3e5550c5654d8"
+      ],
+      "package_hash": "sgresckajw2sxed4epot62ce76rzikutyq7ts6rfisb2xor5iqea====",
+      "hash": "aretozixwsdz42owabgzeiuxooyxrspg"
+    },
+    "ltfg7jcn6t4cefotvj3kjnyu5nru26xo": {
+      "name": "libaccessom2",
+      "version": "git.2023.10.26=2023.10.26",
+      "arch": {
+        "platform": "linux",
+        "platform_os": "rocky8",
+        "target": "x86_64"
+      },
+      "compiler": {
+        "name": "intel",
+        "version": "19.0.5.281"
+      },
+      "namespace": "access.nri",
+      "parameters": {
+        "build_system": "cmake",
+        "build_type": "Release",
+        "deterministic": false,
+        "generator": "make",
+        "ipo": false,
+        "optimisation_report": false,
+        "cflags": [],
+        "cppflags": [],
+        "cxxflags": [],
+        "fflags": [],
+        "ldflags": [],
+        "ldlibs": []
+      },
+      "package_hash": "gz7l4mvt6lkac5wpolzg6tbsmepb2gwbz4vrqgs5dwodw33fqe6q====",
+      "dependencies": [
+        {
+          "name": "cmake",
+          "hash": "y2zohexf4krx5iurqq2dtu77vnm2tsee",
+          "type": [
+            "build"
+          ]
+        },
+        {
+          "name": "datetime-fortran",
+          "hash": "aretozixwsdz42owabgzeiuxooyxrspg",
+          "type": [
+            "build",
+            "link"
+          ]
+        },
+        {
+          "name": "gmake",
+          "hash": "ugorlm6e6s5hkwsandqvyrdtwwq3mckf",
+          "type": [
+            "build"
+          ]
+        },
+        {
+          "name": "json-fortran",
+          "hash": "nyxvikkez6fu64xtbeqqz2a4wngikfgi",
+          "type": [
+            "build",
+            "link"
+          ]
+        },
+        {
+          "name": "netcdf-fortran",
+          "hash": "mnx4gghyb5gngsl3fgosud6k72yu2u6a",
+          "type": [
+            "build",
+            "link"
+          ]
+        },
+        {
+          "name": "oasis3-mct",
+          "hash": "sh2anmtjrygzixya2fjc3p7cg4o5wc5h",
+          "type": [
+            "build",
+            "link"
+          ]
+        },
+        {
+          "name": "openmpi",
+          "hash": "4jwtg3nt7p3zsod4rvn3i3jyyop3arpe",
+          "type": [
+            "build",
+            "link"
+          ]
+        },
+        {
+          "name": "pkgconf",
+          "hash": "uyq7tvpnuuo3gosnplkvuxktaeeipuqk",
+          "type": [
+            "build"
+          ]
+        }
+      ],
+      "hash": "ltfg7jcn6t4cefotvj3kjnyu5nru26xo"
+    },
+    "y2zohexf4krx5iurqq2dtu77vnm2tsee": {
+      "name": "cmake",
+      "version": "3.24.2",
+      "arch": {
+        "platform": "linux",
+        "platform_os": "rocky8",
+        "target": "x86_64"
+      },
+      "compiler": {
+        "name": "intel",
+        "version": "19.0.5.281"
+      },
+      "namespace": "builtin",
+      "parameters": {
+        "build_system": "generic",
+        "build_type": "Release",
+        "doc": false,
+        "ncurses": true,
+        "ownlibs": true,
+        "qt": false,
+        "cflags": [],
+        "cppflags": [],
+        "cxxflags": [],
+        "fflags": [],
+        "ldflags": [],
+        "ldlibs": []
+      },
+      "external": {
+        "path": "/apps/cmake/3.24.2",
+        "module": null,
+        "extra_attributes": {}
+      },
+      "package_hash": "jbntedyqysmfw532bjsoy7xpeem5kyas7ne6damopg4wdebgitia====",
+      "hash": "y2zohexf4krx5iurqq2dtu77vnm2tsee"
+    },
+    "ugorlm6e6s5hkwsandqvyrdtwwq3mckf": {
+      "name": "gmake",
+      "version": "4.4.1",
+      "arch": {
+        "platform": "linux",
+        "platform_os": "rocky8",
+        "target": "x86_64"
+      },
+      "compiler": {
+        "name": "intel",
+        "version": "19.0.5.281"
+      },
+      "namespace": "builtin",
+      "parameters": {
+        "build_system": "autotools",
+        "guile": false,
+        "cflags": [],
+        "cppflags": [],
+        "cxxflags": [],
+        "fflags": [],
+        "ldflags": [],
+        "ldlibs": []
+      },
+      "package_hash": "jlridsmz6v5yezm7lhkqjgx6x6ksuferunkz3635nkdrraigjrfa====",
+      "hash": "ugorlm6e6s5hkwsandqvyrdtwwq3mckf"
+    },
+    "nyxvikkez6fu64xtbeqqz2a4wngikfgi": {
+      "name": "json-fortran",
+      "version": "8.3.0",
+      "arch": {
+        "platform": "linux",
+        "platform_os": "rocky8",
+        "target": "x86_64"
+      },
+      "compiler": {
+        "name": "intel",
+        "version": "19.0.5.281"
+      },
+      "namespace": "builtin",
+      "parameters": {
+        "build_system": "cmake",
+        "build_type": "Release",
+        "generator": "make",
+        "ipo": false,
+        "cflags": [],
+        "cppflags": [],
+        "cxxflags": [],
+        "fflags": [],
+        "ldflags": [],
+        "ldlibs": []
+      },
+      "package_hash": "3ocorquzzje7wyowjcdicgshoiq35xfvvgta4qnnqvpsxosyyvva====",
+      "dependencies": [
+        {
+          "name": "cmake",
+          "hash": "y2zohexf4krx5iurqq2dtu77vnm2tsee",
+          "type": [
+            "build"
+          ]
+        },
+        {
+          "name": "gmake",
+          "hash": "ugorlm6e6s5hkwsandqvyrdtwwq3mckf",
+          "type": [
+            "build"
+          ]
+        }
+      ],
+      "hash": "nyxvikkez6fu64xtbeqqz2a4wngikfgi"
+    },
+    "mnx4gghyb5gngsl3fgosud6k72yu2u6a": {
+      "name": "netcdf-fortran",
+      "version": "4.5.2",
+      "arch": {
+        "platform": "linux",
+        "platform_os": "rocky8",
+        "target": "x86_64"
+      },
+      "compiler": {
+        "name": "intel",
+        "version": "19.0.5.281"
+      },
+      "namespace": "builtin",
+      "parameters": {
+        "build_system": "autotools",
+        "doc": false,
+        "patches": [
+          "b050dbd8d832d13c8c7f69c903251fb6ce567abbfae75c6347e066585d032a7e"
+        ],
+        "pic": true,
+        "shared": true,
+        "cflags": [],
+        "cppflags": [],
+        "cxxflags": [],
+        "fflags": [],
+        "ldflags": [],
+        "ldlibs": []
+      },
+      "patches": [
+        "b050dbd8d832d13c8c7f69c903251fb6ce567abbfae75c6347e066585d032a7e"
+      ],
+      "package_hash": "lfeqplelvsgxdyp5odmvcv7uvrmg7fuq5kndgvfhpqul7nxk6nka====",
+      "dependencies": [
+        {
+          "name": "netcdf-c",
+          "hash": "i3inxzaihefr3rqljoovhyevwai6bsff",
+          "type": [
+            "build",
+            "link"
+          ]
+        }
+      ],
+      "hash": "mnx4gghyb5gngsl3fgosud6k72yu2u6a"
+    },
+    "i3inxzaihefr3rqljoovhyevwai6bsff": {
+      "name": "netcdf-c",
+      "version": "4.7.4",
+      "arch": {
+        "platform": "linux",
+        "platform_os": "rocky8",
+        "target": "x86_64"
+      },
+      "compiler": {
+        "name": "intel",
+        "version": "19.0.5.281"
+      },
+      "namespace": "builtin",
+      "parameters": {
+        "blosc": false,
+        "build_system": "autotools",
+        "byterange": false,
+        "dap": false,
+        "fsync": false,
+        "hdf4": false,
+        "jna": false,
+        "mpi": true,
+        "nczarr_zip": false,
+        "optimize": true,
+        "parallel-netcdf": false,
+        "pic": true,
+        "shared": true,
+        "szip": false,
+        "zstd": false,
+        "cflags": [],
+        "cppflags": [],
+        "cxxflags": [],
+        "fflags": [],
+        "ldflags": [],
+        "ldlibs": []
+      },
+      "package_hash": "4ex3dpxcvhdiavagnyts6fgmrpbzuvxofgqejwcnxsm6ycwqltlq====",
+      "dependencies": [
+        {
+          "name": "hdf5",
+          "hash": "a6mpuk7tw5e4pyukxwalooc7jfldalcf",
+          "type": [
+            "build",
+            "link"
+          ]
+        },
+        {
+          "name": "openmpi",
+          "hash": "4jwtg3nt7p3zsod4rvn3i3jyyop3arpe",
+          "type": [
+            "build",
+            "link"
+          ]
+        }
+      ],
+      "hash": "i3inxzaihefr3rqljoovhyevwai6bsff"
+    },
+    "a6mpuk7tw5e4pyukxwalooc7jfldalcf": {
+      "name": "hdf5",
+      "version": "1.14.1-2",
+      "arch": {
+        "platform": "linux",
+        "platform_os": "rocky8",
+        "target": "x86_64"
+      },
+      "compiler": {
+        "name": "intel",
+        "version": "19.0.5.281"
+      },
+      "namespace": "builtin",
+      "parameters": {
+        "api": "default",
+        "build_system": "cmake",
+        "build_type": "Release",
+        "cxx": false,
+        "fortran": false,
+        "generator": "make",
+        "hl": true,
+        "ipo": false,
+        "java": false,
+        "map": false,
+        "mpi": true,
+        "shared": true,
+        "szip": false,
+        "threadsafe": false,
+        "tools": true,
+        "cflags": [],
+        "cppflags": [],
+        "cxxflags": [],
+        "fflags": [],
+        "ldflags": [],
+        "ldlibs": []
+      },
+      "package_hash": "ackscm43ygyat7q6ync6gstltoe3reex776he4o2cko5gb3jfdzq====",
+      "dependencies": [
+        {
+          "name": "cmake",
+          "hash": "y2zohexf4krx5iurqq2dtu77vnm2tsee",
+          "type": [
+            "build"
+          ]
+        },
+        {
+          "name": "gmake",
+          "hash": "ugorlm6e6s5hkwsandqvyrdtwwq3mckf",
+          "type": [
+            "build"
+          ]
+        },
+        {
+          "name": "openmpi",
+          "hash": "4jwtg3nt7p3zsod4rvn3i3jyyop3arpe",
+          "type": [
+            "build",
+            "link"
+          ]
+        },
+        {
+          "name": "pkgconf",
+          "hash": "uyq7tvpnuuo3gosnplkvuxktaeeipuqk",
+          "type": [
+            "run"
+          ]
+        },
+        {
+          "name": "zlib",
+          "hash": "arj4bfz33zf63gvfionhorrrveci6kb4",
+          "type": [
+            "build",
+            "link"
+          ]
+        }
+      ],
+      "hash": "a6mpuk7tw5e4pyukxwalooc7jfldalcf"
+    },
+    "4jwtg3nt7p3zsod4rvn3i3jyyop3arpe": {
+      "name": "openmpi",
+      "version": "4.0.2",
+      "arch": {
+        "platform": "linux",
+        "platform_os": "rocky8",
+        "target": "x86_64"
+      },
+      "compiler": {
+        "name": "intel",
+        "version": "19.0.5.281"
+      },
+      "namespace": "builtin",
+      "parameters": {
+        "atomics": false,
+        "build_system": "autotools",
+        "cuda": false,
+        "cxx": false,
+        "cxx_exceptions": false,
+        "fabrics": [
+          "none"
+        ],
+        "gpfs": false,
+        "internal-hwloc": false,
+        "java": false,
+        "legacylaunchers": false,
+        "lustre": false,
+        "memchecker": false,
+        "orterunprefix": false,
+        "patches": [
+          "073477a76bba780c67c36e959cd3ee6910743e2735c7e76850ffba6791d498e4",
+          "60ce20bc14d98c572ef7883b9fcd254c3f232c2f3a13377480f96466169ac4c8"
+        ],
+        "romio": true,
+        "rsh": true,
+        "schedulers": [
+          "none"
+        ],
+        "singularity": false,
+        "static": true,
+        "vt": true,
+        "wrapper-rpath": true,
+        "cflags": [],
+        "cppflags": [],
+        "cxxflags": [],
+        "fflags": [],
+        "ldflags": [],
+        "ldlibs": []
+      },
+      "external": {
+        "path": "/apps/openmpi/4.0.2",
+        "module": [
+          "openmpi/4.0.2"
+        ],
+        "extra_attributes": {}
+      },
+      "patches": [
+        "073477a76bba780c67c36e959cd3ee6910743e2735c7e76850ffba6791d498e4",
+        "60ce20bc14d98c572ef7883b9fcd254c3f232c2f3a13377480f96466169ac4c8"
+      ],
+      "package_hash": "kgffaju2hauw5rx257bf7qtnvqaqldkqjv77mwtk4kuvoiz3jv5q====",
+      "hash": "4jwtg3nt7p3zsod4rvn3i3jyyop3arpe"
+    },
+    "uyq7tvpnuuo3gosnplkvuxktaeeipuqk": {
+      "name": "pkgconf",
+      "version": "1.9.5",
+      "arch": {
+        "platform": "linux",
+        "platform_os": "rocky8",
+        "target": "x86_64"
+      },
+      "compiler": {
+        "name": "intel",
+        "version": "19.0.5.281"
+      },
+      "namespace": "builtin",
+      "parameters": {
+        "build_system": "autotools",
+        "cflags": [],
+        "cppflags": [],
+        "cxxflags": [],
+        "fflags": [],
+        "ldflags": [],
+        "ldlibs": []
+      },
+      "package_hash": "mwcvsiv3j27l74xz4dejqp54ushfxa36bj25mwwg4dciaphqzpca====",
+      "hash": "uyq7tvpnuuo3gosnplkvuxktaeeipuqk"
+    },
+    "arj4bfz33zf63gvfionhorrrveci6kb4": {
+      "name": "zlib",
+      "version": "1.2.13",
+      "arch": {
+        "platform": "linux",
+        "platform_os": "rocky8",
+        "target": "x86_64"
+      },
+      "compiler": {
+        "name": "intel",
+        "version": "19.0.5.281"
+      },
+      "namespace": "builtin",
+      "parameters": {
+        "build_system": "makefile",
+        "optimize": true,
+        "pic": true,
+        "shared": true,
+        "cflags": [],
+        "cppflags": [],
+        "cxxflags": [],
+        "fflags": [],
+        "ldflags": [],
+        "ldlibs": []
+      },
+      "package_hash": "y6ahhnjjjsfh5dx2y7sci7fhthq5aolyl5dgwif57qqbtjxwdwbq====",
+      "hash": "arj4bfz33zf63gvfionhorrrveci6kb4"
+    },
+    "sh2anmtjrygzixya2fjc3p7cg4o5wc5h": {
+      "name": "oasis3-mct",
+      "version": "git.2023.11.09=2023.11.09",
+      "arch": {
+        "platform": "linux",
+        "platform_os": "rocky8",
+        "target": "x86_64"
+      },
+      "compiler": {
+        "name": "intel",
+        "version": "19.0.5.281"
+      },
+      "namespace": "access.nri",
+      "parameters": {
+        "build_system": "makefile",
+        "deterministic": false,
+        "optimisation_report": false,
+        "cflags": [],
+        "cppflags": [],
+        "cxxflags": [],
+        "fflags": [],
+        "ldflags": [],
+        "ldlibs": []
+      },
+      "package_hash": "62j5pm3s3oect5qz7wgydl6qkfd53hx2xc4x2yxi6urog3ha6fgq====",
+      "dependencies": [
+        {
+          "name": "netcdf-fortran",
+          "hash": "mnx4gghyb5gngsl3fgosud6k72yu2u6a",
+          "type": [
+            "build",
+            "link"
+          ]
+        },
+        {
+          "name": "openmpi",
+          "hash": "4jwtg3nt7p3zsod4rvn3i3jyyop3arpe",
+          "type": [
+            "build",
+            "link"
+          ]
+        }
+      ],
+      "hash": "sh2anmtjrygzixya2fjc3p7cg4o5wc5h"
+    },
+    "nwolfzy2xxb4wub65gmvlm3edhuolmlh": {
+      "name": "parallelio",
+      "version": "2.5.2",
+      "arch": {
+        "platform": "linux",
+        "platform_os": "rocky8",
+        "target": "x86_64"
+      },
+      "compiler": {
+        "name": "intel",
+        "version": "19.0.5.281"
+      },
+      "namespace": "builtin",
+      "parameters": {
+        "build_system": "cmake",
+        "build_type": "Release",
+        "fortran": true,
+        "generator": "make",
+        "ipo": false,
+        "logging": false,
+        "mpi": true,
+        "patches": [
+          "55a6d7aa1e99559e63feb2e6477ff847348655aba471a52a97764965067feb4d"
+        ],
+        "pnetcdf": false,
+        "shared": false,
+        "timing": false,
+        "cflags": [],
+        "cppflags": [],
+        "cxxflags": [],
+        "fflags": [],
+        "ldflags": [],
+        "ldlibs": []
+      },
+      "patches": [
+        "55a6d7aa1e99559e63feb2e6477ff847348655aba471a52a97764965067feb4d"
+      ],
+      "package_hash": "5pxyceubpjribfioey242eulwhjymc5xihwcz2vmayau6lm2a5aa====",
+      "dependencies": [
+        {
+          "name": "cmake",
+          "hash": "y2zohexf4krx5iurqq2dtu77vnm2tsee",
+          "type": [
+            "build"
+          ]
+        },
+        {
+          "name": "gmake",
+          "hash": "ugorlm6e6s5hkwsandqvyrdtwwq3mckf",
+          "type": [
+            "build"
+          ]
+        },
+        {
+          "name": "netcdf-c",
+          "hash": "i3inxzaihefr3rqljoovhyevwai6bsff",
+          "type": [
+            "link"
+          ]
+        },
+        {
+          "name": "netcdf-fortran",
+          "hash": "mnx4gghyb5gngsl3fgosud6k72yu2u6a",
+          "type": [
+            "link"
+          ]
+        },
+        {
+          "name": "openmpi",
+          "hash": "4jwtg3nt7p3zsod4rvn3i3jyyop3arpe",
+          "type": [
+            "build",
+            "link"
+          ]
+        }
+      ],
+      "hash": "nwolfzy2xxb4wub65gmvlm3edhuolmlh"
+    },
+    "qji4nlmr6utrribaiyhewe4je6mifguz": {
+      "name": "mom5",
+      "version": "git.2023.11.09=2023.11.09",
+      "arch": {
+        "platform": "linux",
+        "platform_os": "rocky8",
+        "target": "x86_64"
+      },
+      "compiler": {
+        "name": "intel",
+        "version": "19.0.5.281"
+      },
+      "namespace": "access.nri",
+      "parameters": {
+        "build_system": "makefile",
+        "deterministic": false,
+        "optimisation_report": false,
+        "restart_repro": true,
+        "type": "ACCESS-OM",
+        "cflags": [],
+        "cppflags": [],
+        "cxxflags": [],
+        "fflags": [],
+        "ldflags": [],
+        "ldlibs": []
+      },
+      "package_hash": "myhipjet4qjzqpg2jyh3ezpxeoflkjnuhpkwtsycm7erocwtjtza====",
+      "dependencies": [
+        {
+          "name": "datetime-fortran",
+          "hash": "aretozixwsdz42owabgzeiuxooyxrspg",
+          "type": [
+            "build",
+            "link"
+          ]
+        },
+        {
+          "name": "libaccessom2",
+          "hash": "ltfg7jcn6t4cefotvj3kjnyu5nru26xo",
+          "type": [
+            "build",
+            "link"
+          ]
+        },
+        {
+          "name": "netcdf-c",
+          "hash": "i3inxzaihefr3rqljoovhyevwai6bsff",
+          "type": [
+            "build",
+            "link"
+          ]
+        },
+        {
+          "name": "netcdf-fortran",
+          "hash": "mnx4gghyb5gngsl3fgosud6k72yu2u6a",
+          "type": [
+            "build",
+            "link"
+          ]
+        },
+        {
+          "name": "oasis3-mct",
+          "hash": "sh2anmtjrygzixya2fjc3p7cg4o5wc5h",
+          "type": [
+            "build",
+            "link"
+          ]
+        },
+        {
+          "name": "openmpi",
+          "hash": "4jwtg3nt7p3zsod4rvn3i3jyyop3arpe",
+          "type": [
+            "build",
+            "link"
+          ]
+        }
+      ],
+      "hash": "qji4nlmr6utrribaiyhewe4je6mifguz"
+    }
+  }
+}
