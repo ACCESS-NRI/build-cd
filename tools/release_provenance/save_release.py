@@ -57,7 +57,6 @@ def main():
     model_build = get_model_build(release_data["model_build"])
     get_component_build(release_data["component_build"], model_build)
     try:
-        #session.add(component_build)
         session.commit()
         print("release data added successfully")
 
