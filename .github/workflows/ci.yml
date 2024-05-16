@@ -30,6 +30,22 @@ on:
 env:
   SPACK_YAML_MODEL_YQ: .spack.specs[0]
 jobs:
+  defaults:
+    name: Set Defaults
+    # Unfortunately, you can't set a dynamic default value based on `inputs` yet
+    runs-on: ubuntu-latest
+    outputs:
+      root-sbd: ${{ steps.root-sbd.outputs.default }}
+    steps:
+      - name: root-sbd
+        id: root-sbd
+        run: |
+          if [[ "${{ inputs.root-sbd }}" == "" ]]; then
+            echo "default=${{ inputs.model }}" >> $GITHUB_OUTPUT
+          else
+            echo "default=${{ inputs.root-sbd }}" >> $GITHUB_OUTPUT
+          fi
+
   validate-json:
     name: Validate JSON
     uses: access-nri/actions/.github/workflows/validate-json.yml@main
@@ -60,22 +76,14 @@ jobs:
   check-spack-yaml:
     name: Check spack.yaml
     runs-on: ubuntu-latest
+    needs:
+      - defaults
     permissions:
       pull-requests: write
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Set root-sbd Default
-        id: default
-        # Unfortunately, you can't set a dynamic default value based on `inputs` yet
-        run: |
-          if [[ "${{ inputs.root-sbd }}" == "" ]]; then
-            echo "root-sbd=${{ inputs.model }}" >> $GITHUB_OUTPUT
-          else
-            echo "root-sbd=${{ inputs.root-sbd }}" >> $GITHUB_OUTPUT
-          fi
 
       - name: Validate ACCESS-NRI spack.yaml Restrictions
         uses: access-nri/build-cd/.github/actions/validate-spack-yaml@main
@@ -118,7 +126,7 @@ jobs:
           # for each of the modules
           for DEP in $DEPS; do
             DEP_VER=''
-            if [[ "$DEP" == "${{ steps.default.outputs.root-sbd }}" ]]; then
+            if [[ "$DEP" == "${{ needs.defaults.outputs.root-sbd }}" ]]; then
               DEP_VER=$(yq '.spack.specs[0] | split("@git.") | .[1]' spack.yaml)
             else
               DEP_VER=$(yq ".spack.packages.\"$DEP\".require[0] | split(\"@git.\") | .[1]" spack.yaml)
@@ -181,6 +189,7 @@ jobs:
     # This will create a `spack` environment with the name `<model>-pr<pull request number>-<commit number>`.
     # For example, `access-om3-pr13-3` for the deployment of access-om3 based on the third commit on the PR#13.
     needs:
+      - defaults  # so we can access `inputs.root-sbd` that could have defaulted to `inputs.model`
       - version-tag  # implies all the spack.yaml-related checks have passed, has appropriate version for the prerelease build
       - check-config  # implies all the json-related checks have passed
     uses: access-nri/build-cd/.github/workflows/deploy-1-setup.yml@main
@@ -188,12 +197,13 @@ jobs:
       type: prerelease
       ref: ${{ github.head_ref }}
       version: ${{ needs.version-tag.outputs.prerelease }}
-      root-sbd: ${{ inputs.root-sbd }}
+      root-sbd: ${{ needs.defaults.outputs.root-sbd }}
     secrets: inherit
 
   notifier:
     name: Notifier
     needs:
+      - defaults  # so we can access `inputs.root-sbd` that could have defaulted to `inputs.model`
       - version-tag  # implies all the spack.yaml-related checks have passed, has appropriate version for the prerelease build
       - check-config  # implies all the json-related checks have passed
     runs-on: ubuntu-latest
@@ -203,13 +213,15 @@ jobs:
       - uses: access-nri/actions/.github/actions/pr-comment@main
         with:
           comment: |
-            This `${{ inputs.model }}` model will be deployed with the following versions:
+            This `${{ inputs.model }}` model will be deployed as:
             * `${{ needs.version-tag.outputs.release }}` as a Release (when merged).
-            * `${{ needs.version-tag.outputs.prerelease }}` as a Prerelease (during this PR). This can be accessed on `Gadi` via `spack` at `/g/data/vk83/prerelease/apps/spack/0.20/spack` once deployed.
+            * `${{ needs.version-tag.outputs.prerelease }}` as a Prerelease (during this PR).
+
+            This Prerelease is accessible on Gadi using `module use /g/data/vk83/prerelease/modules/access-models/ && module load ${{ needs.defaults.outputs.root-sbd }}/${{ needs.version-tag.outputs.prerelease }}`, where the binaries shall be on your `$PATH`.
+            This Prerelease is also accessible on Gadi via `/g/data/vk83/prerelease/apps/spack/0.21/spack` in the `${{ needs.defaults.outputs.root-sbd }}-${{ needs.version-tag.outputs.prerelease }}` environment.
 
             It will be deployed using:
             * `access-nri/spack-packages` version [`${{ needs.check-config.outputs.spack-packages-version }}`](https://github.com/ACCESS-NRI/spack-packages/releases/tag/${{ needs.check-config.outputs.spack-packages-version }})
             * `access-nri/spack-config` version [`${{ needs.check-config.outputs.spack-config-version }}`](https://github.com/ACCESS-NRI/spack-config/releases/tag/${{ needs.check-config.outputs.spack-config-version }})
 
             If this is not what was expected, commit changes to `config/versions.json`.
-
