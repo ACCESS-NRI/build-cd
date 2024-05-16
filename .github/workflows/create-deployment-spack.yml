@@ -28,6 +28,13 @@ on:
           A path in the deployment environment where Spack should be created.
           For example, if it is `opt/spack`, spack will be installed under `opt/spack/<spack-version>/`
 jobs:
+  log-inputs:
+    name: Log Inputs
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo '::notice::url = `${{ inputs.spack-git-url }}`, spack version = `${{ inputs.spack-version }}`, spack-packages version = `${{ inputs.spack-packages-version }}`, spack-config version = `${{ inputs.spack-config-version }}`, deployment location = `${{ inputs.deployment-location }}`'
+
   create-spack:
     name: Spack
     runs-on: ubuntu-latest
