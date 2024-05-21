@@ -74,6 +74,6 @@ jobs:
           mkdir -p $TMPDIR/restricted/spack-stage
 
           setfacl --recursive -m \
-            "g:vk83_w:r-X,g:ki32_mosrs:r-X,g:vk83:---,other::---,d:g:vk83_w:r-X,d:g:ki32_mosrs:r-X,d:g:vk83:---,d:other::---" \
+            "g:vk83_w:r-X,g:ki32_mosrs:r-X,g::---,other::---,d:g:vk83_w:r-X,d:g:ki32_mosrs:r-X,d:g::---,d:other::---" \
             ${{ env.ROOT_VERSION_LOCATION }}/restricted $TMPDIR/restricted
           EOT
