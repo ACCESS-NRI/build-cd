@@ -58,7 +58,7 @@ jobs:
       - uses: access-nri/schema/.github/actions/validate-with-schema@main
         with:
           schema-version: 2-0-0
-          schema-location: au.org.access-nri/model/deployment/config/versions/
+          schema-location: au.org.access-nri/model/deployment/config/versions
           data-location: ./config/versions.json
 
       - name: Validate spack-packages version
