@@ -96,6 +96,13 @@ jobs:
         id: version
         run: |
           git checkout ${{ github.base_ref }}
+
+          if [ ! -f spack.yaml ]; then
+            echo "::notice::There is no previous version of the spack.yaml to check, continuing..."
+            git checkout ${{ github.head_ref }}
+            exit 0
+          fi
+
           base_version=$(yq e '${{ env.SPACK_YAML_MODEL_YQ }}' spack.yaml)
 
           git checkout ${{ github.head_ref }}
