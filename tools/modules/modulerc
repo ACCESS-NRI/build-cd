@@ -1,0 +1,18 @@
+#%Module
+
+set module_directories [glob -type d /g/data/vk83/apps/spack/*/release/modules/linux-rocky8-x86_64/ ]
+
+# Loop over all release module directories
+foreach module_directory $module_directories {
+
+    # Find all the module files
+    set modfiles [split [exec find $module_directory -type f -not -name ".*"] \n]
+    
+    # Create a virtual module for each one
+    foreach modfile $modfiles {
+        set pathElements [file split $modfile]
+        set module_version [file join {*}[lrange $pathElements end-1 end]]
+        # puts stderr "module-virtual $module_version $modfile"
+        module-virtual $module_version $modfile
+    }
+}
