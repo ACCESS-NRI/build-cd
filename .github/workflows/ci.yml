@@ -197,7 +197,7 @@ jobs:
             git push --tags
             echo "::notice::Pushed prerelease ${{ steps.version.outputs.release }} tag on ${{ github.head_ref }}"
           else
-            commit=$(git rev-list -n 1 tags/${{ steps.version.outputs.version }})
+            commit=$(git rev-list -n 1 tags/${{ steps.version.outputs.release }})
             echo "Didn't push prerelease ${{ steps.version.outputs.release }} as one already exists on $commit"
           fi
 
