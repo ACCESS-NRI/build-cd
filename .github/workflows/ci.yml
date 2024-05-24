@@ -184,14 +184,22 @@ jobs:
           number_of_commits=$(git rev-list --count ${{ github.event.pull_request.base.sha }}..HEAD)
           echo "prerelease=pr${{ github.event.pull_request.number }}-${number_of_commits}" >> $GITHUB_OUTPUT
 
-      - name: Shift Prerelease Tag ${{ steps.version.outputs.release }}
-        # We shift the 'Release' tag along the PR as the spack.yaml will not work without the correct tag in this repostiory.
-        # NOTE: Regarding the config user.name/user.email, see https://github.com/actions/checkout/pull/1184
+      - name: Tag ${{ steps.version.outputs.release }} for SBD Git Resolution
+        # We create this initial 'Release' tag on the PR as the overall version
+        # of the deployment (for example, `access-om2@git.2024.05.0`) will not
+        # work without the tag in the model repostiory.
         run: |
           git config user.name ${{ vars.GH_ACTIONS_BOT_GIT_USER_NAME }}
           git config user.email ${{ vars.GH_ACTIONS_BOT_GIT_USER_EMAIL }}
-          git tag ${{ steps.version.outputs.release }} --force
-          git push --tags --force
+
+          if [ ! $(git tag --list "${{ steps.version.outputs.release }}") ]; then
+            git tag ${{ steps.version.outputs.release }}
+            git push --tags
+            echo "::notice::Pushed prerelease ${{ steps.version.outputs.release }} tag on ${{ github.head_ref }}"
+          else
+            commit=$(git rev-list -n 1 tags/${{ steps.version.outputs.version }})
+            echo "Didn't push prerelease ${{ steps.version.outputs.release }} as one already exists on $commit"
+          fi
 
   # -----------------------------
   # | PRERELEASE DEPLOYMENT JOB |
