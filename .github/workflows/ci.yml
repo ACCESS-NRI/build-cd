@@ -139,9 +139,9 @@ jobs:
             if [[ "$DEP" == "${{ needs.defaults.outputs.root-sbd }}" ]]; then
               DEP_VER=$(yq '.spack.specs[0] | split("@git.") | .[1]' spack.yaml)
             else
-              # Capture the section after '@git.' or '@' (if it's not a git-attributed version) for a given dependency.
-              # Ex. '@git.2024.02.11' -> '2024.02.11', '@access-esm1.5' -> 'access-esm1.5'
-              DEP_VER=$(yq ".spack.packages.\"$DEP\".require[0] | match(\"^@(?:git.)?(.*)\").captures[0].string" spack.yaml)
+              # Capture the section after '@git.' or '@' (if it's not a git-attributed version) and before a possible '=' for a given dependency.
+              # Ex. '@git.2024.02.11' -> '2024.02.11', '@access-esm1.5' -> 'access-esm1.5', '@git.2024.05.21=access-esm1.5' -> '2024.05.21'
+              DEP_VER=$(yq ".spack.packages.\"$DEP\".require[0] | match(\"^@(?:git.)?([^=]*)\").captures[0].string" spack.yaml)
             fi
 
             MODULE_VER=$(yq ".spack.modules.default.tcl.projections.\"$DEP\" | split(\"/\") | .[1]" spack.yaml)
