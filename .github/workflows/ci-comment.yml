@@ -48,40 +48,7 @@ jobs:
         #   version: The version that will be bumped (could be latest tag instead of original-version)
         #   bump: The bump type (major, minor or current as specified in the bump-version action)
         run: |
-          # Get the version of ${{ inputs.root-sbd }} from the spack.yaml in the PR the comment was written in
-          gh pr checkout ${{ github.event.issue.number }}
-          original_version=$(yq e '${{ env.SPACK_YAML_MODEL_YQ }} | split("@git.") | .[1]' spack.yaml)
-          echo "original-version=${original_version}" >> $GITHUB_OUTPUT
-
-          # Validate the comment
-          if [[ "${{ contains(github.event.comment.body, 'major') }}" == "true" ]]; then
-            # Compare the current date (year-month) with the latest git tag (year-month)
-            # to determine the next valid tag. We do this because especially feature-rich
-            # months might increment the date part beyond the current date.
-
-            d="$(date +%Y-%m)-01"
-            d_s=$(date --date "$d" +%s)
-
-            latest_tag=$(git describe --tags --abbrev=0 | tr '.' '-')
-            tag_date=${latest_tag%-*}-01
-            tag_date_s=$(date --date "$tag_date" +%s)
-
-            echo "Comparing current date ${d} with ${tag_date} (tag looks like ${latest_tag})"
-
-            if (( d_s <= tag_date_s )); then
-              echo "version=${tag_date}" >> $GITHUB_OUTPUT
-              echo "bump=major" >> $GITHUB_OUTPUT
-            else
-              echo "version=${original_version}" >> $GITHUB_OUTPUT
-              echo "bump=current" >> $GITHUB_OUTPUT
-            fi
-          elif [[ "${{ contains(github.event.comment.body, 'minor')}}" == "true" ]]; then
-            echo "version=${original_version}" >> $GITHUB_OUTPUT
-            echo "bump=minor" >> $GITHUB_OUTPUT
-          else
-            echo "::warning::Usage: `!bump [major|minor]`, got `${{ github.event.comment.body }}`"
-            exit 1
-          fi
+          ./scripts/ci-comment/setup-bump-args.bash ${{ github.event.issue.number }} "${{ github.event.issue.comment }}"
 
       - name: Bump Version
         id: bump
