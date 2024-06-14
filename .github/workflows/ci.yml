@@ -57,7 +57,7 @@ jobs:
 
       - uses: access-nri/schema/.github/actions/validate-with-schema@main
         with:
-          schema-version: 2-0-0
+          schema-version: ${{ vars.CONFIG_VERSIONS_SCHEMA_VERSION }}
           schema-location: au.org.access-nri/model/deployment/config/versions
           data-location: ./config/versions.json
 
@@ -88,7 +88,7 @@ jobs:
       - name: Validate ACCESS-NRI spack.yaml Restrictions
         uses: access-nri/schema/.github/actions/validate-with-schema@main
         with:
-          schema-version: 1-0-1
+          schema-version: ${{ vars.SPACK_YAML_SCHEMA_VERSION }}
           schema-location: au.org.access-nri/model/spack/environment/deployment
           data-location: ./spack.yaml
 
@@ -233,15 +233,22 @@ jobs:
       - uses: access-nri/actions/.github/actions/pr-comment@main
         with:
           comment: |
+            <details>
+            <summary>:rocket: Deploying ${{ inputs.model }} `${{ needs.version-tag.outputs.release }}` as Prerelease `${{ needs.version-tag.outputs.prerelease }}`</summary>
+
             This `${{ inputs.model }}` model will be deployed as:
             * `${{ needs.version-tag.outputs.release }}` as a Release (when merged).
             * `${{ needs.version-tag.outputs.prerelease }}` as a Prerelease (during this PR).
 
             This Prerelease is accessible on Gadi using `module use /g/data/vk83/prerelease/modules/access-models/ && module load ${{ needs.defaults.outputs.root-sbd }}/${{ needs.version-tag.outputs.prerelease }}`, where the binaries shall be on your `$PATH`.
             This Prerelease is also accessible on Gadi via `/g/data/vk83/prerelease/apps/spack/0.21/spack` in the `${{ needs.defaults.outputs.root-sbd }}-${{ needs.version-tag.outputs.prerelease }}` environment.
+            </details>
+            <details>
+            <summary>:hammer_and_wrench: Using: spack-packages `${{ needs.check-config.outputs.spack-packages-version}}`, spack-config `${{ needs.check-config.outputs.spack-config-version }}`</summary>
 
             It will be deployed using:
             * `access-nri/spack-packages` version [`${{ needs.check-config.outputs.spack-packages-version }}`](https://github.com/ACCESS-NRI/spack-packages/releases/tag/${{ needs.check-config.outputs.spack-packages-version }})
             * `access-nri/spack-config` version [`${{ needs.check-config.outputs.spack-config-version }}`](https://github.com/ACCESS-NRI/spack-config/releases/tag/${{ needs.check-config.outputs.spack-config-version }})
 
             If this is not what was expected, commit changes to `config/versions.json`.
+            </details>
