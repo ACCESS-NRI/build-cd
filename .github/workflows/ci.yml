@@ -241,7 +241,12 @@ jobs:
             * `${{ needs.version-tag.outputs.release }}` as a Release (when merged).
             * `${{ needs.version-tag.outputs.prerelease }}` as a Prerelease (during this PR).
 
-            This Prerelease is accessible on Gadi using `module use /g/data/vk83/prerelease/modules/access-models/ && module load ${{ needs.defaults.outputs.root-sbd }}/${{ needs.version-tag.outputs.prerelease }}`, where the binaries shall be on your `$PATH`.
+            This Prerelease is accessible on Gadi using:
+            ```bash
+            module use /g/data/vk83/prerelease/modules/access-models/
+            module load ${{ needs.defaults.outputs.root-sbd }}/${{ needs.version-tag.outputs.prerelease }}
+            ```
+            where the binaries shall be on your `$PATH`.
             This Prerelease is also accessible on Gadi via `/g/data/vk83/prerelease/apps/spack/0.21/spack` in the `${{ needs.defaults.outputs.root-sbd }}-${{ needs.version-tag.outputs.prerelease }}` environment.
             </details>
             :hammer_and_wrench: Using: spack-packages `${{ needs.check-config.outputs.spack-packages-version}}`, spack-config `${{ needs.check-config.outputs.spack-config-version }}`
