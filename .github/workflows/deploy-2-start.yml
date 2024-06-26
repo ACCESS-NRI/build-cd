@@ -148,10 +148,10 @@ jobs:
           generate_release_notes: true
           fail_on_unmatched_files: true
           files: |
-            ./${{ env.METADATA_PATH }}/spack.yaml
-            ./${{ env.METADATA_PATH }}/spack.lock
-            ./${{ env.METADATA_PATH }}/spack.location
-            ./${{ env.METADATA_PATH }}/spack.location.json
+            ${{ env.METADATA_PATH }}/spack.yaml
+            ${{ env.METADATA_PATH }}/spack.lock
+            ${{ env.METADATA_PATH }}/spack.location
+            ${{ env.METADATA_PATH }}/spack.location.json
 
       - name: Release Metadata
         id: metadata
