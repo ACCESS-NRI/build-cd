@@ -62,7 +62,7 @@ for pkg in "${packages[@]}"; do
 
   install_path=$(jq --raw-output \
     --arg pkg_hash "$pkg_hash" \
-    'to_entries[] | select(.key == $pkg_hash) | .value.path' \
+    'to_entries[] | select(.key == $pkg_hash) | .value' \
     "$json_dir/spack.location.json"
   )
 
