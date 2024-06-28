@@ -33,6 +33,7 @@ on:
         default: ${{ inputs.model }}
         description: The root SBD that is being used as the modulefile name
 env:
+  SPACK_YAML_SPEC_YQ: .spack.specs[0]
   SPACK_YAML_MODULEFILE_PROJECTION_YQ: .spack.modules.default.tcl.projections.${{ inputs.root-sbd }}
   METADATA_PATH: /opt/metadata
 jobs:
@@ -64,11 +65,14 @@ jobs:
             ${{ secrets.HOST }}
             ${{ secrets.HOST_DATA }}
 
-      - name: Prerelease Modulefile Name
+      - name: Prerelease spack.yaml Modifications
         if: inputs.type == 'prerelease'
         # Modifies the name of the prerelease modulefile to the
-        # `pr<number>-<commit>` style. For example, `access-om3/pr12-2`
+        # `pr<number>-<commit>` style. For example, `access-om3/pr12-2`.
+        # Also removes the `@git.VERSION` specifier for Prereleases so
+        # we don't have to shift tags around.
         run: |
+          yq -i '${{ env.SPACK_YAML_SPEC_YQ }} = (${{ env.SPACK_YAML_SPEC_YQ }} | split("@").[0])' spack.yaml
           yq -i '${{ env.SPACK_YAML_MODULEFILE_PROJECTION_YQ }} = "{name}/${{ inputs.version }}"' spack.yaml
           echo "::notice::Prerelease accessible as module `${{ inputs.model}}/${{ inputs.version }}`"
 
