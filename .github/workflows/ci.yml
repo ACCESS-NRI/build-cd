@@ -199,7 +199,7 @@ jobs:
     with:
       type: prerelease
       ref: ${{ github.head_ref }}
-      version: ${{ needs.version-tag.outputs.prerelease }}
+      version: ${{ needs.version.outputs.prerelease }}
       root-sbd: ${{ needs.defaults.outputs.root-sbd }}
     secrets: inherit
 
@@ -216,21 +216,21 @@ jobs:
       - uses: access-nri/actions/.github/actions/pr-comment@main
         with:
           comment: |
-            :rocket: Deploying ${{ inputs.model }} `${{ needs.version-tag.outputs.release }}` as prerelease `${{ needs.version-tag.outputs.prerelease }}`
+            :rocket: Deploying ${{ inputs.model }} `${{ needs.version.outputs.release }}` as prerelease `${{ needs.version.outputs.prerelease }}`
             <details>
             <summary>Details and usage instructions</summary>
 
             This `${{ inputs.model }}` model will be deployed as:
-            * `${{ needs.version-tag.outputs.release }}` as a Release (when merged).
-            * `${{ needs.version-tag.outputs.prerelease }}` as a Prerelease (during this PR).
+            * `${{ needs.version.outputs.release }}` as a Release (when merged).
+            * `${{ needs.version.outputs.prerelease }}` as a Prerelease (during this PR).
 
             This Prerelease is accessible on Gadi using:
             ```bash
             module use /g/data/vk83/prerelease/modules/access-models/
-            module load ${{ needs.defaults.outputs.root-sbd }}/${{ needs.version-tag.outputs.prerelease }}
+            module load ${{ needs.defaults.outputs.root-sbd }}/${{ needs.version.outputs.prerelease }}
             ```
             where the binaries shall be on your `$PATH`.
-            This Prerelease is also accessible on Gadi via `/g/data/vk83/prerelease/apps/spack/0.21/spack` in the `${{ needs.defaults.outputs.root-sbd }}-${{ needs.version-tag.outputs.prerelease }}` environment.
+            This Prerelease is also accessible on Gadi via `/g/data/vk83/prerelease/apps/spack/0.21/spack` in the `${{ needs.defaults.outputs.root-sbd }}-${{ needs.version.outputs.prerelease }}` environment.
             </details>
             :hammer_and_wrench: Using: spack-packages `${{ needs.check-config.outputs.spack-packages-version}}`, spack-config `${{ needs.check-config.outputs.spack-config-version }}`
             <details>
