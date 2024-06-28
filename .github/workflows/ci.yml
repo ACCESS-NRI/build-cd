@@ -155,8 +155,8 @@ jobs:
             exit 1
           fi
 
-  version-tag:
-    name: Get Version and Tag Prerelease
+  version:
+    name: Get Version
     needs:
       - check-spack-yaml
     runs-on: ubuntu-latest
@@ -184,23 +184,6 @@ jobs:
           number_of_commits=$(git rev-list --count ${{ github.event.pull_request.base.sha }}..HEAD)
           echo "prerelease=pr${{ github.event.pull_request.number }}-${number_of_commits}" >> $GITHUB_OUTPUT
 
-      - name: Tag ${{ steps.version.outputs.release }} for SBD Git Resolution
-        # We create this initial 'Release' tag on the PR as the overall version
-        # of the deployment (for example, `access-om2@git.2024.05.0`) will not
-        # work without the tag in the model repostiory.
-        run: |
-          git config user.name ${{ vars.GH_ACTIONS_BOT_GIT_USER_NAME }}
-          git config user.email ${{ vars.GH_ACTIONS_BOT_GIT_USER_EMAIL }}
-
-          if [ ! $(git tag --list "${{ steps.version.outputs.release }}") ]; then
-            git tag ${{ steps.version.outputs.release }}
-            git push --tags
-            echo "::notice::Pushed prerelease ${{ steps.version.outputs.release }} tag on ${{ github.head_ref }}"
-          else
-            commit=$(git rev-list -n 1 tags/${{ steps.version.outputs.release }})
-            echo "Didn't push prerelease ${{ steps.version.outputs.release }} as one already exists on $commit"
-          fi
-
   # -----------------------------
   # | PRERELEASE DEPLOYMENT JOB |
   # -----------------------------
@@ -210,7 +193,7 @@ jobs:
     # For example, `access-om3-pr13-3` for the deployment of access-om3 based on the third commit on the PR#13.
     needs:
       - defaults  # so we can access `inputs.root-sbd` that could have defaulted to `inputs.model`
-      - version-tag  # implies all the spack.yaml-related checks have passed, has appropriate version for the prerelease build
+      - version  # implies all the spack.yaml-related checks have passed, has appropriate version for the prerelease build
       - check-config  # implies all the json-related checks have passed
     uses: access-nri/build-cd/.github/workflows/deploy-1-setup.yml@main
     with:
@@ -224,7 +207,7 @@ jobs:
     name: Notifier
     needs:
       - defaults  # so we can access `inputs.root-sbd` that could have defaulted to `inputs.model`
-      - version-tag  # implies all the spack.yaml-related checks have passed, has appropriate version for the prerelease build
+      - version  # implies all the spack.yaml-related checks have passed, has appropriate version for the prerelease build
       - check-config  # implies all the json-related checks have passed
     runs-on: ubuntu-latest
     permissions:
