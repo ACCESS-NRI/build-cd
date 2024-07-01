@@ -16,6 +16,27 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ inputs.deployment-environment }}
     steps:
+      - uses: actions/checkout@v4
+
+      - name: Get Versions From config/versions.json
+        id: versions
+        run: |
+          echo "spack=$(jq --compact-output --raw-output '.spack' ./config/versions.json)" >> $GITHUB_OUTPUT
+          echo "config=$(jq --compact-output --raw-output '."spack-config"' ./config/versions.json)" >> $GITHUB_OUTPUT
+
+      - name: Get ${{ inputs.deployment-environment }} Remote Paths
+        id: path
+        run: |
+          if [ -z "${{ vars.SPACK_INSTALLS_ROOT_LOCATION }}" ]; then
+            echo '::error::`vars.SPACK_INSTALLS_ROOT_LOCATION` does not exist in `${{ github.repository }}`s `${{ inputs.deployment-environment }}` environment'
+            exit 1
+          fi
+
+          root=${{ vars.SPACK_INSTALLS_ROOT_LOCATION }}/${{ steps.versions.outputs.spack }}
+          echo "root=$root" >> $GITHUB_OUTPUT
+          echo "spack=$root/spack" >> $GITHUB_OUTPUT
+          echo "spack-config=$root/spack-config" >> $GITHUB_OUTPUT
+
       - name: Setup SSH
         id: ssh
         uses: access-nri/actions/.github/actions/setup-ssh@main
@@ -30,8 +51,8 @@ jobs:
         id: undeploy
         run: |
           ssh ${{ secrets.USER}}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
-          . ${{ vars.SPACK_CONFIG_LOCATION }}/spack-enable.bash
-          envs=$(find ${{ vars.SPACK_LOCATION }}/var/spack/environments -type d -name '${{ inputs.env-name }}' -printf '%f ')
+          . ${{ steps.path.outputs.spack-config }}/spack-enable.bash
+          envs=$(find ${{ steps.path.outputs.spack }}/var/spack/environments -type d -name '${{ inputs.env-name }}' -printf '%f ')
 
           for env in $envs; do
             spack env activate $env
@@ -46,7 +67,7 @@ jobs:
         if: always()
         run: |
           if [[ "${{ steps.undeploy.outcome }}" == "success" ]]; then
-            echo "::notice::Deployment ${{ inputs.env-name }} was successfully removed from ${{ inputs.deployment-environment }}, found at ${{ vars.SPACK_LOCATION }}"
+            echo "::notice::Deployment ${{ inputs.env-name }} was successfully removed from ${{ inputs.deployment-environment }}, found at ${{ steps.path.outputs.spack }}"
           else
-            echo "::error::Deployment ${{ inputs.env-name }} couldn't be removed from ${{ inputs.deployment-environment}}, found at ${{ vars.SPACK_LOCATION }}. Please check manually."
+            echo "::error::Deployment ${{ inputs.env-name }} couldn't be removed from ${{ inputs.deployment-environment}}, found at ${{ steps.path.outputs.spack }}. Please check manually."
           fi
