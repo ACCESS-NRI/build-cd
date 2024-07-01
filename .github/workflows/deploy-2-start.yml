@@ -60,6 +60,11 @@ jobs:
       - name: Get ${{ inputs.deployment-environment }} Remote Paths
         id: path
         run: |
+          if [ -z "${{ vars.SPACK_INSTALLS_ROOT_LOCATION }}" ]; then
+            echo '::error::`vars.SPACK_INSTALLS_ROOT_LOCATION` does not exist in `${{ github.repository }}`s `${{ inputs.deployment-environment }}` environment'
+            exit 1
+          fi
+
           root=${{ vars.SPACK_INSTALLS_ROOT_LOCATION }}/${{ steps.versions.outputs.spack }}
           echo "root=$root" >> $GITHUB_OUTPUT
           echo "spack=$root/spack" >> $GITHUB_OUTPUT
@@ -96,6 +101,12 @@ jobs:
         # ssh into deployment environment, create and activate the env, install the spack.yaml.
         run: |
           ssh ${{ secrets.USER}}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
+          # Check that a suitable deployment location exists
+          if [ ! -d "${{ steps.path.outputs.root }}" ]; then
+            echo '::error::A deployment of spack does not exist in `${{ steps.path.outputs.root }}` for `${{ inputs.deployment-environment }}`'
+            exit 1
+          fi
+
           # Update spack-packages/config
           git -C ${{ steps.path.outputs.spack-packages }} fetch
           git -C ${{ steps.path.outputs.spack-packages }} checkout --force ${{ steps.versions.outputs.packages }}
