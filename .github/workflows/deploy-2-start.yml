@@ -89,7 +89,7 @@ jobs:
         run: |
           rsync -e 'ssh -i ${{ steps.ssh.outputs.private-key-path }}' \
             spack.yaml \
-            ${{ secrets.USER }}@${{ secrets.HOST_DATA }}:${{ vars.SPACK_YAML_LOCATION }}
+            ${{ secrets.USER }}@${{ secrets.HOST_DATA }}:${{ vars.SPACK_YAML_LOCATION }}/${{ inputs.model }}.spack.yaml
 
       - name: Deploy to ${{ inputs.deployment-environment }}
         # ssh into deployment environment, create and activate the env, install the spack.yaml.
@@ -111,7 +111,7 @@ jobs:
           . ${{ steps.path.outputs.spack-config }}/spack-enable.bash
 
           # Create environment and build model
-          spack env create ${{ inputs.env-name }} ${{ vars.SPACK_YAML_LOCATION }}/spack.yaml
+          spack env create ${{ inputs.env-name }} ${{ vars.SPACK_YAML_LOCATION }}/${{ inputs.model }}.spack.yaml
           spack env activate ${{ inputs.env-name }}
           spack --debug install --fresh ${{ vars.SPACK_INSTALL_PARALLEL_JOBS }} || exit $?
           spack module tcl refresh -y
