@@ -10,6 +10,13 @@ on:
         type: string
         required: true
         description: The model that is being tested and deployed
+      root-sbd:
+        type: string
+        required: false
+        # default: The ${{ inputs.model }} above
+        description: |
+          The name of the root Spack Bundle Definition, if it is different from the model name.
+          This is often a package named similarly in ACCESS-NRI/spack-packages.
   # Callers usually have the trigger:
   # push:
   #   branches:
@@ -22,6 +29,22 @@ on:
 env:
   SPACK_YAML_MODEL_YQ: .spack.specs[0]
 jobs:
+  defaults:
+    name: Set Defaults
+    # Unfortunately, you can't set a dynamic default value based on `inputs` yet
+    runs-on: ubuntu-latest
+    outputs:
+      root-sbd: ${{ steps.root-sbd.outputs.default }}
+    steps:
+      - name: root-sbd
+        id: root-sbd
+        run: |
+          if [ -z "${{ inputs.root-sbd }}" ]; then
+            echo "default=${{ inputs.model }}" >> $GITHUB_OUTPUT
+          else
+            echo "default=${{ inputs.root-sbd }}" >> $GITHUB_OUTPUT
+          fi
+
   push-tag:
     name: Tag Deployment
     runs-on: ubuntu-latest
@@ -49,11 +72,13 @@ jobs:
   deploy-release:
     name: Deploy Release
     needs:
+      - defaults
       - push-tag
     uses: access-nri/build-cd/.github/workflows/deploy-1-setup.yml@main
     with:
       ref: ${{ github.ref_name }}
       version: ${{ needs.push-tag.outputs.name }}
+      root-sbd: ${{ needs.defaults.outputs.root-sbd }}
     secrets: inherit
     permissions:
       contents: write

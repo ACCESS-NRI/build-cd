@@ -29,8 +29,7 @@ on:
         description: The GitHub deployment environment name
       root-sbd:
         type: string
-        required: false
-        default: ${{ inputs.model }}
+        required: true
         description: The root SBD that is being used as the modulefile name
 env:
   SPACK_YAML_SPEC_YQ: .spack.specs[0]

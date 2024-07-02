@@ -17,7 +17,7 @@ on:
         description: The version for the model being deployed
       root-sbd:
         type: string
-        required: false
+        required: true
         description: The root SBD that is being used as the modulefile name
 
 jobs:
