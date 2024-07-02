@@ -50,11 +50,20 @@ jobs:
         with:
           ref: ${{ inputs.ref }}
 
-      - name: Get packages and config versions
+      - name: Get Versions From config/versions.json
         id: versions
         run: |
+          echo "spack=$(jq --compact-output --raw-output '.spack' ./config/versions.json)" >> $GITHUB_OUTPUT
           echo "packages=$(jq --compact-output --raw-output '."spack-packages"' ./config/versions.json)" >> $GITHUB_OUTPUT
           echo "config=$(jq --compact-output --raw-output '."spack-config"' ./config/versions.json)" >> $GITHUB_OUTPUT
+
+      - name: Get ${{ inputs.deployment-environment }} Remote Paths
+        id: path
+        uses: access-nri/build-cd/.github/actions/get-deploy-paths@main
+        with:
+          spack-installs-root-path: ${{ vars.SPACK_INSTALLS_ROOT_LOCATION }}
+          spack-version: ${{ steps.versions.outputs.spack }}
+          deployment-environment: ${{ inputs.deployment-environment }}
 
       - name: Setup SSH
         id: ssh
@@ -74,46 +83,52 @@ jobs:
         run: |
           yq -i '${{ env.SPACK_YAML_SPEC_YQ }} = (${{ env.SPACK_YAML_SPEC_YQ }} | split("@").[0])' spack.yaml
           yq -i '${{ env.SPACK_YAML_MODULEFILE_PROJECTION_YQ }} = "{name}/${{ inputs.version }}"' spack.yaml
-          echo "::notice::Prerelease accessible as module `${{ inputs.model}}/${{ inputs.version }}`"
+          echo '::notice::Prerelease accessible as module `${{ inputs.model}}/${{ inputs.version }}`'
 
       - name: Copy spack.yaml
         run: |
           rsync -e 'ssh -i ${{ steps.ssh.outputs.private-key-path }}' \
             spack.yaml \
-            ${{ secrets.USER }}@${{ secrets.HOST_DATA }}:${{ vars.SPACK_YAML_LOCATION }}
+            ${{ secrets.USER }}@${{ secrets.HOST_DATA }}:${{ vars.SPACK_YAML_LOCATION }}/${{ inputs.model }}.spack.yaml
 
       - name: Deploy to ${{ inputs.deployment-environment }}
         # ssh into deployment environment, create and activate the env, install the spack.yaml.
         run: |
           ssh ${{ secrets.USER}}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
+          # Check that a suitable deployment location exists
+          if [ ! -d "${{ steps.path.outputs.root }}" ]; then
+            echo '::error::A deployment of spack does not exist in `${{ steps.path.outputs.root }}` for `${{ inputs.deployment-environment }}`'
+            exit 1
+          fi
+
           # Update spack-packages/config
-          git -C ${{ vars.SPACK_PACKAGES_LOCATION }} fetch
-          git -C ${{ vars.SPACK_PACKAGES_LOCATION }} checkout --force ${{ steps.versions.outputs.packages }}
-          git -C ${{ vars.SPACK_CONFIG_LOCATION }} fetch
-          git -C ${{ vars.SPACK_CONFIG_LOCATION }} checkout --force ${{ steps.versions.outputs.config }}
+          git -C ${{ steps.path.outputs.spack-packages }} fetch
+          git -C ${{ steps.path.outputs.spack-packages }} checkout --force ${{ steps.versions.outputs.packages }}
+          git -C ${{ steps.path.outputs.spack-config }} fetch
+          git -C ${{ steps.path.outputs.spack-config }} checkout --force ${{ steps.versions.outputs.config }}
 
           # Enable spack
-          . ${{ vars.SPACK_CONFIG_LOCATION }}/spack-enable.bash
+          . ${{ steps.path.outputs.spack-config }}/spack-enable.bash
 
           # Create environment and build model
-          spack env create ${{ inputs.env-name }} ${{ vars.SPACK_YAML_LOCATION }}/spack.yaml
+          spack env create ${{ inputs.env-name }} ${{ vars.SPACK_YAML_LOCATION }}/${{ inputs.model }}.spack.yaml
           spack env activate ${{ inputs.env-name }}
           spack --debug install --fresh ${{ vars.SPACK_INSTALL_PARALLEL_JOBS }} || exit $?
           spack module tcl refresh -y
 
           # Obtain metadata
-          spack find --paths > ${{ vars.SPACK_LOCATION }}/var/spack/environments/${{ inputs.env-name }}/spack.location
-          spack find --format '{hash} {prefix}' | jq --raw-input --null-input '[inputs | split(" ") | {(.[0]): (.[1])}] | add' > ${{ vars.SPACK_LOCATION }}/var/spack/environments/${{ inputs.env-name }}/spack.location.json
+          spack find --paths > ${{ steps.path.outputs.spack }}/var/spack/environments/${{ inputs.env-name }}/spack.location
+          spack find --format '{hash} {prefix}' | jq --raw-input --null-input '[inputs | split(" ") | {(.[0]): (.[1])}] | add' > ${{ steps.path.outputs.spack }}/var/spack/environments/${{ inputs.env-name }}/spack.location.json
 
           spack env deactivate
-          echo "$(date): Deployed ${{ inputs.model }} ${{ inputs.version }} with spack-packages ${{ steps.versions.outputs.packages }}, spack-config ${{ steps.versions.outputs.config }}" >> ${{ vars.SPACK_RELEASE_LOCATION }}/release.log
+          echo "$(date): Deployed ${{ inputs.model }} ${{ inputs.version }} with spack-packages ${{ steps.versions.outputs.packages }}, spack-config ${{ steps.versions.outputs.config }}" >> ${{ steps.path.outputs.root }}/release.log
           EOT
 
       # Release
       - name: Get Release Metadata
         run: |
           rsync -e 'ssh -i ${{ steps.ssh.outputs.private-key-path }}' \
-            '${{ secrets.USER}}@${{ secrets.HOST_DATA }}:${{ vars.SPACK_LOCATION }}/var/spack/environments/${{ inputs.env-name }}/spack.*' \
+            '${{ secrets.USER}}@${{ secrets.HOST_DATA }}:${{ steps.path.outputs.spack }}/var/spack/environments/${{ inputs.env-name }}/spack.*' \
             ./${{ inputs.env-name }}
 
       - name: Upload Metadata Artifact

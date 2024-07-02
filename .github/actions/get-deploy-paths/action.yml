@@ -1,0 +1,52 @@
+name: Get Deployment Paths
+description: Action that returns important paths for a spack install on a deployment target.
+author: Tommy Gatti
+inputs:
+  spack-installs-root-path:
+    type: string
+    required: true
+    # For example, `some/apps/spack` is the root, `some/apps/spack/0.21/` is a specific spack deployment, `some/apps/spack/0.21/spack` is a specific spack install.
+    description: Path to a directory within which all versions of spack are installed
+  spack-version:
+    type: string
+    required: true
+    description: |
+      Version of spack deployed.
+      Used to construct a specific spack installation path, in conjunction with `spack-installs-root-path`.
+  deployment-environment:
+    type: string
+    required: true
+    # Used for logging, essentially
+    description: Name of the GitHub deployment target environment
+outputs:
+  root:
+    description: |
+      Path to the root of a specific deployment of `spack`.
+      This path contains `spack-{packages,config}` repositories as well.
+    value: ${{ steps.path.outputs.root }}
+  spack:
+    description: Path to a specific installation of `spack`.
+    value: ${{ steps.path.outputs.spack }}
+  spack-config:
+    description: Path to the ACCESS-NRI/spack-config repository associated with the install of spack.
+    value: ${{ steps.path.outputs.spack-config }}
+  spack-packages:
+    description: Path to the ACCESS-NRI/spack-packages repository associated with the install of spack.
+    value: ${{ steps.path.outputs.spack-config }}
+runs:
+  using: composite
+  steps:
+    - name: Get ${{ inputs.deployment-environment }} Remote Paths
+      id: path
+      shell: bash
+      run: |
+        if [ -z "${{ inputs.spack-installs-root-path }}" ]; then
+          echo '::error::`spack-installs-root-path` does not exist in `${{ github.repository }}`s `${{ inputs.deployment-environment }}` environment. Check Environment vars.'
+          exit 1
+        fi
+
+        root=${{ inputs.spack-installs-root-path }}/${{ inputs.spack-version }}
+        echo "root=$root" >> $GITHUB_OUTPUT
+        echo "spack=$root/spack" >> $GITHUB_OUTPUT
+        echo "spack-config=$root/spack-config" >> $GITHUB_OUTPUT
+        echo "spack-packages=$root/spack-packages" >> $GITHUB_OUTPUT
