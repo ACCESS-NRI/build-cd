@@ -33,6 +33,8 @@ class ModelBuild(Base):
     spack_hash = Column(String, primary_key=True, index=True)
     spec = Column(String, nullable=False)
     spack_version = Column(String, ForeignKey("spack_version.commit"))
+    spack_package = Column(String, ForeignKey("spack_package.commit"))
+    spack_config = Column(String, ForeignKey("spack_config.commit"))
     created_at = Column(DateTime, nullable=False)
     release_url = Column(Text, nullable=False, unique=True)
     component_build = relationship('ComponentBuild', secondary="model_component", back_populates='model_build')
@@ -44,12 +46,26 @@ class SpackVersion(Base):
     version = Column(String, nullable=False)
     model_build = relationship('ModelBuild')
 
+class SpackConfig(Base):
+    __tablename__ = "spack_config"
+
+    commit = Column(String, primary_key=True, index=True)
+    version = Column(String, nullable=False)
+    model_build = relationship('ModelBuild')
+    
+class SpackPackage(Base):
+    __tablename__ = "spack_package"
+
+    commit = Column(String, primary_key=True, index=True)
+    version = Column(String, nullable=False)
+    model_build = relationship('ModelBuild')
+
 
 model_component_association = Table(
     "model_component",
     Base.metadata,
     Column("id", Integer, primary_key=True, autoincrement=True),
-    Column("model_build", ForeignKey(ModelBuild.spack_hash)),
-    Column("component_build", ForeignKey(ComponentBuild.spack_hash)),
+    Column("model_build", ForeignKey(ModelBuild.spack_hash, ondelete='CASCADE')),
+    Column("component_build", ForeignKey(ComponentBuild.spack_hash, ondelete='CASCADE')),
     UniqueConstraint('model_build', 'component_build', name='uix_1')
 )

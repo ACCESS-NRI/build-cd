@@ -33,6 +33,8 @@ def get_model_build(model_build_data):
     if model_build == None:
         model_build = ModelBuild()
         model_build.spack_version = get_spack_version(model_build_data["spack_version"])
+        model_build.spack_config = get_spack_config(model_build_data["spack_config"])
+        model_build.spack_package = get_spack_package(model_build_data["spack_package"])
         model_build.spack_hash = model_build_data["spack_hash"]
         model_build.spec = model_build_data["spec"]
         model_build.release_url = model_build_data["release_url"]
@@ -50,6 +52,28 @@ def get_spack_version(spack_version_data):
         session.add(spack_version)
 
     return spack_version.commit
+
+def get_spack_package(spack_package_data):
+    spack_package = session.query(SpackPackage).get(spack_package_data["commit"])
+
+    if spack_package is None:
+        spack_package = SpackPackage()
+        spack_package.commit = spack_package_data["commit"]
+        spack_package.version = spack_package_data["version"]
+        session.add(spack_package)
+
+    return spack_package.commit
+
+def get_spack_config(spack_config_data):
+    spack_config = session.query(SpackConfig).get(spack_config_data["commit"])
+
+    if spack_config is None:
+        spack_config = SpackConfig()
+        spack_config.commit = spack_config_data["commit"]
+        spack_config.version = spack_config_data["version"]
+        session.add(spack_config)
+
+    return spack_config.commit
 
 def main():
     release_data_filename = sys.argv[1]
