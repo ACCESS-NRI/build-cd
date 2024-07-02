@@ -26,16 +26,11 @@ jobs:
 
       - name: Get ${{ inputs.deployment-environment }} Remote Paths
         id: path
-        run: |
-          if [ -z "${{ vars.SPACK_INSTALLS_ROOT_LOCATION }}" ]; then
-            echo '::error::`vars.SPACK_INSTALLS_ROOT_LOCATION` does not exist in `${{ github.repository }}`s `${{ inputs.deployment-environment }}` environment'
-            exit 1
-          fi
-
-          root=${{ vars.SPACK_INSTALLS_ROOT_LOCATION }}/${{ steps.versions.outputs.spack }}
-          echo "root=$root" >> $GITHUB_OUTPUT
-          echo "spack=$root/spack" >> $GITHUB_OUTPUT
-          echo "spack-config=$root/spack-config" >> $GITHUB_OUTPUT
+        uses: access-nri/build-cd/.github/actions/get-deploy-paths@main
+        with:
+          spack-installs-root-path: ${{ vars.SPACK_INSTALLS_ROOT_LOCATION }}
+          spack-version: ${{ steps.versions.outputs.spack }}
+          deployment-environment: ${{ inputs.deployment-environment }}
 
       - name: Setup SSH
         id: ssh
