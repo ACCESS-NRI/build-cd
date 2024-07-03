@@ -32,7 +32,7 @@ outputs:
     value: ${{ steps.path.outputs.spack-config }}
   spack-packages:
     description: Path to the ACCESS-NRI/spack-packages repository associated with the install of spack.
-    value: ${{ steps.path.outputs.spack-config }}
+    value: ${{ steps.path.outputs.spack-packages }}
 runs:
   using: composite
   steps:
