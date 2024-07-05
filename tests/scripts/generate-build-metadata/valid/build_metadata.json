@@ -4,7 +4,7 @@
     "spec": "access-om2@git.2024.03.0=2024.03.0",
     "created_at": "2024-03-27T05:29:36Z",
     "release_url": "http://example.org/releases",
-    "spack_package": "2023.11.23",
+    "spack_packages": "2023.11.23",
     "spack_config": "2024.01.01",
     "spack_version": {
       "version": "0.20.3",

@@ -34,7 +34,7 @@ def get_model_build(model_build_data):
         model_build = ModelBuild()
         model_build.spack_version = get_spack_version(model_build_data["spack_version"])
         model_build.spack_config = model_build_data["spack_config"]
-        model_build.spack_package = model_build_data["spack_package"]
+        model_build.spack_packages = model_build_data["spack_packages"]
         model_build.spack_hash = model_build_data["spack_hash"]
         model_build.spec = model_build_data["spec"]
         model_build.release_url = model_build_data["release_url"]

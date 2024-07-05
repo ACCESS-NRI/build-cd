@@ -33,7 +33,7 @@ class ModelBuild(Base):
     spack_hash = Column(String, primary_key=True, index=True)
     spec = Column(String, nullable=False)
     spack_version = Column(String, ForeignKey("spack_version.commit"))
-    spack_package = Column(String)
+    spack_packages = Column(String)
     spack_config = Column(String)
     created_at = Column(DateTime, nullable=False)
     release_url = Column(Text, nullable=False, unique=True)
