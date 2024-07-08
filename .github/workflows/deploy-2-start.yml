@@ -181,6 +181,7 @@ jobs:
     name: Build DB Metadata Upload
     if: inputs.type == 'release'
     needs:
+      - deploy-to-environment
       - release
     runs-on: ubuntu-latest
     steps:
@@ -209,7 +210,7 @@ jobs:
           BUILD_DB_CONNECTION_STR: ${{ secrets.BUILD_DB_CONNECTION_STR }}
           OUTPUT_PATH: ./metadata_output
         run: |
-          ./scripts/generate-build-metadata.bash ${{ needs.release.outputs.url }} ${{ needs.release.outputs.created-at }} ${{ env.METADATA_PATH }} ${{ env.OUTPUT_PATH }} ${{ inputs.root-sbd }} ${{ vars.BUILD_DB_PACKAGES }}
+          ./scripts/generate-build-metadata.bash ${{ needs.release.outputs.url }} ${{ needs.release.outputs.created-at }} ${{ needs.deploy-to-environment.outputs.packages-version }} ${{ needs.deploy-to-environment.outputs.config-version }} ${{ env.METADATA_PATH }} ${{ env.OUTPUT_PATH }} ${{ inputs.root-sbd }} ${{ vars.BUILD_DB_PACKAGES }}
 
           echo "Attempting upload of build_metadata.json"
           python ./tools/release_provenance/save_release.py "${{ env.OUTPUT_PATH }}/build_metadata.json"

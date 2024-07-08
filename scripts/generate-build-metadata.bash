@@ -7,16 +7,20 @@ set -e
 release_url=$1
 # Timestamp for the creation of the $release_url.
 release_time=$2
+# ACCESS-NRI/spack-packages version used
+spack_packages_version=$3
+# ACCESS-NRI/spack-config version used
+spack_config_version=$4
 # Path to the dir containing the spack.{lock,location.json}.
-json_dir=$3
+json_dir=$5
 # directory that contains the <package>.json files
-output_dir=$4
+output_dir=$6
 # Name of the model (or root-sbd) (eg. access-om2)
-model_name=$5
+model_name=$7
 
 # the rest of the model components for the given $model_name
 # (eg. for access-om2 there would be mom5, cice5, etc...)
-shift 5
+shift 7
 packages=( "$@" )
 
 ### SCRIPT ###
@@ -32,6 +36,8 @@ model=$(jq \
   --arg model "$model_name" \
   --arg release_url "$release_url" \
   --arg release_time "$release_time" \
+  --arg spack_packages_version "$spack_packages_version" \
+  --arg spack_config_version "$spack_config_version" \
   --argjson spack "$spack" \
   '.concrete_specs | to_entries[] | select(.value.name == $model)
   | {
@@ -39,6 +45,8 @@ model=$(jq \
       spec: (.value.name + "@" + .value.version),
       created_at: $release_time,
       release_url: $release_url,
+      spack_packages: $spack_packages_version,
+      spack_config: $spack_config_version,
       spack_version: $spack
   }' "$json_dir/spack.lock"
 )
