@@ -1,9 +1,10 @@
 import os
 from sqlalchemy import (
-    DateTime, Text, String, Column, ForeignKey, Table, UniqueConstraint, Integer )
+    DateTime, Text, String, Column, ForeignKey, Table, UniqueConstraint, Integer, Enum )
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
+import enum
 
 Base = declarative_base()
 
@@ -27,10 +28,17 @@ class ComponentBuild(Base):
     install_path = Column(String, nullable=False, unique=True)
     model_build = relationship('ModelBuild', secondary="model_component", back_populates='component_build')
 
+class ModelStatusEnum(enum.Enum):
+    active = "active"
+    retracted = "retracted"	 
+    eol = "eol"
+    deleted = "deleted"
+
 class ModelBuild(Base):
     __tablename__ = "model_build"
-
+    
     spack_hash = Column(String, primary_key=True, index=True)
+    status = Column(Enum(ModelStatusEnum, name="model_status_type"))
     spec = Column(String, nullable=False)
     spack_version = Column(String, ForeignKey("spack_version.commit"))
     spack_packages = Column(String)
