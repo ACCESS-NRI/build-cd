@@ -47,6 +47,7 @@ model=$(jq \
       release_url: $release_url,
       spack_packages: $spack_packages_version,
       spack_config: $spack_config_version,
+      status: "active",
       spack_version: $spack
   }' "$json_dir/spack.lock"
 )

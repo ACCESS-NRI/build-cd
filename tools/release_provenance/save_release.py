@@ -39,6 +39,7 @@ def get_model_build(model_build_data):
         model_build.spec = model_build_data["spec"]
         model_build.release_url = model_build_data["release_url"]
         model_build.created_at = model_build_data["created_at"]
+        model_build.status = model_build_data["status"]
         session.add(model_build)
 
     return model_build

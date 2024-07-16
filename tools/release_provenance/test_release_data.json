@@ -18,6 +18,7 @@
       "release_url": "https://github.com/ACCESS-NRI/ACCESS-OM3/releases",
       "spack_packages": "0.20.3",
       "spack_config": "0.20.3",
+      "status": "active",
       "spack_version": {
         "commit": "6812713cf470b473a607f0de0e8e1cf53f804fb8",
         "version": "0.20.3"
