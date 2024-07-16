@@ -6,6 +6,7 @@
     "release_url": "http://example.org/releases",
     "spack_packages": "2023.11.23",
     "spack_config": "2024.01.01",
+    "status": "active",
     "spack_version": {
       "version": "0.20.3",
       "commit": "6812713cf470b473a607f0de0e8e1cf53f804fb7"
