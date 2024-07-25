@@ -1,0 +1,71 @@
+
+
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "const": "./settings.schema.json"
+    },
+    "deployment": {
+      "type": "object",
+      "properties": {
+        "Gadi": {
+          "type": "object",
+          "properties": {
+            "Release": {
+              "type": "object",
+              "properties": {
+                "spack": {
+                  "type": "object",
+                  "patternProperties": {
+                    "^.+$": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              },
+              "additionalProperties": true,
+              "required": [
+                "spack"
+              ]
+            },
+            "Prerelease": {
+              "type": "object",
+              "properties": {
+                "spack": {
+                  "type": "object",
+                  "patternProperties": {
+                    "": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              },
+              "additionalProperties": true,
+              "required": [
+                "spack"
+              ]
+            }
+          },
+          "additionalProperties": true,
+          "required": [
+            "Release",
+            "Prerelease"
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "Gadi"
+      ]
+    }
+  },
+  "additionalProperties": true,
+  "required": [
+    "$schema",
+    "deployment"
+  ]
+}
