@@ -1,0 +1,5 @@
+# Who can make modifications to the `.github/CODEOWNERS` file itself
+/.github/CODEOWNERS @ACCESS-NRI/model-release
+# Who can make modifications to the `config/versions.json` file (which contains
+# deployment configuration information)
+/config/settings.json @CodeGat @aidanheerdegen @harshula
