@@ -1,0 +1,83 @@
+name: Validate Environment Deployment Settings
+description: Action that validates various `ACCESS-NRI/build-cd` deployment settings
+inputs:
+  settings-path:
+    type: string
+    required: false
+    default: './cd/config/settings.json'
+    description: Path to the build-cd settings.json file to validate
+  target:
+    type: string
+    required: false
+    default: Gadi
+    description: Check settings for this Deployment Target
+  error-level:
+    type: string
+    required: false
+    default: warning
+    description: Whether failed validation checks should be 'notice', 'warning' or 'error'
+outputs:
+  failures:
+    value: ${{ steps.collector.outputs.failures }}
+    description: Comma-delimited string of failures encountered during validation
+runs:
+  using: composite
+  steps:
+    - name: Check All Spack Major Versions in Prerelease are in Release
+      id: spack-maj-all-pre-in-rel
+      shell: bash
+      run: |
+        majors_only_in_prerelease=$(jq --compact-output --raw-output \
+          '.deployment.${{ inputs.target }} | (.Prerelease.spack | keys) - (.Release.spack | keys) | @sh' \
+          ${{ inputs.settings-path }}
+        )
+
+        if [[ "$majors_only_in_prerelease" != "" ]]; then
+          msg="Spack versions ${majors_only_in_prerelease} do not exist in Release. Deployments to Release at those versions will not succeed."
+          echo "::${{ inputs.error-level }}::$msg"
+          echo "msg=$msg" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Check All Spack Major Versions in Release are in Prerelease
+      id: spack-maj-all-rel-in-pre
+      shell: bash
+      run: |
+        majors_only_in_release=$(jq --compact-output --raw-output \
+          '.deployment.${{ inputs.target }} | (.Release.spack | keys) - (.Prerelease.spack | keys) | @sh' \
+          ${{ inputs.settings-path }}
+        )
+
+        if [[ "$majors_only_in_release" != "" ]]; then
+          msg="Spack versions ${majors_only_in_release} do not exist in Prerelease. Spack versions in Release should be tested in Prerelease first."
+          echo "::${{ inputs.error-level }}::$msg"
+          echo "msg=$msg" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Check All Spack Hash Versions are Equal
+      id: spack-hash-all-equal
+      shell: bash
+      run: |
+        release_version_hashes=$(jq '.deployment.${{ inputs.target }}.Release.spack | to_entries' ${{ inputs.settings-path }})
+        prerelease_version_hashes=$(jq '.deployment.${{ inputs.target }}.Prerelease.spack | to_entries' ${{ inputs.settings-path }})
+
+        unequal_hashes_for_version=$(jq --compact-output --raw-output --null-input \
+          --argjson r "$release_version_hashes" \
+          --argjson p "$prerelease_version_hashes" \
+          '$r + $p | [group_by(.key)[] | select(.[0].value != .[1].value) | .[0].key] | @sh'
+        )
+
+        if [[ "$unequal_hashes_for_version" != "" ]]; then
+          msg="Different spack hashes between Prerelease and Release for major versions: ${unequal_hashes_for_version}. These should be equal to ensure equivalent builds."
+          echo "::${{ inputs.error-level }}::$msg"
+          echo "msg=$msg" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Warning/Error Collector
+      id: collector
+      shell: bash
+      run: echo "failures=${{ join(steps.*.outputs.msg) }}" >> $GITHUB_OUTPUT
+
+    - name: Action Fail from Error
+      if: inputs.error-level == 'error' && join(steps.*.outputs.msg) != ''
+      shell: bash
+      run: exit 1
