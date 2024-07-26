@@ -53,13 +53,17 @@ jobs:
       spack-packages-version: ${{ steps.spack-packages.outputs.version }}
       spack-config-version:  ${{ steps.spack-config.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout ${{ github.repository }} Config
+        uses: actions/checkout@v4
+        with:
+          path: model
 
-      - uses: access-nri/schema/.github/actions/validate-with-schema@main
+      - name: Validate ${{ github.repository }} config/versions.json
+        uses: access-nri/schema/.github/actions/validate-with-schema@main
         with:
           schema-version: ${{ vars.CONFIG_VERSIONS_SCHEMA_VERSION }}
           schema-location: au.org.access-nri/model/deployment/config/versions
-          data-location: ./config/versions.json
+          data-location: ./model/config/versions.json
 
       - name: Validate spack-packages version
         id: spack-packages
@@ -72,6 +76,16 @@ jobs:
         uses: access-nri/build-cd/.github/actions/validate-repo-version@main
         with:
           repo-to-check: spack-config
+
+      - name: Checkout build-cd Config
+        uses: actions/checkout@v4
+        with:
+          repository: ACCESS-NRI/build-cd
+          ref: main
+          path: cd
+
+      - name: Validate build-cd config/settings.json
+        uses: access-nri/build-cd/.github/actions/validate-deployment-settings@main
 
   check-spack-yaml:
     name: Check spack.yaml
