@@ -52,6 +52,7 @@ jobs:
     outputs:
       spack-packages-version: ${{ steps.spack-packages.outputs.version }}
       spack-config-version:  ${{ steps.spack-config.outputs.version }}
+      config-settings-failures: ${{ steps.settings.outputs.failures }}
     steps:
       - name: Checkout ${{ github.repository }} Config
         uses: actions/checkout@v4
@@ -85,6 +86,7 @@ jobs:
           path: cd
 
       - name: Validate build-cd config/settings.json
+        id: settings
         uses: access-nri/build-cd/.github/actions/validate-deployment-settings@main
 
   check-spack-yaml:
@@ -210,7 +212,7 @@ jobs:
     needs:
       - defaults  # so we can access `inputs.root-sbd` that could have defaulted to `inputs.model`
       - check-spack-yaml  # implies all the spack.yaml-related checks have passed, has appropriate version for the prerelease build
-      - check-config  # implies all the json-related checks have passed
+      - check-config  # so we can access potential failures from config/settings.json validation
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
@@ -219,6 +221,7 @@ jobs:
         with:
           comment: |
             :rocket: Deploying ${{ inputs.model }} `${{ needs.check-spack-yaml.outputs.release }}` as prerelease `${{ needs.check-spack-yaml.outputs.prerelease }}`
+            ${{ needs.check-config.outputs.config-settings-failures != '' && ':warning:There are issues with the `build-cd` deployment configuration. If this is unexpected, let the Model Release team know.' || '' }}
             <details>
             <summary>Details and usage instructions</summary>
 
