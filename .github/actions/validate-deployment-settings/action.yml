@@ -72,6 +72,35 @@ runs:
           echo "msg=$msg" >> $GITHUB_OUTPUT
         fi
 
+    - name: Verify Spack Commits Exist
+      id: spack-hash-all-exist
+      env:
+        GH_TOKEN: ${{ github.token }}
+        CHECKOUT_DIR: ./spack-metadata
+      shell: bash
+      # Verify that every commit referenced actually exists on the
+      # `releases/VERSION` branch in access-nri/spack, but don't
+      # bother checking out the code.
+      run: |
+        gh repo clone access-nri/spack ${{ env.CHECKOUT_DIR }} -- --no-checkout
+
+        # Essentially, pull out all the spack 'version: hash' sections and iterate
+        jq '.deployment.${{ inputs.target }}[].spack | to_entries[] | "\(.key) \(.value)"' ${{ inputs.settings-path }} | while read -r line; do
+          eval "set -- $line"
+          version=$1
+          hash=$2
+          if ! git -C ${{ env.CHECKOUT_DIR }} merge-base --is-ancestor $hash releases/v$version; then
+            echo "::${{ inputs.error-level }}::Commit $hash does not exist on branch releases/v$version"
+            failed=true
+          fi
+        done
+
+        if [ -n $failed ]; then
+          msg="Some commits referenced do not exist in access-nri/spack. Check the workflow logs."
+          echo "::${{ inputs.error-level }}::$msg"
+          echo "msg=$msg" >> $GITHUB_OUTPUT
+        fi
+
     - name: Warning/Error Collector
       id: collector
       shell: bash
