@@ -40,7 +40,12 @@ jobs:
               --argjson vs "${{ inputs.spack-update }}" \
               '$vs[$v]'
             )
-            current_head_commit=$(git rev-parse HEAD)
+            current_head_commit=$(git -C ${{ secrets.SPACK_INSTALLS_ROOT_LOCATION }}/$version/spack rev-parse HEAD)
+            if [ $? -eq 128 ]; then
+              echo "::error::Error: ${{ inputs.deployment-environment }} ${{ inputs.spack-type }} $version spack does not exist. Deploy it via build-cds Create Deployment Spack workflow first."
+              continue
+            fi
+
             git -C ${{ secrets.SPACK_INSTALLS_ROOT_LOCATION }}/$version/spack fetch
 
             if [[ "$current_head_commit" != "$new_commit" ]]; then
