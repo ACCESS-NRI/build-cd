@@ -1,0 +1,106 @@
+name: Config Settings Update
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - config/settings.*
+  pull_request:
+    branches:
+      - main
+    paths:
+      - config/settings.*
+env:
+  CONFIG_SETTINGS_PATH: ./config/settings.json
+  CONFIG_SETTINGS_SCHEMA_PATH: ./config/settings.schema.json
+jobs:
+  settings-validation:
+    name: Validate Deployment Settings
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout settings.json
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Validate settings.json against Schema
+        run: jsonschema --instance ${{ env.CONFIG_SETTINGS_PATH }} ${{ env.CONFIG_SETTINGS_SCHEMA_PATH }}
+
+      - name: Validate Deployment Settings
+        id: validate
+        uses: access-nri/build-cd/.github/actions/validate-deployment-settings@main
+        with:
+          settings-path: ${{ env.CONFIG_SETTINGS_PATH }}
+
+      - name: Comment Validation Issues
+        if: steps.validate.outputs.failures != '' && github.event_name == 'pull_request'
+        uses: access-nri/actions/.github/actions/pr-comment@main
+        with:
+          comment: |
+            :warning: `${{ env.CONFIG_SETTINGS_PATH }}`: Inconsistencies detected with the configuration. See below. :warning:
+            ${{ steps.validate.outputs.failures }}
+
+  setup-settings-update:
+    name: Setup Update of Deployment Settings
+    if: github.event_name == 'push'
+    needs:
+      - settings-validation
+    runs-on: ubuntu-latest
+    outputs:
+      updates: ${{ steps.info.outputs.updates }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Collect Deployment Information
+        id: info
+        # This is quite an annoying piece of jq. Essentially, we are getting
+        # the config/settings.json into a form that can be understood by the
+        # later matrix job.
+        # A matrix job will need something of the form (but in yaml):
+        # {"deployment-environment": "Gadi",
+        #  "type": "Release",
+        #  "spack": {
+        #    "0.21": "yr843y7",
+        #    "0.22": "ar837yr"
+        #  }
+        # }
+        run: |
+          update=$(jq --raw-output --compact-output \
+            '[.deployment | to_entries[] | .key as $d | .value | to_entries[] | {
+                "deployment-environment": $d,
+                "type": .key,
+                "spack": .value.spack
+              }]' ${{ env.CONFIG_SETTINGS_PATH }}
+          )
+          echo "update=$update" >> $GITHUB_OUTPUT
+
+  settings-update:
+    name: Update
+    if: github.event_name == 'push'
+    needs:
+      - setup-settings-update
+    strategy:
+      fail-fast: false
+      matrix:
+        update: ${{ fromJson(needs.setup-settings-update.outputs.updates) }}
+        # Example of this matrix:
+        # update:
+        # - deployment-environment: Gadi
+        #   type: Release
+        #   spack:
+        #     0.20: yhr873y4387
+        #     0.22: 98u928eu9ue
+        # - deployment-environment: Gadi
+        #   type: Prerelease
+        #   spack:
+        #     0.20: yhr873y4387
+        #     0.22: 98u928eu9ue
+        # etc ...
+    uses: access-nri/build-cd/.github/workflows/settings-2-deploy.yml@main
+    with:
+      deployment-environment: ${{ matrix.update.deployment-environment }}
+      spack-type: ${{ matrix.update.type }}
+      spack-updates: ${{ matrix.update.spack }}  # {"0.20": "7r8y43r8", "0.21": "wr7834yr", ...}
+    secrets: inherit

@@ -1,0 +1,57 @@
+name: Config Settings Deployment
+on:
+  workflow_call:
+    inputs:
+      deployment-environment:
+        type: string
+        required: true
+        description: GitHub Deployment Environment Name
+      spack-type:
+        type: string
+        required: true
+        description: The type of spack deployment (eg. Prerelease, Release)
+      spack-update:
+        type: string
+        required: true
+        description: "A JSON Object comprising of `'VERSION': 'HASH'` fields"
+jobs:
+  update-environment:
+    name: Update ${{ inputs.deployment-environment }} ${{ inputs.spack-type }} Settings
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.deployment-environment }} ${{ inputs.spack-type }}
+    steps:
+      - name: Setup SSH
+        id: ssh
+        uses: access-nri/actions/.github/actions/setup-ssh@main
+        with:
+          hosts: ${{ secrets.HOST }}
+          private-key: ${{ secrets.SSH_KEY }}
+
+      - name: Update
+        run: |
+          ssh ${{ secrets.USER}}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
+          versions=$(jq --null-input --compact-output --raw-output \
+            --argjson vs "${{ inputs.spack-update }}" \
+            '$vs | keys | @sh'
+          )
+          for version in "$versions"; do
+            new_commit=$(jq --null-input --compact-output --raw-output \
+              --arg v "$version" \
+              --argjson vs "${{ inputs.spack-update }}" \
+              '$vs[$v]'
+            )
+            current_head_commit=$(git rev-parse HEAD)
+            git -C ${{ secrets.SPACK_INSTALLS_ROOT_LOCATION }}/$version/spack fetch
+
+            if [[ "$current_head_commit" != "$new_commit" ]]; then
+              git -C ${{ secrets.SPACK_INSTALLS_ROOT_LOCATION }}/$version/spack checkout $new_commit
+              if [ $? -ne 0 ]; then
+                echo "::error::Error: ${{ inputs.deployment-environment }} ${{ inputs.spack-type }} $version spack failed checkout from $current_head_commit to $new_commit"
+              else
+                echo "::notice::Changed: ${{ inputs.deployment-environment }} ${{ inputs.spack-type }} $version spack changed from $current_head_commit to $new_commit"
+              fi
+            else
+              echo "::notice::Unchanged: ${{ inputs.deployment-environment }} ${{ inputs.spack-type }} $version spack left at $current_head_commit"
+            fi
+          done
+          EOT
