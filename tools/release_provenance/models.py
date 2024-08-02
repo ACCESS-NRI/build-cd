@@ -26,6 +26,7 @@ class ComponentBuild(Base):
     spack_hash = Column(String, primary_key=True, index=True)
     spec = Column(String, nullable=False)
     install_path = Column(String, nullable=False, unique=True)
+    release_url = Column(Text, nullable=False, unique=True)
     model_build = relationship('ModelBuild', secondary="model_component", back_populates='component_build')
 
 class ModelStatusEnum(enum.Enum):
