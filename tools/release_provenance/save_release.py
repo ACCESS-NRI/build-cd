@@ -19,6 +19,7 @@ def get_component_build(component_build_data_list, model_build):
             component_build.install_path = component_build_data["install_path"]
             component_build.spack_hash = component_build_data["spack_hash"]
             component_build.spec = component_build_data["spec"]
+            component_build.release_url = component_build_data["release_url"]
             component_build.model_build.append(model_build)
             component_build_list.append(component_build)
         else:

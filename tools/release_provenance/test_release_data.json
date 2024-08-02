@@ -3,12 +3,14 @@
       {
         "spack_hash": "ewcdbrfukblyjxpkhd3mfkj4yxfolal8",
         "spec": "mom5@git.2023.11.09=2023.11.09",
-        "install_path": "/g/data/vk83/apps/spack/0.20/release/linux-rocky8-x86_64/intel-19.0.5.280/"
+        "install_path": "/g/data/vk83/apps/spack/0.20/release/linux-rocky8-x86_64/intel-19.0.5.280/",
+        "release_url": "https://github.com/ACCESS-NRI/mom5/releases"
       },
       {
         "spack_hash": "ewcdbrfukblyjxpkhd3mfkj4yxfolal9",
         "spec": "mom5@git.2023.11.09=2023.11.09",
-        "install_path": "/g/data/vk83/apps/spack/0.20/release/linux-rocky8-x86_64/intel-19.1.5.283/"
+        "install_path": "/g/data/vk83/apps/spack/0.20/release/linux-rocky8-x86_64/intel-19.1.5.283/",
+        "release_url": "https://github.com/ACCESS-NRI/mom5-example/releases"
       }
     ],
     "model_build": {
