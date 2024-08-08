@@ -55,26 +55,22 @@ jobs:
 
       - name: Collect Deployment Information
         id: info
-        # This is quite an annoying piece of jq. Essentially, we are getting
-        # the config/settings.json into a form that can be understood by the
-        # later matrix job.
+        # Essentially, we are getting the config/settings.json into a form
+        # that can be understood by the later matrix job.
         # A matrix job will need something of the form (but in yaml):
-        # {"deployment-environment": "Gadi",
-        #  "type": "Release",
-        #  "spack": {
-        #    "0.21": "yr843y7",
-        #    "0.22": "ar837yr"
-        #  }
+        # {
+        #  "deployment-environment": "Gadi",
+        #  "type": "Release"
         # }
+        # TODO: Add back in the ...spack json object as an input to the next job
         run: |
           update=$(jq --raw-output --compact-output \
-            '[.deployment | to_entries[] | .key as $d | .value | to_entries[] | {
+            '[.deployment | to_entries[] | .key as $d | .value | keys[] | {
                 "deployment-environment": $d,
-                "type": .key,
-                "spack": .value.spack
+                "type": .key
               }]' ${{ env.CONFIG_SETTINGS_PATH }}
           )
-          echo "update=$update" >> $GITHUB_OUTPUT
+          echo "updates=$update" >> $GITHUB_OUTPUT
 
   settings-update:
     name: Update
@@ -89,18 +85,11 @@ jobs:
         # update:
         # - deployment-environment: Gadi
         #   type: Release
-        #   spack:
-        #     0.20: yhr873y4387
-        #     0.22: 98u928eu9ue
         # - deployment-environment: Gadi
         #   type: Prerelease
-        #   spack:
-        #     0.20: yhr873y4387
-        #     0.22: 98u928eu9ue
         # etc ...
     uses: access-nri/build-cd/.github/workflows/settings-2-deploy.yml@main
     with:
       deployment-environment: ${{ matrix.update.deployment-environment }}
       spack-type: ${{ matrix.update.type }}
-      spack-updates: ${{ matrix.update.spack }}  # {"0.20": "7r8y43r8", "0.21": "wr7834yr", ...}
     secrets: inherit

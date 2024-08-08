@@ -82,13 +82,13 @@ runs:
       # `releases/VERSION` branch in access-nri/spack, but don't
       # bother checking out the code.
       run: |
-        gh repo clone access-nri/spack ${{ env.CHECKOUT_DIR }} -- --no-checkout
+        gh repo clone access-nri/spack ${{ env.CHECKOUT_DIR }} -- --no-checkout --bare --filter=blob:none
 
         # Essentially, pull out all the spack 'version: hash' sections and iterate
-        jq '.deployment.${{ inputs.target }}[].spack | to_entries[] | "\(.key) \(.value)"' ${{ inputs.settings-path }} | while read -r line; do
-          eval "set -- $line"
-          version=$1
-          hash=$2
+        jq -cr '.deployment.${{ inputs.target }}[].spack | to_entries[] | "\(.key) \(.value)"' ${{ inputs.settings-path }} | while read -ra line; do
+          version=${line[0]}
+          hash=${line[1]}
+          echo "Checking if $hash is in $version"
           if ! git -C ${{ env.CHECKOUT_DIR }} merge-base --is-ancestor $hash releases/v$version; then
             echo "::${{ inputs.error-level }}::Commit $hash does not exist on branch releases/v$version"
             failed=true
