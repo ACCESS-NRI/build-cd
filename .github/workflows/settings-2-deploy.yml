@@ -10,16 +10,39 @@ on:
         type: string
         required: true
         description: The type of spack deployment (eg. Prerelease, Release)
-      spack-update:
-        type: string
-        required: true
-        description: "A JSON Object comprising of `'VERSION': 'HASH'` fields"
+env:
+  CONFIG_SETTINGS_PATH: ./config/settings.json
 jobs:
   update-environment:
     name: Update ${{ inputs.deployment-environment }} ${{ inputs.spack-type }} Settings
     runs-on: ubuntu-latest
     environment: ${{ inputs.deployment-environment }} ${{ inputs.spack-type }}
     steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup spack updates
+        id: spack
+        # TODO: Since we can't format this json as an input for this job (see the earlier workflow) we need to do it here
+        run: |
+          updates=$(jq --compact-output --raw-output \
+            --arg env "${{ inputs.deployment-environment }}" \
+            --arg type "${{ inputs.spack-type }}" \
+            '.deployment[$env][$type].spack' \
+            ${{ env.CONFIG_SETTINGS_PATH }}
+          )
+          versions=$(jq --compact-output --raw-output \
+            --arg env "${{ inputs.deployment-environment }}" \
+            --arg type "${{ inputs.spack-type }}" \
+            '.deployment[$env][$type].spack | keys | @sh' \
+            ${{ env.CONFIG_SETTINGS_PATH }}
+          )
+
+          echo "$updates"
+          echo "$versions"
+
+          echo "updates=$updates" >> $GITHUB_OUTPUT
+          echo "versions=$versions" >> $GITHUB_OUTPUT
+
       - name: Setup SSH
         id: ssh
         uses: access-nri/actions/.github/actions/setup-ssh@main
@@ -28,20 +51,21 @@ jobs:
           private-key: ${{ secrets.SSH_KEY }}
 
       - name: Update
+        continue-on-error: true
         run: |
           ssh ${{ secrets.USER}}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
-          versions=$(jq --null-input --compact-output --raw-output \
-            --argjson vs "${{ inputs.spack-update }}" \
-            '$vs | keys | @sh'
-          )
-          for version in "$versions"; do
-            new_commit=$(jq --null-input --compact-output --raw-output \
+          set +e
+          for version in ${{ steps.spack.outputs.versions }}; do
+            new_commit=$(jq --compact-output --raw-output \
               --arg v "$version" \
-              --argjson vs "${{ inputs.spack-update }}" \
-              '$vs[$v]'
+              --arg env "${{ inputs.deployment-environment }}" \
+              --arg type "${{ inputs.spack-type }}" \
+              '.deployment[$env][$type].spack[$v]' \
+              ${{ env.CONFIG_SETTINGS_PATH }}
             )
             current_head_commit=$(git -C ${{ secrets.SPACK_INSTALLS_ROOT_LOCATION }}/$version/spack rev-parse HEAD)
             if [ $? -eq 128 ]; then
+              # FIXME: Deploy spack instances in this job too.
               echo "::error::Error: ${{ inputs.deployment-environment }} ${{ inputs.spack-type }} $version spack does not exist. Deploy it via build-cds Create Deployment Spack workflow first."
               continue
             fi
