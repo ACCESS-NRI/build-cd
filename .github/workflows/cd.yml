@@ -74,8 +74,10 @@ jobs:
           git_tag_gpgsign: true
 
       - name: Push Tag
+        env:
+          TAG: ${{ steps.tag.outputs.name }}
         run: |
-          git tag ${{ steps.tag.outputs.name }}
+          git tag ${{ env.TAG }} -m "Deployment of ${{ inputs.model }} ${{ env.TAG }} via build-cd 'cd.yml' workflow"
           git push --tags
 
   deploy-release:
