@@ -114,20 +114,40 @@ jobs:
           spack env activate ${{ inputs.env-name }}
           spack --debug install --fresh ${{ vars.SPACK_INSTALL_PARALLEL_JOBS }} || exit $?
           spack module tcl refresh -y
+          EOT
 
-          # Obtain metadata
-          spack find --paths > ${{ steps.path.outputs.spack }}/var/spack/environments/${{ inputs.env-name }}/spack.location
-          spack find --format '{hash} {prefix}' | jq --raw-input --null-input '[inputs | split(" ") | {(.[0]): (.[1])}] | add' > ${{ steps.path.outputs.spack }}/var/spack/environments/${{ inputs.env-name }}/spack.location.json
+      - name: Get metadata from ${{ inputs.deployment-environment }}
+        env:
+          SPACK_ENV_PATH: ${{ steps.path.outputs.spack }}/var/spack/environments/${{ inputs.env-name }}
+        run: |
+          ssh ${{ secrets.USER}}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
+          spack find --paths > ${{ env.SPACK_ENV_PATH }}/spack.location
+          spack find --format '{hash} {prefix}' | jq --raw-input --null-input '[inputs | split(" ") | {(.[0]): (.[1])}] | add' > ${{ env.SPACK_ENV_PATH }}/spack.location.json
+
+          # Get the repos associated with the packages for the build database
+          jq -n '{}' > ${{ env.SPACK_ENV_PATH }}/build-db-pkgs.json
+          for pkg in ${{ vars.BUILD_DB_PACKAGES }}; do
+            # TODO: Is there a way to get the git attribute without concretizing?
+            pkg_repo=$(spack python -c "import spack.spec; print(spack.spec.Spec('$pkg').concretized().package.git)")
+            jq \
+              --arg p "$pkg" \
+              --arg r "$pkg_repo" \
+              '. += {($p): ($r)}' \
+              ${{ env.SPACK_ENV_PATH }}/build-db-pkgs.json > ${{ env.SPACK_ENV_PATH }}/build-db-pkgs.json.tmp
+            mv -f ${{ env.SPACK_ENV_PATH }}/build-db-pkgs.json.tmp ${{ env.SPACK_ENV_PATH }}/build-db-pkgs.json
+          done
 
           spack env deactivate
-          echo "$(date): Deployed ${{ inputs.model }} ${{ inputs.version }} with spack-packages ${{ steps.versions.outputs.packages }}, spack-config ${{ steps.versions.outputs.config }}" >> ${{ steps.path.outputs.root }}/release.log
           EOT
 
       # Release
       - name: Get Release Metadata
+        env:
+          # TODO: Can we put both envs above in a $GITHUB_ENV file instead?
+          SPACK_ENV_PATH: ${{ steps.path.outputs.spack }}/var/spack/environments/${{ inputs.env-name }}
         run: |
           rsync -e 'ssh -i ${{ steps.ssh.outputs.private-key-path }}' \
-            '${{ secrets.USER}}@${{ secrets.HOST_DATA }}:${{ steps.path.outputs.spack }}/var/spack/environments/${{ inputs.env-name }}/spack.*' \
+            '${{ secrets.USER}}@${{ secrets.HOST_DATA }}:${{ env.SPACK_ENV_PATH }}/spack.*' \
             ./${{ inputs.env-name }}
 
       - name: Upload Metadata Artifact
