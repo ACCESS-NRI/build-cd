@@ -227,7 +227,7 @@ jobs:
 
             This Prerelease is accessible on Gadi using:
             ```bash
-            module use /g/data/vk83/modules
+            module use /g/data/vk83/prerelease/modules
             module load ${{ needs.defaults.outputs.root-sbd }}/${{ needs.version.outputs.prerelease }}
             ```
             where the binaries shall be on your `$PATH`.
