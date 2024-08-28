@@ -121,6 +121,9 @@ jobs:
           SPACK_ENV_PATH: ${{ steps.path.outputs.spack }}/var/spack/environments/${{ inputs.env-name }}
         run: |
           ssh ${{ secrets.USER}}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
+          . ${{ steps.path.outputs.spack-config }}/spack-enable.bash
+          spack env activate ${{ inputs.env-name }}
+
           spack find --paths > ${{ env.SPACK_ENV_PATH }}/spack.location
           spack find --format '{hash} {prefix}' | jq --raw-input --null-input '[inputs | split(" ") | {(.[0]): (.[1])}] | add' > ${{ env.SPACK_ENV_PATH }}/spack.location.json
 
