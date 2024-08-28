@@ -128,10 +128,13 @@ jobs:
           jq -n '{}' > ${{ env.SPACK_ENV_PATH }}/build-db-pkgs.json
           for pkg in ${{ vars.BUILD_DB_PACKAGES }}; do
             # TODO: Is there a way to get the git attribute without concretizing?
-            pkg_repo=$(spack python -c "import spack.spec; print(spack.spec.Spec('$pkg').concretized().package.git)")
+            pkg_repo_url=$(spack python -c "import spack.spec; print(spack.spec.Spec('$pkg').concretized().package.git)")
+            echo "$pkg git URL is $pkg_repo_url"
+
+            pkg_release_url="${pkg_repo_url%.*}/releases"
             jq \
               --arg p "$pkg" \
-              --arg r "$pkg_repo" \
+              --arg r "$pkg_release_url" \
               '. += {($p): ($r)}' \
               ${{ env.SPACK_ENV_PATH }}/build-db-pkgs.json > ${{ env.SPACK_ENV_PATH }}/build-db-pkgs.json.tmp
             mv -f ${{ env.SPACK_ENV_PATH }}/build-db-pkgs.json.tmp ${{ env.SPACK_ENV_PATH }}/build-db-pkgs.json
