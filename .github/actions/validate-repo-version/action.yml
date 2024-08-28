@@ -8,7 +8,7 @@ inputs:
 outputs:
   version:
     value: ${{ steps.jq.outputs.version }}
-    description: Version of spack-packages from the `config/versions.json`
+    description: Version of `inputs.repo-to-check` from the `config/versions.json`
 runs:
   using: composite
   steps:
@@ -23,7 +23,13 @@ runs:
         version=$(jq --compact-output --raw-output '."${{ inputs.repo-to-check }}"' ./config/versions.json)
 
         if [[ "${version}" == "null" ]]; then
+          echo "::error::There is no `${{ inputs.repo-to-check }}` in `./config/versions.json`"
           exit 1
+        fi
+
+        # We omit the 'releases/v' from the spack branch in versions.json, so we add it back here.
+        if [[ "${{ inputs.repo-to-check }}" == "spack" ]]; then
+          echo "version=releases/v${version}" >> $GITHUB_OUTPUT
         else
           echo "version=${version}" >> $GITHUB_OUTPUT
         fi
@@ -34,16 +40,12 @@ runs:
       uses: actions/checkout@v4
       with:
         repository: access-nri/${{ inputs.repo-to-check }}
-        ref: ${{ steps.versions.outputs.packages }}
+        ref: ${{ steps.jq.outputs.version }}
         path: repo
 
-    - name: Failure Notifier
-      if: failure()
+    - name: Version Check Failure Notifier
+      if: failure() && steps.check.outcome == 'failure'
       shell: bash
       run: |
-        if [[ "${{ steps.jq.outcome }}" == "failure" ]]; then
-          echo "::error::There is no ${{ inputs.repo-to-check }} in `config/versions.json`, or the file doesn't exist."
-        elif [[ "${{ steps.check.outcome }}" == "failure" ]]; then
-          echo "::error::${{ inputs.repo-to-check }} at the specified ref (${{ steps.versions.outputs.packages }}) doesn't exist."
-        fi
+        echo "::error::`${{ inputs.repo-to-check }}` at the specified ref (`${{ steps.jq.outputs.version }}`) doesn't exist."
         exit 1
