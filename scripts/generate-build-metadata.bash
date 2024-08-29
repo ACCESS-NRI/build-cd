@@ -75,14 +75,22 @@ for pkg in "${packages[@]}"; do
     "$json_dir/spack.location.json"
   )
 
+  release_url=$(jq --raw-output \
+    --arg pkg "$pkg" \
+    '.[$pkg]' \
+    "$json_dir/build-db-pkgs.json"
+  )
+
   component=$(jq \
     --arg pkg "$pkg" \
     --arg install_path "$install_path" \
+    --arg release_url "$release_url" \
     '.concrete_specs | to_entries[] | select(.value.name == $pkg)
     | {
       spack_hash: .key,
       spec: (.value.name + "@" + .value.version),
-      install_path: $install_path
+      install_path: $install_path,
+      release_url: $release_url
     }' "$json_dir/spack.lock"
   )
 
