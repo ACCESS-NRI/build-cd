@@ -132,7 +132,16 @@ jobs:
           for pkg in ${{ vars.BUILD_DB_PACKAGES }}; do
             # TODO: Is there a way to get the git attribute without concretizing?
             pkg_repo_url=$(spack python -c "import spack.spec; print(spack.spec.Spec('$pkg').concretized().package.git)")
-            version=$(spack find --json ${pkg} | jq -cr '.[0].version')
+
+            # We get the version of $pkg from spack.lock, and then strip
+            # potential 'git.' and '=VERSION' parts from 'git.TAG=VERSION'
+            version=$(jq --compact-output --raw-output \
+              --arg p "$pkg" \
+              '.concrete_specs | to_entries[].value | select(.name == $p) | .version
+                | match("^(?:git.)?([^=]*)")
+                | .captures[0].string' \
+              ${{ env.SPACK_ENV_PATH}}/spack.lock
+            )
             pkg_release_url="${pkg_repo_url%.*}/releases/tag/${version}"
 
             echo "$pkg pkg_repo_url is $pkg_repo_url, pkg_release_url is $pkg_release_url, version is $version"
