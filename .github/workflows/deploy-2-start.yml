@@ -142,6 +142,11 @@ jobs:
                 | .captures[0].string' \
               ${{ env.SPACK_ENV_PATH}}/spack.lock
             )
+
+            # Example:
+            # pkg_repo_url = https://github.com/ACCESS-NRI/MOM5.git, which is then stripped of the '.git'.
+            # version = 2024.08.11, giving
+            # pkg_release_url = https://github.com/ACCESS-NRI/MOM5/releases/tag/2024.08.11
             pkg_release_url="${pkg_repo_url%.*}/releases/tag/${version}"
 
             echo "$pkg pkg_repo_url is $pkg_repo_url, pkg_release_url is $pkg_release_url, version is $version"
