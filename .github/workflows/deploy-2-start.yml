@@ -240,7 +240,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: ${{ vars.PYTHON_VERSION }}
           cache: pip
 
       - name: Install Build Metadata Script Requirements
