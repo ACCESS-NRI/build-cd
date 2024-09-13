@@ -3,13 +3,11 @@ description: Action that validates various `ACCESS-NRI/build-cd` deployment sett
 inputs:
   settings-path:
     type: string
-    required: false
-    default: './cd/config/settings.json'
+    required: true
     description: Path to the build-cd settings.json file to validate
   target:
     type: string
-    required: false
-    default: Gadi
+    required: true
     description: Check settings for this Deployment Target
   error-level:
     type: string

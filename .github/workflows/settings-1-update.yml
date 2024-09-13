@@ -33,6 +33,8 @@ jobs:
         uses: access-nri/build-cd/.github/actions/validate-deployment-settings@main
         with:
           settings-path: ${{ env.CONFIG_SETTINGS_PATH }}
+          # TODO: Turn this into a matrix job of targets
+          target: Gadi
 
       - name: Comment Validation Issues
         if: steps.validate.outputs.failures != '' && github.event_name == 'pull_request'

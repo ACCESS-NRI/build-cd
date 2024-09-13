@@ -6,8 +6,8 @@ This action validates various `ACCESS-NRI/build-cd` deployment settings.
 
 | Name | Type | Description | Required | Default | Example |
 | ---- | ---- | ----------- | -------- | ------- | ------- |
-| `settings-path` | `string` | Path to the build-cd settings.json file to validate | `false` | `'./cd/config/settings.json'` | `'/some/dir/to/settings.json'` |
-| `target` | `string` | Which Deployment Target to check settings. Similar to `vars.DEPLOYMENT_TARGET` in a given Environment | `false` | `'Gadi'` | `'SUPERCOMPUTER'` |
+| `settings-path` | `string` | Path to the build-cd settings.json file to validate | `true` | N/A | `'/some/dir/to/settings.json'` |
+| `target` | `string` | Which Deployment Target to check settings. Similar to `vars.DEPLOYMENT_TARGET` in a given Environment | `true` | N/A | `'SUPERCOMPUTER'` |
 | `error-level` | `string` | Whether failed validation checks should be a GitHub `notice`, `warning` or `error`. `error` will fail the action. | `false` | `'warning'` | `'error'` or `'notice'` |
 
 ## Outputs

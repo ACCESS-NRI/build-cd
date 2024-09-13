@@ -57,6 +57,8 @@ jobs:
       - uses: access-nri/build-cd/.github/actions/validate-deployment-settings@main
         with:
           settings-path: ./config/settings.json
+          # TODO: Turn this into a matrix job of targets
+          target: Gadi
           error-level: error
 
   push-tag:
