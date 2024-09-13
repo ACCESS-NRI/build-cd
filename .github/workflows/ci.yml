@@ -225,7 +225,7 @@ jobs:
         with:
           comment: |
             :rocket: Deploying ${{ inputs.model }} `${{ needs.check-spack-yaml.outputs.release }}` as prerelease `${{ needs.check-spack-yaml.outputs.prerelease }}`
-            ${{ needs.check-config.outputs.config-settings-failures != '' && ':warning:There are issues with the `build-cd` deployment configuration. If this is unexpected, let the Model Release team know.' || '' }}
+            ${{ needs.check-config.outputs.config-settings-failures != '' && ':warning:There are issues with the `build-cd` deployment configuration. If this is unexpected, let @ACCESS-NRI/model-release know.' || '' }}
             <details>
             <summary>Details and usage instructions</summary>
 
