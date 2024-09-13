@@ -59,7 +59,7 @@ runs:
         )
 
         if [[ "$unequal_hashes_for_version" != "" ]]; then
-          msg="Different spack hashes between Prerelease and Release for major versions: ${unequal_hashes_for_version}. These should be equal to ensure equivalent builds."
+          msg="Different spack hashes between Prerelease and Release for major versions: ${unequal_hashes_for_version}. These should be equal to ensure equivalent builds, and must be updated before this PR is merged."
           echo "::${{ inputs.error-level }}::$msg"
           echo "msg=$msg" >> $GITHUB_OUTPUT
         fi
