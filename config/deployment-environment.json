@@ -1,9 +1,0 @@
-{
-    "$schema": "./deployment-environment.schema.json",
-    "environments": [
-        "Gadi"
-    ],
-    "prerelease-environments": [
-        "Gadi Prerelease"
-    ]
-}

@@ -19,7 +19,8 @@ on:
         type: string
         required: true
         description: The root SBD that is being used as the modulefile name
-
+env:
+  CONFIG_SETTINGS_PATH: ./config/settings.json
 jobs:
   setup-spack-env:
     name: Setup Spack Environment
@@ -56,9 +57,11 @@ jobs:
         id: get-deployment-environment
         run: |
           if [[ "${{ inputs.type }}" == "release" ]]; then
-            echo "deployment-environments=$(jq --compact-output '.environments' ./config/deployment-environment.json)" >> $GITHUB_OUTPUT
+            # Convention is to just have the name by itself for release (eg. 'Gadi')
+            echo "deployment-environments=$(jq --compact-output '.deployment | keys' ${{ env.CONFIG_SETTINGS_PATH }})" >> $GITHUB_OUTPUT
           elif [[ "${{ inputs.type }}" == "prerelease" ]]; then
-            echo "deployment-environments=$(jq --compact-output '."prerelease-environments"' ./config/deployment-environment.json)" >> $GITHUB_OUTPUT
+            # Convention is to have the name + Prerelease (eg. 'Gadi Prerelease')
+            echo "deployment-environments=$(jq --compact-output '[.deployment | keys | "\(.[]) Prerelease"]' ${{ env.CONFIG_SETTINGS_PATH }})" >> $GITHUB_OUTPUT
           else
             echo "::error::The 'type' input was invalid. Check the inputs documentation."
             exit 1

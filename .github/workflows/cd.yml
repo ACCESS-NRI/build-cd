@@ -45,9 +45,27 @@ jobs:
             echo "default=${{ inputs.root-sbd }}" >> $GITHUB_OUTPUT
           fi
 
+  verify-settings:
+    name: Verify Deployment Settings
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ACCESS-NRI/build-cd
+          ref: main
+
+      - uses: access-nri/build-cd/.github/actions/validate-deployment-settings@main
+        with:
+          settings-path: ./config/settings.json
+          # TODO: Turn this into a matrix job of targets
+          target: Gadi
+          error-level: error
+
   push-tag:
     name: Tag Deployment
     runs-on: ubuntu-latest
+    needs:
+      - verify-settings
     permissions:
       contents: write
     outputs:

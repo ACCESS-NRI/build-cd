@@ -1,0 +1,104 @@
+name: Validate Environment Deployment Settings
+description: Action that validates various `ACCESS-NRI/build-cd` deployment settings
+inputs:
+  settings-path:
+    type: string
+    required: true
+    description: Path to the build-cd settings.json file to validate
+  target:
+    type: string
+    required: true
+    description: Check settings for this Deployment Target
+  error-level:
+    type: string
+    required: false
+    default: warning
+    description: Whether failed validation checks should be 'notice', 'warning' or 'error'
+outputs:
+  failures:
+    value: ${{ steps.collector.outputs.failures }}
+    description: Comma-delimited string of failures encountered during validation
+runs:
+  using: composite
+  steps:
+    - name: Check All Spack Major Versions in Prerelease are in Release
+      id: spack-maj-all-pre-in-rel
+      shell: bash
+      run: |
+        majors_only_in_prerelease=$(jq --compact-output --raw-output \
+          '.deployment.${{ inputs.target }} | (.Prerelease.spack | keys) - (.Release.spack | keys) | @sh' \
+          ${{ inputs.settings-path }}
+        )
+
+        if [[ "$majors_only_in_prerelease" != "" ]]; then
+          msg="Spack versions ${majors_only_in_prerelease} do not exist in Release. Deployments to Release at those versions will not succeed."
+          echo "::${{ inputs.error-level }}::$msg"
+          echo "msg=$msg" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Check All Spack Hash Versions are Equal
+      id: spack-hash-all-equal
+      shell: bash
+      # This step gets all the 'major-version: hash' entries for both Release and Prerelease (Ex for Release: [{"0.20": "92e3h3e9"}, ...]).
+      # It then merges them together based on major version (Ex. [[{"0.20": "u298rer3", "0.20": "r98u349u"}], ...]).
+      # And then finally compares the hashes for each major version, and returns the major versions where they differ.
+      run: |
+        release_version_hashes=$(jq '.deployment.${{ inputs.target }}.Release.spack | to_entries' ${{ inputs.settings-path }})
+        prerelease_version_hashes=$(jq '.deployment.${{ inputs.target }}.Prerelease.spack | to_entries' ${{ inputs.settings-path }})
+
+        unequal_hashes_for_version=$(jq --compact-output --raw-output --null-input \
+          --argjson r "$release_version_hashes" \
+          --argjson p "$prerelease_version_hashes" \
+          '$r + $p
+          | [
+              group_by(.key)[]
+              | select(.[0] != null and .[1] != null and .[0].value != .[1].value)
+              | .[0].key
+            ]
+          | @sh'
+        )
+
+        if [[ "$unequal_hashes_for_version" != "" ]]; then
+          msg="Different spack hashes between Prerelease and Release for major versions: ${unequal_hashes_for_version}. These should be equal to ensure equivalent builds, and must be updated before this PR is merged."
+          echo "::${{ inputs.error-level }}::$msg"
+          echo "msg=$msg" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Verify Spack Commits Exist
+      id: spack-hash-all-exist
+      env:
+        GH_TOKEN: ${{ github.token }}
+        CHECKOUT_DIR: ./spack-metadata
+      shell: bash
+      # Verify that every commit referenced actually exists on the
+      # `releases/VERSION` branch in access-nri/spack, but don't
+      # bother checking out the code.
+      run: |
+        gh repo clone access-nri/spack ${{ env.CHECKOUT_DIR }} -- --no-checkout --bare --filter=blob:none
+
+        # Essentially, pull out all the spack 'version: hash' sections and iterate
+        jq -cr '.deployment.${{ inputs.target }}[].spack | to_entries[] | "\(.key) \(.value)"' ${{ inputs.settings-path }} | while read -ra line; do
+          version=${line[0]}
+          hash=${line[1]}
+          echo "Checking if $hash is in $version"
+          if ! git -C ${{ env.CHECKOUT_DIR }} merge-base --is-ancestor $hash releases/v$version; then
+            echo "::${{ inputs.error-level }}::Commit $hash does not exist on branch releases/v$version"
+            failed=true
+          fi
+        done
+
+        if [ -n $failed ]; then
+          msg="Some commits referenced do not exist in access-nri/spack. Check the workflow logs."
+          echo "::${{ inputs.error-level }}::$msg"
+          echo "msg=$msg" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Warning/Error Collector
+      id: collector
+      shell: bash
+      run: echo "failures=${{ join(steps.*.outputs.msg) }}" >> $GITHUB_OUTPUT
+
+    - name: Action Fail from Error
+      if: inputs.error-level == 'error' && join(steps.*.outputs.msg) != ''
+      shell: bash
+      run: exit 1
