@@ -18,11 +18,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Get Versions From config/versions.json
+      - name: Get Spack Version From config/versions.json
         id: versions
-        run: |
-          echo "spack=$(jq --compact-output --raw-output '.spack' ./config/versions.json)" >> $GITHUB_OUTPUT
-          echo "config=$(jq --compact-output --raw-output '."spack-config"' ./config/versions.json)" >> $GITHUB_OUTPUT
+        run: echo "spack=$(jq --compact-output --raw-output '.spack' ./config/versions.json)" >> $GITHUB_OUTPUT
 
       - name: Get ${{ inputs.deployment-environment }} Remote Paths
         id: path
