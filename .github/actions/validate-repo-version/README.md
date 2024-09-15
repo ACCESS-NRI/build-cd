@@ -6,7 +6,7 @@ This action checks that the tags specified in a models `config/versions.json` is
 
 | Name | Type | Description | Required | Default | Example |
 | ---- | ---- | ----------- | -------- | ------- | ------- |
-| `repo-to-check` | `string` | ACCESS-NRI repositories  to validate associated version in `config/versions.json` | `true` | N/A | `spack-packages spack-config` |
+| `repo-to-check` | `string` | ACCESS-NRI repository to validate associated version in `config/versions.json` | `true` | N/A | `spack-packages` |
 
 ## Outputs
 
