@@ -3,14 +3,19 @@
   "deployment": {
     "Gadi": {
       "Release": {
-        "spack": {
-          "0.20": "6812713cf470b473a607f0de0e8e1cf53f804fb7",
-          "0.22": "21da7d7e2b5e2680cd9d2e0a2fb4a7d13d8baa9d"
+        "0.20": {
+          "spack": "6812713cf470b473a607f0de0e8e1cf53f804fb7",
+          "spack-config": "2024.03.22"
+        },
+        "0.22": {
+          "spack": "21da7d7e2b5e2680cd9d2e0a2fb4a7d13d8baa9d",
+          "spack-config": "2024.07.05"
         }
       },
       "Prerelease": {
-        "spack": {
-          "0.22": "21da7d7e2b5e2680cd9d2e0a2fb4a7d13d8baa9d"
+        "0.22": {
+          "spack": "21da7d7e2b5e2680cd9d2e0a2fb4a7d13d8baa9d",
+          "spack-config": "2024.07.05"
         }
       }
     }

@@ -15,39 +15,41 @@
           "properties": {
             "Release": {
               "type": "object",
-              "properties": {
-                "spack": {
+              "patternProperties": {
+                "^.+$": {
                   "type": "object",
-                  "patternProperties": {
-                    "^.+$": {
+                  "properties": {
+                    "spack": {
+                      "type": "string"
+                    },
+                    "spack-config": {
                       "type": "string"
                     }
                   },
-                  "additionalProperties": true
+                  "additionalProperties": true,
+                  "required": ["spack", "spack-config"]
                 }
               },
-              "additionalProperties": true,
-              "required": [
-                "spack"
-              ]
+              "additionalProperties": true
             },
             "Prerelease": {
               "type": "object",
-              "properties": {
-                "spack": {
+              "patternProperties": {
+                "^.+$": {
                   "type": "object",
-                  "patternProperties": {
-                    "": {
+                  "properties": {
+                    "spack": {
+                      "type": "string"
+                    },
+                    "spack-config": {
                       "type": "string"
                     }
                   },
-                  "additionalProperties": true
+                  "additionalProperties": true,
+                  "required": ["spack", "spack-config"]
                 }
               },
-              "additionalProperties": true,
-              "required": [
-                "spack"
-              ]
+              "additionalProperties": true
             }
           },
           "additionalProperties": true,
