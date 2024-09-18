@@ -69,7 +69,7 @@ jobs:
           update=$(jq --raw-output --compact-output \
             '[.deployment | to_entries[] | .key as $d | .value | keys[] | {
                 "deployment-environment": $d,
-                "type": .key
+                "type": .
               }]' ${{ env.CONFIG_SETTINGS_PATH }}
           )
           echo "updates=$update" >> $GITHUB_OUTPUT

@@ -22,14 +22,27 @@ jobs:
 
       - name: Setup spack updates
         id: spack
-        # TODO: Since we can't format this json as an input for this job (see the earlier workflow) we need to do it here
+        # TODO: Since we can't format any of this later json as an input for this job (see the earlier workflow) we need to do it here
         # Create a newline-separated list of strings of the form "MAJOR_VERSION COMMIT_HASH" so we
         # update the remotes MAJOR_VERSION/spack to COMMIT_HASH. Ex: "0.20 y7834gtbf3jf3434rr34r34ru"
         run: |
           updates=$(jq --compact-output --raw-output \
             --arg env "${{ inputs.deployment-environment }}" \
             --arg type "${{ inputs.spack-type }}" \
-            '.deployment[$env][$type].spack | to_entries[] | "\(.key) \(.value)"' \
+            '.deployment[$env][$type] | to_entries[] | "\(.key) \(.value.spack)"' \
+            ${{ env.CONFIG_SETTINGS_PATH }}
+          )
+
+          echo "$updates"
+          echo "updates=$updates" >> $GITHUB_OUTPUT
+
+      - name: Setup spack-config updates
+        id: spack-config
+        run: |
+          updates=$(jq --compact-output --raw-output \
+            --arg env "${{ inputs.deployment-environment }}" \
+            --arg type "${{ inputs.spack-type }}" \
+            '.deployment[$env][$type] | to_entries[] | "\(.key) \(.value.spack-config"' \
             ${{ env.CONFIG_SETTINGS_PATH }}
           )
 
@@ -43,7 +56,7 @@ jobs:
           hosts: ${{ secrets.HOST }}
           private-key: ${{ secrets.SSH_KEY }}
 
-      - name: Update
+      - name: Update Spack
         continue-on-error: true
         run: |
           ssh ${{ secrets.USER}}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
@@ -51,8 +64,8 @@ jobs:
           while read -ra update; do
             version=${update[0]}
             new_commit=${update[1]}
-
             current_head_commit=$(git -C ${{ secrets.SPACK_INSTALLS_ROOT_LOCATION }}/$version/spack rev-parse HEAD)
+
             if [ $? -eq 128 ]; then
               # FIXME: Deploy spack instances in this job too.
               echo "::error::Error: ${{ inputs.deployment-environment }} ${{ inputs.spack-type }} $version spack does not exist. Deploy it via build-cds Create Deployment Spack workflow first."
@@ -72,4 +85,34 @@ jobs:
               echo "::notice::Unchanged: ${{ inputs.deployment-environment }} ${{ inputs.spack-type }} $version spack left at $current_head_commit"
             fi
           done <<< "${{ steps.spack.outputs.updates }}"
+          EOT
+
+      - name: Update spack-config
+        continue-on-error: true
+        run: |
+          ssh ${{ secrets.USER}}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
+          set +e
+          while read -ra update; do
+            version=${update[0]}
+            new_commit=${update[1]}
+            current_head_commit=$(git -C ${{ secrets.SPACK_INSTALLS_ROOT_LOCATION }}/$version/spack-config rev-parse HEAD)
+
+            if [ $? -eq 128 ]; then
+              echo "::error::Error: ${{ inputs.deployment-environment }} ${{ inputs.spack-type }} $version spack-config does not exist."
+              continue
+            fi
+
+            git -C ${{ secrets.SPACK_INSTALLS_ROOT_LOCATION }}/$version/spack-config fetch
+
+            if [[ "$current_head_commit" != "$new_commit" ]]; then
+              git -C ${{ secrets.SPACK_INSTALLS_ROOT_LOCATION }}/$version/spack-config checkout $new_commit
+              if [ $? -ne 0 ]; then
+                echo "::error::Error: ${{ inputs.deployment-environment }} ${{ inputs.spack-type }} $version spack-config failed checkout from $current_head_commit to $new_commit"
+              else
+                echo "::notice::Changed: ${{ inputs.deployment-environment }} ${{ inputs.spack-type }} $version spack-config changed from $current_head_commit to $new_commit"
+              fi
+            else
+              echo "::notice::Unchanged: ${{ inputs.deployment-environment }} ${{ inputs.spack-type }} $version spack-config left at $current_head_commit"
+            fi
+          done <<< "${{ steps.spack-config.outputs.updates }}"
           EOT
