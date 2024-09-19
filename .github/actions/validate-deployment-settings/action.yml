@@ -87,7 +87,7 @@ runs:
           fi
         done
 
-        if [ -n $failed ]; then
+        if [ -n "$failed" ]; then
           msg="Some commits referenced do not exist in access-nri/spack. Check the workflow logs."
           echo "::${{ inputs.error-level }}::$msg"
           echo "msg=$msg" >> $GITHUB_OUTPUT
