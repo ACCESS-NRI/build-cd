@@ -241,6 +241,7 @@ jobs:
             where the binaries shall be on your `$PATH`.
             This Prerelease is also accessible on Gadi via `/g/data/vk83/prerelease/apps/spack/0.22/spack` in the `${{ needs.defaults.outputs.root-sbd }}-${{ needs.check-spack-yaml.outputs.prerelease }}` environment.
             </details>
+
             :hammer_and_wrench: Using: spack-packages `${{ needs.check-config.outputs.spack-packages-version}}`, spack-config `${{ needs.check-config.outputs.spack-config-version }}`
             <details>
             <summary>Details</summary>

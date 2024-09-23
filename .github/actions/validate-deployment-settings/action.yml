@@ -21,12 +21,15 @@ outputs:
 runs:
   using: composite
   steps:
+    ################
+    # SPACK CHECKS #
+    ################
     - name: Check All Spack Major Versions in Prerelease are in Release
       id: spack-maj-all-pre-in-rel
       shell: bash
       run: |
         majors_only_in_prerelease=$(jq --compact-output --raw-output \
-          '.deployment.${{ inputs.target }} | (.Prerelease.spack | keys) - (.Release.spack | keys) | @sh' \
+          '.deployment.${{ inputs.target }} | (.Prerelease | keys) - (.Release | keys) | @sh' \
           ${{ inputs.settings-path }}
         )
 
@@ -43,8 +46,21 @@ runs:
       # It then merges them together based on major version (Ex. [[{"0.20": "u298rer3", "0.20": "r98u349u"}], ...]).
       # And then finally compares the hashes for each major version, and returns the major versions where they differ.
       run: |
-        release_version_hashes=$(jq '.deployment.${{ inputs.target }}.Release.spack | to_entries' ${{ inputs.settings-path }})
-        prerelease_version_hashes=$(jq '.deployment.${{ inputs.target }}.Prerelease.spack | to_entries' ${{ inputs.settings-path }})
+        release_version_hashes=$(jq \
+          '.deployment.${{ inputs.target }}.Release
+          | [
+              keys[] as $major | .[$major].spack as $hash
+              | {($major): $hash} | to_entries[]
+            ]' ${{ inputs.settings-path }}
+        )
+
+        prerelease_version_hashes=$(jq \
+          '.deployment.${{ inputs.target }}.Prerelease
+          | [
+              keys[] as $major | .[$major].spack as $hash
+              | {($major): $hash} | to_entries[]
+            ]' ${{ inputs.settings-path }}
+        )
 
         unequal_hashes_for_version=$(jq --compact-output --raw-output --null-input \
           --argjson r "$release_version_hashes" \
@@ -76,8 +92,16 @@ runs:
       run: |
         gh repo clone access-nri/spack ${{ env.CHECKOUT_DIR }} -- --no-checkout --bare --filter=blob:none
 
-        # Essentially, pull out all the spack 'version: hash' sections and iterate
-        jq -cr '.deployment.${{ inputs.target }}[].spack | to_entries[] | "\(.key) \(.value)"' ${{ inputs.settings-path }} | while read -ra line; do
+        # Essentially, pull out all the spack 'major: hash' sections and iterate
+        version_hashes=$(jq --compact-output --raw-output \
+          '.deployment.${{ inputs.target }}[]
+            | keys[] as $major | .[$major].spack as $hash
+            | "\($major) \($hash)"' \
+          ${{ inputs.settings-path }}
+        )
+
+        # For each of the version hashes, check if $hash is in releases/v$major
+        while read -ra line; do
           version=${line[0]}
           hash=${line[1]}
           echo "Checking if $hash is in $version"
@@ -85,7 +109,7 @@ runs:
             echo "::${{ inputs.error-level }}::Commit $hash does not exist on branch releases/v$version"
             failed=true
           fi
-        done
+        done <<< "$version_hashes"
 
         if [ -n "$failed" ]; then
           msg="Some commits referenced do not exist in access-nri/spack. Check the workflow logs."
@@ -93,6 +117,31 @@ runs:
           echo "msg=$msg" >> $GITHUB_OUTPUT
         fi
 
+        rm -rf ${{ env.CHECKOUT_DIR }}
+
+    #######################
+    # SPACK-CONFIG CHECKS #
+    #######################
+    - name: Verify spack-config Tag Exists
+      id: spack-config-tag-exists
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        CHECKOUT_DIR: ./spack-config-metadata
+      run: |
+        gh repo clone access-nri/spack-config ${{ env.CHECKOUT_DIR }} -- --no-checkout --bare --filter=blob:none
+
+        if ! git -C ${{ env.CHECKOUT_DIR }} tag -l $spack_config_tag; then
+          msg="Tag $spack_config_tag does not exist in access-nri/spack-config"
+          echo "::${{ inputs.error-level }}::$msg"
+          echo "msg=$msg" >> $GITHUB_OUTPUT
+        fi
+
+        rm -rf ${{ env.CHECKOUT_DIR }}
+
+    #######################
+    # END OF ACTION STEPS #
+    #######################
     - name: Warning/Error Collector
       id: collector
       shell: bash

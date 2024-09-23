@@ -54,7 +54,6 @@ jobs:
         run: |
           echo "spack=$(jq --compact-output --raw-output '.spack' ./config/versions.json)" >> $GITHUB_OUTPUT
           echo "packages=$(jq --compact-output --raw-output '."spack-packages"' ./config/versions.json)" >> $GITHUB_OUTPUT
-          echo "config=$(jq --compact-output --raw-output '."spack-config"' ./config/versions.json)" >> $GITHUB_OUTPUT
 
       - name: Get ${{ inputs.deployment-environment }} Remote Paths
         id: path
@@ -100,11 +99,9 @@ jobs:
             exit 1
           fi
 
-          # Update spack-packages/config
+          # Update spack-packages
           git -C ${{ steps.path.outputs.spack-packages }} fetch
           git -C ${{ steps.path.outputs.spack-packages }} checkout --force ${{ steps.versions.outputs.packages }}
-          git -C ${{ steps.path.outputs.spack-config }} fetch
-          git -C ${{ steps.path.outputs.spack-config }} checkout --force ${{ steps.versions.outputs.config }}
 
           # Enable spack
           . ${{ steps.path.outputs.spack-config }}/spack-enable.bash
