@@ -42,7 +42,7 @@ jobs:
           updates=$(jq --compact-output --raw-output \
             --arg env "${{ inputs.deployment-environment }}" \
             --arg type "${{ inputs.spack-type }}" \
-            '.deployment[$env][$type] | to_entries[] | "\(.key) \(.value.spack-config"' \
+            '.deployment[$env][$type] | to_entries[] | "\(.key) \(.value.spack-config)"' \
             ${{ env.CONFIG_SETTINGS_PATH }}
           )
 
