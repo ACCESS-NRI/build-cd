@@ -34,7 +34,10 @@ jobs:
           )
 
           echo "$updates"
-          echo "updates=$updates" >> $GITHUB_OUTPUT
+          # For multiline output, use a heredoc. See https://github.com/orgs/community/discussions/116619#discussioncomment-8994849
+          echo "updates<<EOF" >> $GITHUB_OUTPUT
+          echo "$updates" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Setup spack-config updates
         id: spack-config
@@ -42,12 +45,15 @@ jobs:
           updates=$(jq --compact-output --raw-output \
             --arg env "${{ inputs.deployment-environment }}" \
             --arg type "${{ inputs.spack-type }}" \
-            '.deployment[$env][$type] | to_entries[] | "\(.key) \(.value.spack-config"' \
+            '.deployment[$env][$type] | to_entries[] | "\(.key) \(.value.spack-config)"' \
             ${{ env.CONFIG_SETTINGS_PATH }}
           )
 
           echo "$updates"
-          echo "updates=$updates" >> $GITHUB_OUTPUT
+          # For multiline output, use a heredoc. See https://github.com/orgs/community/discussions/116619#discussioncomment-8994849
+          echo "updates<<EOF" >> $GITHUB_OUTPUT
+          echo "$updates" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Setup SSH
         id: ssh
