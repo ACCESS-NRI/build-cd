@@ -23,7 +23,7 @@ jobs:
         # Note: We run under the assumption that all Prerelease Environments have 'Prerelease'
         # appended to their GitHub Environment name, which is set out in our deployment template
         # https://github.com/ACCESS-NRI/model-deployment-template/blob/main/README.md?plain=1#L41
-        run: echo "deployment-environments=$(jq --compact-output '.deployment | keys[] | "\(.) Prerelease"' ./config/settings.json)" >> $GITHUB_OUTPUT
+        run: echo "deployment-environments=$(jq --compact-output --raw-output '.deployment | [keys[] | "\(.) Prerelease"]' ./config/settings.json)" >> $GITHUB_OUTPUT
 
 
   undeployment:
