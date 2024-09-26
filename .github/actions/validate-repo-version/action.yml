@@ -27,12 +27,8 @@ runs:
           exit 1
         fi
 
-        # We omit the 'releases/v' from the spack branch in versions.json, so we add it back here.
-        if [[ "${{ inputs.repo-to-check }}" == "spack" ]]; then
-          echo "version=releases/v${version}" >> $GITHUB_OUTPUT
-        else
-          echo "version=${version}" >> $GITHUB_OUTPUT
-        fi
+        echo "version=${version}" >> $GITHUB_OUTPUT
+        echo "spack-branch-version=releases/v${version}" >> $GITHUB_OUTPUT
 
     # Verify that the repository exists at the given ref
     - name: Version Check
@@ -40,7 +36,9 @@ runs:
       uses: actions/checkout@v4
       with:
         repository: access-nri/${{ inputs.repo-to-check }}
-        ref: ${{ steps.jq.outputs.version }}
+        # In the case where we are checking spack, we need to add the
+        # 'releases/v' to the ref name, obtained in the previous step
+        ref: ${{ inputs.repo-to-check == 'spack' && steps.jq.outputs.spack-branch-version || steps.jq.outputs.version }}
         path: repo
 
     - name: Version Check Failure Notifier
