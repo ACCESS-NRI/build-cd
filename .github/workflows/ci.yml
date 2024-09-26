@@ -73,12 +73,6 @@ jobs:
         with:
           repo-to-check: spack-packages
 
-      - name: Validate spack-config version
-        id: spack-config
-        uses: access-nri/build-cd/.github/actions/validate-repo-version@main
-        with:
-          repo-to-check: spack-config
-
       - name: Validate spack version
         id: spack
         uses: access-nri/build-cd/.github/actions/validate-repo-version@main
@@ -91,6 +85,17 @@ jobs:
           repository: ACCESS-NRI/build-cd
           ref: main
           path: cd
+
+      - name: Get spack-config version
+        id: spack-config
+        # TODO: For future targets, we need to know which target we are using by this point
+        run: |
+          version=$(jq --compact-output --raw-output \
+            --arg spack_version "${{ steps.spack.outputs.version }}" \
+            '.deployment.Gadi.Prerelease[$spack_version]."spack-config"' cd/config/settings.json
+          )
+          echo $version
+          echo "version=$version" >> $GITHUB_OUTPUT
 
       - name: Validate build-cd config/settings.json
         id: settings
