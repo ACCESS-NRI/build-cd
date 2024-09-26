@@ -50,6 +50,7 @@ jobs:
     name: Check Config Fields
     runs-on: ubuntu-latest
     outputs:
+      spack-version: ${{ steps.spack.outputs.version }}
       spack-packages-version: ${{ steps.spack-packages.outputs.version }}
       spack-config-version:  ${{ steps.spack-config.outputs.version }}
       config-settings-failures: ${{ steps.settings.outputs.failures }}
@@ -72,11 +73,11 @@ jobs:
         with:
           repo-to-check: spack-packages
 
-      - name: Validate spack-config version
-        id: spack-config
+      - name: Validate spack version
+        id: spack
         uses: access-nri/build-cd/.github/actions/validate-repo-version@main
         with:
-          repo-to-check: spack-config
+          repo-to-check: spack
 
       - name: Checkout build-cd Config
         uses: actions/checkout@v4
@@ -84,6 +85,17 @@ jobs:
           repository: ACCESS-NRI/build-cd
           ref: main
           path: cd
+
+      - name: Get spack-config version
+        id: spack-config
+        # TODO: For future targets, we need to know which target we are using by this point
+        run: |
+          version=$(jq --compact-output --raw-output \
+            --arg spack_version "${{ steps.spack.outputs.version }}" \
+            '.deployment.Gadi.Prerelease[$spack_version]."spack-config"' cd/config/settings.json
+          )
+          echo $version
+          echo "version=$version" >> $GITHUB_OUTPUT
 
       - name: Validate build-cd config/settings.json
         id: settings
@@ -239,14 +251,15 @@ jobs:
             module load ${{ needs.defaults.outputs.root-sbd }}/${{ needs.check-spack-yaml.outputs.prerelease }}
             ```
             where the binaries shall be on your `$PATH`.
-            This Prerelease is also accessible on Gadi via `/g/data/vk83/prerelease/apps/spack/0.22/spack` in the `${{ needs.defaults.outputs.root-sbd }}-${{ needs.check-spack-yaml.outputs.prerelease }}` environment.
+            This Prerelease is also accessible on Gadi via `/g/data/vk83/prerelease/apps/spack/${{ needs.check-config.outputs.spack-version }}/spack` in the `${{ needs.defaults.outputs.root-sbd }}-${{ needs.version.outputs.prerelease }}` environment.
             </details>
 
-            :hammer_and_wrench: Using: spack-packages `${{ needs.check-config.outputs.spack-packages-version}}`, spack-config `${{ needs.check-config.outputs.spack-config-version }}`
+            :hammer_and_wrench: Using: spack `${{ needs.check-config.outputs.spack-version }}`, spack-packages `${{ needs.check-config.outputs.spack-packages-version}}`, spack-config `${{ needs.check-config.outputs.spack-config-version }}`
             <details>
             <summary>Details</summary>
 
             It will be deployed using:
+            * `access-nri/spack` on branch [`${{ needs.check-config.outputs.spack-version }}`](https://github.com/ACCESS-NRI/spack/tree/releases/v${{ needs.check-config.outputs.spack-version }})
             * `access-nri/spack-packages` version [`${{ needs.check-config.outputs.spack-packages-version }}`](https://github.com/ACCESS-NRI/spack-packages/releases/tag/${{ needs.check-config.outputs.spack-packages-version }})
             * `access-nri/spack-config` version [`${{ needs.check-config.outputs.spack-config-version }}`](https://github.com/ACCESS-NRI/spack-config/releases/tag/${{ needs.check-config.outputs.spack-config-version }})
 
