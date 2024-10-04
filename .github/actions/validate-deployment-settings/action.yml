@@ -80,44 +80,47 @@ runs:
           echo "msg=$msg" >> $GITHUB_OUTPUT
         fi
 
-    - name: Verify Spack Commits Exist
-      id: spack-hash-all-exist
-      env:
-        GH_TOKEN: ${{ github.token }}
-        CHECKOUT_DIR: ./spack-metadata
-      shell: bash
-      # Verify that every commit referenced actually exists on the
-      # `releases/VERSION` branch in access-nri/spack, but don't
-      # bother checking out the code.
-      run: |
-        gh repo clone access-nri/spack ${{ env.CHECKOUT_DIR }} -- --no-checkout --bare --filter=blob:none
+    # TODO: See https://github.com/ACCESS-NRI/build-cd/issues/140#issuecomment-2392638311 - commits fixing upstream spack that are rebased on access-nri/spack make the hashes unstable
+    # Either find a heuristic that will find the last good upstream/spack commit to check if it's on the branch, or add a `spack-upstream` field to config/settings.json.
 
-        # Essentially, pull out all the spack 'major: hash' sections and iterate
-        version_hashes=$(jq --compact-output --raw-output \
-          '.deployment.${{ inputs.target }}[]
-            | keys[] as $major | .[$major].spack as $hash
-            | "\($major) \($hash)"' \
-          ${{ inputs.settings-path }}
-        )
+    # - name: Verify Spack Commits Exist
+    #   id: spack-hash-all-exist
+    #   env:
+    #     GH_TOKEN: ${{ github.token }}
+    #     CHECKOUT_DIR: ./spack-metadata
+    #   shell: bash
+    #   # Verify that every commit referenced actually exists on the
+    #   # `releases/VERSION` branch in access-nri/spack, but don't
+    #   # bother checking out the code.
+    #   run: |
+    #     gh repo clone access-nri/spack ${{ env.CHECKOUT_DIR }} -- --no-checkout --bare --filter=blob:none
 
-        # For each of the version hashes, check if $hash is in releases/v$major
-        while read -ra line; do
-          version=${line[0]}
-          hash=${line[1]}
-          echo "Checking if $hash is in $version"
-          if ! git -C ${{ env.CHECKOUT_DIR }} merge-base --is-ancestor $hash releases/v$version; then
-            echo "::${{ inputs.error-level }}::Commit $hash does not exist on branch releases/v$version"
-            failed=true
-          fi
-        done <<< "$version_hashes"
+    #     # Essentially, pull out all the spack 'major: hash' sections and iterate
+    #     version_hashes=$(jq --compact-output --raw-output \
+    #       '.deployment.${{ inputs.target }}[]
+    #         | keys[] as $major | .[$major].spack as $hash
+    #         | "\($major) \($hash)"' \
+    #       ${{ inputs.settings-path }}
+    #     )
 
-        if [ -n "$failed" ]; then
-          msg="Some commits referenced do not exist in access-nri/spack. Check the workflow logs."
-          echo "::${{ inputs.error-level }}::$msg"
-          echo "msg=$msg" >> $GITHUB_OUTPUT
-        fi
+    #     # For each of the version hashes, check if $hash is in releases/v$major
+    #     while read -ra line; do
+    #       version=${line[0]}
+    #       hash=${line[1]}
+    #       echo "Checking if $hash is in $version"
+    #       if ! git -C ${{ env.CHECKOUT_DIR }} merge-base --is-ancestor $hash releases/v$version; then
+    #         echo "::${{ inputs.error-level }}::Commit $hash does not exist on branch releases/v$version"
+    #         failed=true
+    #       fi
+    #     done <<< "$version_hashes"
 
-        rm -rf ${{ env.CHECKOUT_DIR }}
+    #     if [ -n "$failed" ]; then
+    #       msg="Some commits referenced do not exist in access-nri/spack. Check the workflow logs."
+    #       echo "::${{ inputs.error-level }}::$msg"
+    #       echo "msg=$msg" >> $GITHUB_OUTPUT
+    #     fi
+
+    #     rm -rf ${{ env.CHECKOUT_DIR }}
 
     #######################
     # SPACK-CONFIG CHECKS #
