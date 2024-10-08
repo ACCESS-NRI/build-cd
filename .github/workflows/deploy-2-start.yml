@@ -115,7 +115,7 @@ jobs:
 
       - name: Get metadata from ${{ inputs.deployment-environment }}
         env:
-          SPACK_ENV_PATH: ${{ steps.path.outputs.spack }}/var/spack/environments/${{ inputs.env-name }}
+          SPACK_ENV_PATH: ${{ steps.path.outputs.spack }}/../environments/${{ inputs.env-name }}
         run: |
           ssh ${{ secrets.USER}}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
           . ${{ steps.path.outputs.spack-config }}/spack-enable.bash
@@ -162,7 +162,7 @@ jobs:
       - name: Get Release Metadata
         env:
           # TODO: Can we put both envs above in a $GITHUB_ENV file instead?
-          SPACK_ENV_PATH: ${{ steps.path.outputs.spack }}/var/spack/environments/${{ inputs.env-name }}
+          SPACK_ENV_PATH: ${{ steps.path.outputs.spack }}/../environments/${{ inputs.env-name }}
         run: |
           rsync -e 'ssh -i ${{ steps.ssh.outputs.private-key-path }}' \
             '${{ secrets.USER}}@${{ secrets.HOST_DATA }}:${{ env.SPACK_ENV_PATH }}/spack.*' \
