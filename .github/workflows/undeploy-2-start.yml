@@ -45,7 +45,7 @@ jobs:
         run: |
           ssh ${{ secrets.USER}}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
           . ${{ steps.path.outputs.spack-config }}/spack-enable.bash
-          envs=$(find ${{ steps.path.outputs.spack }}/var/spack/environments -type d -name '${{ inputs.env-name }}' -printf '%f ')
+          envs=$(find ${{ steps.path.outputs.spack }}/../environments -type d -name '${{ inputs.env-name }}' -printf '%f ')
 
           for env in $envs; do
             spack env activate $env
