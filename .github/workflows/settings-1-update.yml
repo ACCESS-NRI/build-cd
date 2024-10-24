@@ -74,6 +74,38 @@ jobs:
           )
           echo "updates=$update" >> $GITHUB_OUTPUT
 
+  settings-link-run:
+    name: Link Workflow Run To PR
+    if: github.event_name == 'push'
+    needs:
+      - setup-settings-update
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Get merged PR number
+        id: pr
+        # Get the most-recently merged PR and comment the workflow run link
+        run: |
+          last_merged_pr_number=$(gh pr list \
+            --state merged \
+            --json 'number,mergedAt' \
+            --jq 'sort_by(.mergedAt) | last | .number'
+          )
+          gh pr view $last_merged_pr_number
+          echo "number=$last_merged_pr_number" >> $GITHUB_OUTPUT
+
+      - name: Comment on PR ${{ steps.pr.outputs.number }}
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        uses: access-nri/actions/.github/actions/pr-comment@main
+        with:
+          pr: ${{ steps.pr.outputs.number }}
+          comment: |-
+            :information_source: The deployment of the merged settings update can be found here: ${{ env.RUN_URL }} :information_source:
+
   settings-update:
     name: Update
     if: github.event_name == 'push'
