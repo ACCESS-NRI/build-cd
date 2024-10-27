@@ -161,12 +161,15 @@ jobs:
 
       - name: Projection Version Matches
         # this step checks that the versions of the packages themselves match with the
-        #  names of the modules. For example, access-om3@git.2023.12.12 matches with the
+        #  names of the projections, if they're given.
+        # For example, access-om3@git.2023.12.12 matches with the
         #  modulefile access-om3/2023.12.12 (specifically, the version strings match)
         # TODO: Move this into the `scripts` directory - it's getting unweildly.
         run: |
-          FAILED='false'
-          DEPS=$(yq ".spack.modules.default.tcl.include | join(\" \")" spack.yaml)
+          FAILED="false"
+
+          # Get all the defined projections (minus 'all') and make them suitable for a bash for loop
+          DEPS=$(yq '.spack.modules.default.tcl.projections | del(.all) | keys | join(" ")' spack.yaml)
 
           # for each of the modules
           for DEP in $DEPS; do
