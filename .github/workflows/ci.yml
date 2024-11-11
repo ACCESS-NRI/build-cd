@@ -182,8 +182,11 @@ jobs:
               DEP_VER=$(yq ".spack.packages.\"$DEP\".require[0] | match(\"^@(?:git.)?([^=]*)\").captures[0].string" spack.yaml)
             fi
 
+            # Get the version from the module projection, for comparison with DEP_VER
+            # Projections are of the form '{name}/VERSION[-{hash:7}]', in which we only care about VERSION. For example, '{name}/2024.11.11', or '{name}/2024.11.11-{hash:7}'
             MODULE_NAME=$(yq ".spack.modules.default.tcl.projections.\"$DEP\"" spack.yaml)
-            MODULE_VER="${MODULE_NAME#*/}"  # Get 'version' from 'name/version' module, even if version contains '/'
+            MODULE_VER="${MODULE_NAME#*/}"  # Strip '{name}/' from '{name}/VERSION' module, even if VERSION contains '/'
+            MODULE_VER="${MODULE_VER%%-\{hash:7\}}"  # Strip a potential '-{hash:7}' appendix from the VERSION, since we won't have that in the DEP_VER
 
             if [[ "$DEP_VER" != "$MODULE_VER" ]]; then
               echo "::error::$DEP: Version of dependency and projection do not match ($DEP_VER != $MODULE_VER)"
