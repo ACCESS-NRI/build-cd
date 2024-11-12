@@ -100,7 +100,8 @@ jobs:
           set +e
           while read -ra update; do
             version=${update[0]}
-            new_commit=${update[1]}
+            new_tag=${update[1]}
+
             current_head_commit=$(git -C ${{ secrets.SPACK_INSTALLS_ROOT_LOCATION }}/$version/spack-config rev-parse HEAD)
 
             if [ $? -eq 128 ]; then
@@ -110,8 +111,11 @@ jobs:
 
             git -C ${{ secrets.SPACK_INSTALLS_ROOT_LOCATION }}/$version/spack-config fetch
 
+            # Parse the above spack-config tag as a commit hash, for easy comparison. The '^{}' syntax gives the hash of the tagged commit, not the hash of the tag itself
+            new_commit=$(git -C ${{ secrets.SPACK_INSTALLS_ROOT_LOCATION }}/$version/spack-config rev-parse "${new_tag}^{}")
+
             if [[ "$current_head_commit" != "$new_commit" ]]; then
-              git -C ${{ secrets.SPACK_INSTALLS_ROOT_LOCATION }}/$version/spack-config checkout $new_commit
+              git -C ${{ secrets.SPACK_INSTALLS_ROOT_LOCATION }}/$version/spack-config checkout $new_tag
               if [ $? -ne 0 ]; then
                 echo "::error::Error: ${{ inputs.deployment-environment }} ${{ inputs.spack-type }} $version spack-config failed checkout from $current_head_commit to $new_commit"
               else

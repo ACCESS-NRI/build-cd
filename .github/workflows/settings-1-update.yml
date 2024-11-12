@@ -85,6 +85,8 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
+      - uses: actions/checkout@v4
+
       - name: Get merged PR number
         id: pr
         # Get the most-recently merged PR and comment the workflow run link
