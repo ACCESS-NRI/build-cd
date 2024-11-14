@@ -1,0 +1,84 @@
+# This is a Spack Environment file.
+#
+# It describes a set of packages to be installed, along with
+# configuration settings.
+spack:
+  specs:
+    - access-esm1p5@git.2024.05.1
+  packages:
+    # Direct ACCESS-NRI dependencies
+    # Note: some packages have branch-specific logic and hence can't use
+    # the usual '@git.DATE' calver (https://calver.org) format, instead
+    # requiring a `@git.DATE=BRANCH` version.
+    mom5:
+      require:
+        - '@git.access-esm1.5_2024.08.23=access-esm1.5'
+    cice4:
+      require:
+        - '@git.2024.05.21=access-esm1.5'
+    um7:
+      require:
+        - '@git.2024.07.03=access-esm1.5'
+    # Lower-level ACCESS-NRI dependencies
+    gcom4:
+      require:
+        - '@git.2024.05.28=access-esm1.5'
+    oasis3-mct:
+      require:
+        - '@git.access-esm1.5_2024.05.24=access-esm1.5'
+    # Other dependencies
+    openmpi:
+      require:
+        - '@4.0.2'
+    netcdf-c:
+      require:
+        - '@4.7.4'
+    netcdf-fortran:
+      require:
+        - '@4.5.2'
+    hdf5:
+      require:
+        - '@1.10.11'
+
+    # Preferences for all packages
+    all:
+      require:
+        - '%intel@19.0.3.199'
+        - 'target=x86_64_v4'
+  view: true
+  concretizer:
+    unify: true
+  modules:
+    default:
+      enable:
+        - tcl
+      roots:
+        tcl: $spack/../release/modules
+        lmod: $spack/../release/lmod
+      tcl:
+        hash_length: 0
+        include:
+          - access-esm1p5
+          - cice4
+          - um7
+          # - mom5  # projections are still checked even if they are not explicitly included
+        exclude_implicits: true
+        all:
+          autoload: run
+          conflict:
+            - '{name}'
+          environment:
+            set:
+              'SPACK_{name}_ROOT': '{prefix}'
+        projections:
+          all: '{name}/{version}'
+          access-esm1p5: '{name}/2024.05.1'
+          cice4: '{name}/9999.99.99'
+          um7: '{name}/2024.07.03'
+          mom5: '{name}/9999.99.99'  # This should fail
+  config:
+    install_tree:
+      root: $spack/../restricted/ukmo/release
+    source_cache: $spack/../restricted/ukmo/source_cache
+    build_stage:
+    - $TMPDIR/restricted/spack-stage
