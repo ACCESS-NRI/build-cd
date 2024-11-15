@@ -199,6 +199,8 @@ jobs:
 
       - name: Generate Versions
         id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
         # This step generates the release and prerelease version numbers.
         # The release is a general version number from the spack.yaml, looking the
         # same as a regular release build. Ex. 'access-om2@git.2024.01.1' -> '2024.01.1'
