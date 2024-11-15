@@ -202,13 +202,19 @@ jobs:
         # This step generates the release and prerelease version numbers.
         # The release is a general version number from the spack.yaml, looking the
         # same as a regular release build. Ex. 'access-om2@git.2024.01.1' -> '2024.01.1'
-        # The prerelease looks like: `pr<pull request number>-<number of commits on this branch>`.
-        # Ex. Pull Request #12 with 2 commits on branch -> `pr12-2`.
+        # The prerelease looks like: `pr<pull request number>-<number of deployments of pull request>`.
+        # Ex. Pull Request #12 with 2 deployments on branch -> `pr12-2`.
         run: |
           echo "release=$(yq '${{ env.SPACK_YAML_MODEL_YQ }} | split("@git.") | .[1]' spack.yaml)" >> $GITHUB_OUTPUT
 
-          number_of_commits=$(git rev-list --count ${{ github.event.pull_request.base.sha }}..HEAD)
-          echo "prerelease=pr${{ github.event.pull_request.number }}-${number_of_commits}" >> $GITHUB_OUTPUT
+          # Essentially, count all the deployment entries that match the given branch.
+          # See https://docs.github.com/en/rest/deployments/deployments?apiVersion=2022-11-28#list-deployments
+          next_deployment_number=$(gh api \
+            -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" \
+            /repos/${{ github.repository }}/deployments \
+            --jq '[.[] | select(.ref == "${{ github.ref_name }}")] | length + 1'
+          )
+          echo "prerelease=pr${{ github.event.pull_request.number }}-${next_deployment_number}" >> $GITHUB_OUTPUT
 
   # -----------------------------
   # | PRERELEASE DEPLOYMENT JOB |
@@ -242,7 +248,7 @@ jobs:
       - uses: access-nri/actions/.github/actions/pr-comment@main
         with:
           comment: |
-            :rocket: Deploying ${{ inputs.model }} `${{ needs.check-spack-yaml.outputs.release }}` as prerelease `${{ needs.check-spack-yaml.outputs.prerelease }}`
+            :rocket: Deploying ${{ inputs.model }} `${{ needs.check-spack-yaml.outputs.release }}` as prerelease `${{ needs.check-spack-yaml.outputs.prerelease }}` with commit ${{ github.event.pull_request.head.sha }}
             ${{ needs.check-config.outputs.config-settings-failures != '' && ':warning:There are issues with the `build-cd` deployment configuration. If this is unexpected, let @ACCESS-NRI/model-release know.' || '' }}
             <details>
             <summary>Details and usage instructions</summary>
