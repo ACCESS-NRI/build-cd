@@ -214,7 +214,7 @@ jobs:
           next_deployment_number=$(gh api \
             -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" \
             /repos/${{ github.repository }}/deployments \
-            --jq '[.[] | select(.ref == "${{ github.ref_name }}")] | length + 1'
+            --jq '[.[] | select(.ref == "${{ github.head_ref }}")] | length + 1'
           )
           echo "prerelease=pr${{ github.event.pull_request.number }}-${next_deployment_number}" >> $GITHUB_OUTPUT
 
