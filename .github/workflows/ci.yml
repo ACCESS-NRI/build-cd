@@ -247,7 +247,9 @@ jobs:
     permissions:
       pull-requests: write
     steps:
-      - uses: access-nri/actions/.github/actions/pr-comment@main
+      - name: PR Comment Notifier
+        id: comment
+        uses: access-nri/actions/.github/actions/pr-comment@main
         with:
           comment: |
             :rocket: Deploying ${{ inputs.model }} `${{ needs.check-spack-yaml.outputs.release }}` as prerelease `${{ needs.check-spack-yaml.outputs.prerelease }}` with commit ${{ github.event.pull_request.head.sha }}
@@ -279,3 +281,25 @@ jobs:
 
             If this is not what was expected, commit changes to `config/versions.json`.
             </details>
+
+      - name: PR Description Notifier
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_BODY_FILE_LOCATION: ./body.txt
+          LATEST_PRERELEASE_SECTION_REGEX: "^:rocket: .* :rocket:$"
+          # We can't use many punctuation marks in the Prerelease Section because `sed` treats
+          # the replacement string as a regex string - no special regex chars without escaping
+          LATEST_PRERELEASE_SECTION: ":rocket: The latest prerelease `${{ needs.defaults.outputs.root-sbd }}/${{ needs.check-spack-yaml.outputs.prerelease }}` is here: ${{ steps.comment.outputs.comment-link }} :rocket:"
+        run: |
+          gh pr view ${{ github.event.pull_request.number }} --repo ${{ github.repository }} --json body --jq .body > ${{ env.PR_BODY_FILE_LOCATION }}
+
+          if grep -q '${{ env.LATEST_PRERELEASE_SECTION_REGEX }}' ${{ env.PR_BODY_FILE_LOCATION }}; then  # there is an existing prerelease section
+            # Replace the existing prerelease section - we use '|' as a delimiter because there are '/' in the replacement string
+            sed -i 's|${{ env.LATEST_PRERELEASE_SECTION_REGEX }}|${{ env.LATEST_PRERELEASE_SECTION }}|g' ${{ env.PR_BODY_FILE_LOCATION }}
+          else  # a new section is added
+            echo -e '\n' >> ${{ env.PR_BODY_FILE_LOCATION }}
+            echo '---' >> ${{ env.PR_BODY_FILE_LOCATION }}
+            echo '${{ env.LATEST_PRERELEASE_SECTION }}' >> ${{ env.PR_BODY_FILE_LOCATION }}
+          fi
+
+          gh pr edit ${{ github.event.pull_request.number }} --repo ${{ github.repository }} --body-file ${{ env.PR_BODY_FILE_LOCATION }}
