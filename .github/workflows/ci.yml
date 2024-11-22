@@ -292,10 +292,15 @@ jobs:
         run: |
           gh pr view ${{ github.event.pull_request.number }} --repo ${{ github.repository }} --json body --jq .body > ${{ env.PR_BODY_PATH }}
 
+          # `awk` is a series of `CONDITION { ACTION }` pairs. No 'CONDITION' means 'TRUE', no '{ ACTION }' means 'print'.
           if grep -q '${{ env.PRERELEASE_SECTION_REGEX }}' ${{ env.PR_BODY_PATH }}; then  # there is an existing prerelease section
             # Replace the existing prerelease section
+            # `{gsub(...)}`. Always attempt substitution on each line, then:
+            # `1`. Always do the default action '{ print }').
             awk '{gsub(/${{ env.PRERELEASE_SECTION_REGEX }}/, "${{ env.PRERELEASE_SECTION }}")}1' ${{ env.PR_BODY_PATH }} > ${{ env.PR_BODY_PATH_UPDATED }}
           else  # a new section is added
+            # `1;` -> `TRUE { print }`. Always do the default action (aka 'print') for each line.
+            # `END {print(...)}`. If end of file, print the prerelease section.
             awk '1; END {print "\n---\n${{ env.PRERELEASE_SECTION }}"}' ${{ env.PR_BODY_PATH }} > ${{ env.PR_BODY_PATH_UPDATED }}
           fi
 
