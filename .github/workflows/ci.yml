@@ -285,21 +285,18 @@ jobs:
       - name: PR Description Notifier
         env:
           GH_TOKEN: ${{ github.token }}
-          PR_BODY_FILE_LOCATION: ./body.txt
-          LATEST_PRERELEASE_SECTION_REGEX: "^:rocket: .* :rocket:$"
-          # We can't use many punctuation marks in the Prerelease Section because `sed` treats
-          # the replacement string as a regex string - no special regex chars without escaping
-          LATEST_PRERELEASE_SECTION: ":rocket: The latest prerelease `${{ needs.defaults.outputs.root-sbd }}/${{ needs.check-spack-yaml.outputs.prerelease }}` is here: ${{ steps.comment.outputs.comment-link }} :rocket:"
+          PR_BODY_PATH: ./body.txt
+          PR_BODY_PATH_UPDATED: ./updated.body.txt
+          PRERELEASE_SECTION_REGEX: "^:rocket: .* :rocket:$"
+          PRERELEASE_SECTION: ":rocket: The latest prerelease `${{ needs.defaults.outputs.root-sbd }}/${{ needs.check-spack-yaml.outputs.prerelease }}` is here: ${{ steps.comment.outputs.comment-link }} :rocket:"
         run: |
-          gh pr view ${{ github.event.pull_request.number }} --repo ${{ github.repository }} --json body --jq .body > ${{ env.PR_BODY_FILE_LOCATION }}
+          gh pr view ${{ github.event.pull_request.number }} --repo ${{ github.repository }} --json body --jq .body > ${{ env.PR_BODY_PATH }}
 
-          if grep -q '${{ env.LATEST_PRERELEASE_SECTION_REGEX }}' ${{ env.PR_BODY_FILE_LOCATION }}; then  # there is an existing prerelease section
-            # Replace the existing prerelease section - we use '|' as a delimiter because there are '/' in the replacement string
-            sed -i 's|${{ env.LATEST_PRERELEASE_SECTION_REGEX }}|${{ env.LATEST_PRERELEASE_SECTION }}|g' ${{ env.PR_BODY_FILE_LOCATION }}
+          if grep -q '${{ env.PRERELEASE_SECTION_REGEX }}' ${{ env.PR_BODY_PATH }}; then  # there is an existing prerelease section
+            # Replace the existing prerelease section
+            awk '{gsub(/${{ env.PRERELEASE_SECTION_REGEX }}/, "${{ env.PRERELEASE_SECTION }}")}1' ${{ env.PR_BODY_PATH }} > ${{ env.PR_BODY_PATH_UPDATED }}
           else  # a new section is added
-            echo -e '\n' >> ${{ env.PR_BODY_FILE_LOCATION }}
-            echo '---' >> ${{ env.PR_BODY_FILE_LOCATION }}
-            echo '${{ env.LATEST_PRERELEASE_SECTION }}' >> ${{ env.PR_BODY_FILE_LOCATION }}
+            awk '1; END {print "\n---\n${{ env.PRERELEASE_SECTION }}"}' ${{ env.PR_BODY_PATH }} > ${{ env.PR_BODY_PATH_UPDATED }}
           fi
 
-          gh pr edit ${{ github.event.pull_request.number }} --repo ${{ github.repository }} --body-file ${{ env.PR_BODY_FILE_LOCATION }}
+          gh pr edit ${{ github.event.pull_request.number }} --repo ${{ github.repository }} --body-file ${{ env.PR_BODY_PATH }}
