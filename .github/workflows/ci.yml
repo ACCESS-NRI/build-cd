@@ -18,6 +18,10 @@ on:
         description: |
           The name of the root Spack Bundle Definition, if it is different from the model name.
           This is often a package named similarly in ACCESS-NRI/spack-packages.
+      pr:
+        type: string
+        required: true
+        description: The pull request number that will be deployed as a prerelease
   # Callers usually have the trigger:
   # pull_request:
   #   branches:
@@ -32,12 +36,17 @@ env:
 jobs:
   defaults:
     name: Set Defaults
-    # Unfortunately, you can't set a dynamic default value based on `inputs` yet
+    # Unfortunately, you can't set a dynamic default value based on `inputs` yet.
+    # We also set the PR metadata here because it's used in multiple places,
+    # including the deploy reusable workflow, which can't access the `env` context.
     runs-on: ubuntu-latest
     outputs:
       root-sbd: ${{ steps.root-sbd.outputs.default }}
+      head-ref: ${{ steps.pr.outputs.head }}
+      head-sha: ${{ steps.pr.outputs.sha }}
+      base-ref: ${{ steps.pr.outputs.base }}
     steps:
-      - name: root-sbd
+      - name: root-sbd default
         id: root-sbd
         run: |
           if [[ "${{ inputs.root-sbd }}" == "" ]]; then
@@ -45,6 +54,33 @@ jobs:
           else
             echo "default=${{ inputs.root-sbd }}" >> $GITHUB_OUTPUT
           fi
+
+      - name: PR metadata
+        id: pr
+        run: |
+          pr_metadata=$(gh pr view ${{ inputs.pr }} --repo ${{ github.repository }} --json headRefName,headRefOid,baseRefName)
+          if [ -z "$pr_metadata" ]; then
+            echo "::error::Failed to get PR ${{ inputs.pr }} metadata."
+            exit 1
+          fi
+
+          head=$(jq --null-input --raw-output --compact-output
+            --argjson pr "$pr_metadata" \
+            '$pr.headRefName'
+          )
+          sha=$(jq --null-input --raw-output --compact-output \
+            --argjson pr "$pr_metadata" \
+            '$pr.headRefOid'
+          )
+          base=$(jq --null-input --raw-output --compact-output \
+            --argjson pr "$pr_metadata" \
+            '$pr.baseRefName'
+          )
+
+          echo "PR ${{ inputs.pr }} with '$head' ('$sha') -> '$base'"
+          echo "head=$head" >> $GITHUB_OUTPUT
+          echo "sha=$sha" >> $GITHUB_OUTPUT
+          echo "base=$base" >> $GITHUB_OUTPUT
 
   check-config:
     name: Check Config Fields
