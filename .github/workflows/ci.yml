@@ -270,7 +270,7 @@ jobs:
             module load ${{ needs.defaults.outputs.root-sbd }}/${{ needs.check-spack-yaml.outputs.prerelease }}
             ```
             where the binaries shall be on your `$PATH`.
-            This Prerelease is also accessible on Gadi via `/g/data/vk83/prerelease/apps/spack/${{ needs.check-config.outputs.spack-version }}/spack` in the `${{ needs.defaults.outputs.root-sbd }}-${{ needs.version.outputs.prerelease }}` environment.
+            This Prerelease is also accessible on Gadi via `/g/data/vk83/prerelease/apps/spack/${{ needs.check-config.outputs.spack-version }}/spack` in the `${{ needs.defaults.outputs.root-sbd }}-${{ needs.check-spack-yaml.outputs.prerelease }}` environment.
             </details>
 
             :hammer_and_wrench: Using: spack `${{ needs.check-config.outputs.spack-version }}`, spack-packages `${{ needs.check-config.outputs.spack-packages-version}}`, spack-config `${{ needs.check-config.outputs.spack-config-version }}`
