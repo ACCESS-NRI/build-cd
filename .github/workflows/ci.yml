@@ -111,12 +111,14 @@ jobs:
         uses: access-nri/build-cd/.github/actions/validate-repo-version@main
         with:
           repo-to-check: spack-packages
+          pr: ${{ inputs.pr }}
 
       - name: Validate spack version
         id: spack
         uses: access-nri/build-cd/.github/actions/validate-repo-version@main
         with:
           repo-to-check: spack
+          pr: ${{ inputs.pr }}
 
       - name: Checkout build-cd Config
         uses: actions/checkout@v4

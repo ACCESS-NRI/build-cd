@@ -7,6 +7,7 @@ This action checks that the tags specified in a models `config/versions.json` is
 | Name | Type | Description | Required | Default | Example |
 | ---- | ---- | ----------- | -------- | ------- | ------- |
 | `repo-to-check` | `string` | ACCESS-NRI repository to validate associated version in `config/versions.json` | `true` | N/A | `spack-packages` |
+| `pr` | `number` | The pull request number that contains the `config/versions.json` | `true` | N/A | 12 |
 
 ## Outputs
 
@@ -22,8 +23,9 @@ This action checks that the tags specified in a models `config/versions.json` is
   uses: access-nri/build-cd/.github/actions/validate-repo-version@main
   with:
     repo-to-check: spack-packages
+    pr: 12
 
-- run: echo "spack-packages has valid version ${{ steps.validate.outputs.version }} in `config/versions.json`"
+- run: echo "spack-packages has valid version ${{ steps.validate.outputs.version }} in PR#12's `config/versions.json`"
 
 - if: failure() && steps.validate.outcome == 'failure'
   run: echo "The version in spack-packages is not valid."

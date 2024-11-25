@@ -5,6 +5,10 @@ inputs:
     type: string
     required: true
     description: ACCESS-NRI repository to validate associated version in `config/versions.json`
+  pr:
+    type: number
+    required: true
+    description: The pull request number that contains the config/versions.json
 outputs:
   version:
     value: ${{ steps.jq.outputs.version }}
@@ -14,6 +18,8 @@ runs:
   steps:
     # Checkout the callers `config/versions.json`
     - uses: actions/checkout@v4
+      with:
+        ref: ${{ inputs.pr }}
 
     # Get the version from the `config/versions.json`
     - name: Setup
