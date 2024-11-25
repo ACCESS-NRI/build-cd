@@ -2,7 +2,6 @@ name: CI
 run-name: ${{ inputs.model }} CI
 # NOTE: This workflow requires:
 # permissions.pull-requests:write
-# permissions.contents:write
 # secrets:inherit with an appropriate GitHub Environment for deployment in the caller
 on:
   workflow_call:
@@ -30,7 +29,10 @@ on:
   #   paths:
   #     - config/**
   #     - spack.yaml
-
+  # issue_comment:
+  #   types:
+  #     - created
+  #     - edited
 env:
   SPACK_YAML_MODEL_YQ: .spack.specs[0]
 jobs:
@@ -265,8 +267,8 @@ jobs:
   # -----------------------------
   prerelease-deploy:
     name: Deploy to Prerelease
-    # This will create a `spack` environment with the name `<model>-pr<pull request number>-<commit number>`.
-    # For example, `access-om3-pr13-3` for the deployment of access-om3 based on the third commit on the PR#13.
+    # This will create a `spack` environment with the name `<model>-pr<pull request number>-<deployment number>`.
+    # For example, `access-om3-pr13-3` for the third deployment on the PR#13.
     needs:
       - defaults  # so we can access `inputs.root-sbd` that could have defaulted to `inputs.model`
       - check-spack-yaml  # implies all the spack.yaml-related checks have passed, has appropriate version for the prerelease build
@@ -331,7 +333,7 @@ jobs:
           PR_BODY_PATH: ./body.txt
           PR_BODY_PATH_UPDATED: ./updated.body.txt
           PRERELEASE_SECTION_REGEX: "^:rocket: .* :rocket:$"
-          PRERELEASE_SECTION: ":rocket: The latest prerelease `${{ needs.defaults.outputs.root-sbd }}/${{ needs.check-spack-yaml.outputs.prerelease }}` is here: ${{ steps.comment.outputs.comment-link }} :rocket:"
+          PRERELEASE_SECTION: ":rocket: The latest prerelease `${{ needs.defaults.outputs.root-sbd }}/${{ needs.check-spack-yaml.outputs.prerelease }}` at ${{ needs.defaults.outputs.head-sha }} is here: ${{ steps.comment.outputs.comment-link }} :rocket:"
         run: |
           gh pr view ${{ inputs.pr }} --repo ${{ github.repository }} --json body --jq .body > ${{ env.PR_BODY_PATH }}
 
