@@ -213,6 +213,7 @@ jobs:
           # See https://docs.github.com/en/rest/deployments/deployments?apiVersion=2022-11-28#list-deployments
           next_deployment_number=$(gh api \
             -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" \
+            --paginate \
             /repos/${{ github.repository }}/deployments \
             --jq '[.[] | select(.ref == "${{ github.head_ref }}")] | length + 1'
           )
