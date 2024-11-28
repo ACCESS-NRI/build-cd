@@ -305,4 +305,6 @@ jobs:
             awk '1; END {print "\n---\n${{ env.PRERELEASE_SECTION }}"}' ${{ env.PR_BODY_PATH }} > ${{ env.PR_BODY_PATH_UPDATED }}
           fi
 
-          gh pr edit ${{ github.event.pull_request.number }} --repo ${{ github.repository }} --body-file ${{ env.PR_BODY_PATH }}
+          cat ${{ env.PR_BODY_PATH_UPDATED }}
+
+          gh pr edit ${{ github.event.pull_request.number }} --repo ${{ github.repository }} --body-file ${{ env.PR_BODY_PATH_UPDATED }}
