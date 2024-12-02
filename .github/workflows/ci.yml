@@ -175,7 +175,9 @@ jobs:
           for DEP in $DEPS; do
             DEP_VER=''
             if [[ "$DEP" == "${{ needs.defaults.outputs.root-sbd }}" ]]; then
-              DEP_VER=$(yq '.spack.specs[0] | split("@git.") | .[1]' spack.yaml)
+              # The model version is the bit after '@git.', before any later, space-separated, optional variants.
+              # For example, in 'MODEL@git.VERSION type=ACCESS ~debug' the version is 'VERSION'.
+              DEP_VER=$(yq '.spack.specs[0] | capture(".+@git\.(?<version>[^ ]+).*") | .version' spack.yaml)
             else
               # Capture the section after '@git.' or '@' (if it's not a git-attributed version) and before a possible '=' for a given dependency.
               # Ex. '@git.2024.02.11' -> '2024.02.11', '@access-esm1.5' -> 'access-esm1.5', '@git.2024.05.21=access-esm1.5' -> '2024.05.21'
