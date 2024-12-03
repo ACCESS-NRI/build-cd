@@ -94,15 +94,21 @@ jobs:
 
       - name: Branch metadata
         id: branch
-        # Essentially, count all the deployment entries that match the given branch.
+        # Essentially, count all the deployment entries that match the given branch, as well as
+        # all the `!redeploy` comments, to get the next deployment number.
         # See https://docs.github.com/en/rest/deployments/deployments?apiVersion=2022-11-28#list-deployments
         run: |
-          next_deployment_number=$(gh api \
+          pr_deployments=$(gh api \
             -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" \
             --paginate \
             /repos/${{ github.repository }}/deployments \
-            --jq '[.[] | select(.ref == "${{ steps.pr.outputs.head }}")] | length + 1'
+            --jq '[.[] | select(.ref == "${{ steps.pr.outputs.head }}")] | length'
           )
+          comment_deployments=$(gh pr view ${{ inputs.pr }} --repo ${{ github.repository }} \
+            --json comments \
+            --jq '[.comments[] | select(.body | startswith("!redeploy"))] | length'
+          )
+          next_deployment_number=$((pr_deployments + comment_deployments + 1))
           echo "Next Deployment Number is $next_deployment_number"
           echo "next-deployment-number=$next_deployment_number" >> $GITHUB_OUTPUT
 
