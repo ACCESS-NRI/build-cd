@@ -1,9 +1,13 @@
 name: CI
 run-name: ${{ inputs.model }} CI
 # NOTE: This workflow requires:
-# permissions.pull-requests:write
-# permissions.contents:write
-# secrets:inherit with an appropriate GitHub Environment for deployment in the caller
+# For the pull_request version of the workflow:
+#   permissions.pull-requests:write
+#   secrets:inherit with an appropriate GitHub Environment for deployment in the caller
+# For the !redeploy issue_comment version of the workflow:
+#   permissions.pull-requests:write
+#   permissions.statuses:write
+#   secrets:inherit with an appropriate GitHub Environment for deployment in the caller
 on:
   workflow_call:
     inputs:
@@ -18,6 +22,10 @@ on:
         description: |
           The name of the root Spack Bundle Definition, if it is different from the model name.
           This is often a package named similarly in ACCESS-NRI/spack-packages.
+      pr:
+        type: string
+        required: true
+        description: The pull request number that will be deployed as a prerelease
   # Callers usually have the trigger:
   # pull_request:
   #   branches:
@@ -26,18 +34,29 @@ on:
   #   paths:
   #     - config/**
   #     - spack.yaml
-
+  # issue_comment:
+  #   types:
+  #     - created
+  #     - edited
 env:
   SPACK_YAML_MODEL_YQ: .spack.specs[0]
 jobs:
   defaults:
     name: Set Defaults
-    # Unfortunately, you can't set a dynamic default value based on `inputs` yet
+    # Unfortunately, you can't set a dynamic default value based on `inputs` yet.
+    # We also set the PR and branch metadata here because it's used in multiple places,
+    # including the deploy reusable workflow, which can't access the `env` context.
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
     outputs:
       root-sbd: ${{ steps.root-sbd.outputs.default }}
+      head-ref: ${{ steps.pr.outputs.head }}
+      head-sha: ${{ steps.pr.outputs.sha }}
+      base-ref: ${{ steps.pr.outputs.base }}
+      next-deployment-number: ${{ steps.branch.outputs.next-deployment-number }}
     steps:
-      - name: root-sbd
+      - name: root-sbd default
         id: root-sbd
         run: |
           if [[ "${{ inputs.root-sbd }}" == "" ]]; then
@@ -46,8 +65,108 @@ jobs:
             echo "default=${{ inputs.root-sbd }}" >> $GITHUB_OUTPUT
           fi
 
+      - name: PR metadata
+        id: pr
+        run: |
+          pr_metadata=$(gh pr view ${{ inputs.pr }} --repo ${{ github.repository }} --json headRefName,headRefOid,baseRefName)
+          if [ -z "$pr_metadata" ]; then
+            echo "::error::Failed to get PR ${{ inputs.pr }} metadata."
+            exit 1
+          fi
+
+          head=$(jq --null-input --raw-output --compact-output \
+            --argjson pr "$pr_metadata" \
+            '$pr.headRefName'
+          )
+          sha=$(jq --null-input --raw-output --compact-output \
+            --argjson pr "$pr_metadata" \
+            '$pr.headRefOid'
+          )
+          base=$(jq --null-input --raw-output --compact-output \
+            --argjson pr "$pr_metadata" \
+            '$pr.baseRefName'
+          )
+
+          echo "PR ${{ inputs.pr }} with '$head' ('$sha') -> '$base'"
+          echo "head=$head" >> $GITHUB_OUTPUT
+          echo "sha=$sha" >> $GITHUB_OUTPUT
+          echo "base=$base" >> $GITHUB_OUTPUT
+
+      - name: Branch metadata
+        id: branch
+        # Essentially, count all the deployment entries that match the given branch, as well as
+        # all the `!redeploy` comments, to get the next deployment number.
+        # See https://docs.github.com/en/rest/deployments/deployments?apiVersion=2022-11-28#list-deployments
+        run: |
+          pr_deployments=$(gh api \
+            -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" \
+            --paginate \
+            /repos/${{ github.repository }}/deployments \
+            --jq '[.[] | select(.ref == "${{ steps.pr.outputs.head }}")] | length'
+          )
+          comment_deployments=$(gh pr view ${{ inputs.pr }} --repo ${{ github.repository }} \
+            --json comments \
+            --jq '[.comments[] | select(.body | startswith("!redeploy"))] | length'
+          )
+          next_deployment_number=$((pr_deployments + comment_deployments + 1))
+          echo "Next Deployment Number is $next_deployment_number"
+          echo "next-deployment-number=$next_deployment_number" >> $GITHUB_OUTPUT
+
+  redeploy-pre:
+    name: '!redeploy Pending'
+    if: github.event_name == 'issue_comment' && startsWith(github.event.comment.body, '!redeploy')
+    needs:
+      - defaults
+    runs-on: ubuntu-latest
+    permissions:
+      statuses: write
+      pull-requests: write
+    outputs:
+      # String to differentiate the status of redeploys vs other checks
+      commit-status-context: ${{ steps.commit-status-args.outputs.context }}
+      # String to describe the overall check
+      commit-status-description: ${{ steps.commit-status-args.outputs.description }}
+    steps:
+      - name: Check commenter permissions
+        id: commenter
+        uses: access-nri/actions/.github/actions/commenter-permission-check@main
+        with:
+          # This means that commenters who use `!redeploy` must have at least `write` perms
+          # in the repository. `write` is probably the best fit. 
+          minimum-permission: write
+
+      - name: React to Comment
+        uses: access-nri/actions/.github/actions/react-to-comment@main
+        with:
+          token: ${{ github.token }}
+          reaction: ${{ steps.commenter.outputs.has-permission == 'true' && 'rocket' || '-1' }}
+
+      - name: Exit if no write permissions
+        if: steps.commenter.outputs.has-permission == 'false'
+        run: |
+          echo "User ${{ github.event.comment.user.login }} doesn't have 'write' permission on ${{ github.repository }}, not allowing deployment"
+          exit 1
+
+      - name: Set Commit Status Args
+        id: commit-status-args
+        # We don't want to use history expansion (the '!')
+        shell: bash +H {0}
+        run: |
+          echo 'context=!redeploy Number ${{ needs.defaults.outputs.next-deployment-number }}' >> $GITHUB_OUTPUT
+          echo 'description=Redeploy Prerelease' >> $GITHUB_OUTPUT
+
+      - name: Set Commit Status Pending
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f  # v2.0.1
+        with:
+          status: pending
+          sha: ${{ needs.defaults.outputs.head-sha }}
+          context: ${{ steps.commit-status-args.outputs.context }}
+          description: ${{ steps.commit-status-args.outputs.description }}
+
   check-config:
     name: Check Config Fields
+    needs:
+      - defaults
     runs-on: ubuntu-latest
     outputs:
       spack-version: ${{ steps.spack.outputs.version }}
@@ -59,6 +178,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: model
+          ref: ${{ needs.defaults.outputs.head-ref }}
 
       - name: Validate ${{ github.repository }} config/versions.json
         uses: access-nri/schema/.github/actions/validate-with-schema@main
@@ -72,12 +192,14 @@ jobs:
         uses: access-nri/build-cd/.github/actions/validate-repo-version@main
         with:
           repo-to-check: spack-packages
+          pr: ${{ needs.defaults.outputs.head-ref }}
 
       - name: Validate spack version
         id: spack
         uses: access-nri/build-cd/.github/actions/validate-repo-version@main
         with:
           repo-to-check: spack
+          pr: ${{ needs.defaults.outputs.head-ref }}
 
       - name: Checkout build-cd Config
         uses: actions/checkout@v4
@@ -119,6 +241,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ needs.defaults.outputs.head-ref }}
 
       - name: Validate ACCESS-NRI spack.yaml Restrictions
         uses: access-nri/schema/.github/actions/validate-with-schema@main
@@ -130,17 +253,17 @@ jobs:
       - name: Check Model Version Modified
         id: version-modified
         run: |
-          git checkout ${{ github.base_ref }}
+          git checkout ${{ needs.defaults.outputs.base-ref }}
 
           if [ ! -f spack.yaml ]; then
-            echo "::notice::There is no previous version of the spack.yaml to check, continuing..."
-            git checkout ${{ github.head_ref }}
+            echo "::notice::There is no previous version of the spack.yaml to check at ${{ needs.defaults.outputs.base-ref }}, continuing..."
+            git checkout ${{ needs.defaults.outputs.head-ref }}
             exit 0
           fi
 
           base_version=$(yq e '${{ env.SPACK_YAML_MODEL_YQ }}' spack.yaml)
 
-          git checkout ${{ github.head_ref }}
+          git checkout ${{ needs.defaults.outputs.head-ref }}
           current_version=$(yq e '${{ env.SPACK_YAML_MODEL_YQ }}' spack.yaml)
           echo "current=${current_version}" >> $GITHUB_OUTPUT
 
@@ -153,6 +276,7 @@ jobs:
         if: failure() && steps.version-modified.outcome == 'failure'
         uses: access-nri/actions/.github/actions/pr-comment@main
         with:
+          pr: ${{ inputs.pr }}
           comment: |
             The model version in the `spack.yaml` has not been updated.
             Either update it manually, or comment the following to have it updated and committed automatically:
@@ -201,8 +325,6 @@ jobs:
 
       - name: Generate Versions
         id: version
-        env:
-          GH_TOKEN: ${{ github.token }}
         # This step generates the release and prerelease version numbers.
         # The release is a general version number from the spack.yaml, looking the
         # same as a regular release build. Ex. 'access-om2@git.2024.01.1' -> '2024.01.1'
@@ -210,24 +332,15 @@ jobs:
         # Ex. Pull Request #12 with 2 deployments on branch -> `pr12-2`.
         run: |
           echo "release=$(yq '${{ env.SPACK_YAML_MODEL_YQ }} | split("@git.") | .[1]' spack.yaml)" >> $GITHUB_OUTPUT
-
-          # Essentially, count all the deployment entries that match the given branch.
-          # See https://docs.github.com/en/rest/deployments/deployments?apiVersion=2022-11-28#list-deployments
-          next_deployment_number=$(gh api \
-            -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" \
-            --paginate \
-            /repos/${{ github.repository }}/deployments \
-            --jq '[.[] | select(.ref == "${{ github.head_ref }}")] | length + 1'
-          )
-          echo "prerelease=pr${{ github.event.pull_request.number }}-${next_deployment_number}" >> $GITHUB_OUTPUT
+          echo "prerelease=pr${{ inputs.pr }}-${{ needs.defaults.outputs.next-deployment-number }}" >> $GITHUB_OUTPUT
 
   # -----------------------------
   # | PRERELEASE DEPLOYMENT JOB |
   # -----------------------------
   prerelease-deploy:
     name: Deploy to Prerelease
-    # This will create a `spack` environment with the name `<model>-pr<pull request number>-<commit number>`.
-    # For example, `access-om3-pr13-3` for the deployment of access-om3 based on the third commit on the PR#13.
+    # This will create a `spack` environment with the name `<model>-pr<pull request number>-<deployment number>`.
+    # For example, `access-om3-pr13-3` for the third deployment on the PR#13.
     needs:
       - defaults  # so we can access `inputs.root-sbd` that could have defaulted to `inputs.model`
       - check-spack-yaml  # implies all the spack.yaml-related checks have passed, has appropriate version for the prerelease build
@@ -235,10 +348,39 @@ jobs:
     uses: access-nri/build-cd/.github/workflows/deploy-1-setup.yml@main
     with:
       type: prerelease
-      ref: ${{ github.head_ref }}
+      ref: ${{ needs.defaults.outputs.head-ref }}
       version: ${{ needs.check-spack-yaml.outputs.prerelease }}
       root-sbd: ${{ needs.defaults.outputs.root-sbd }}
     secrets: inherit
+
+  redeploy-post:
+    name: '!redeploy Status ${{ needs.prerelease-deploy.result }}'
+    # Always set the commit status after the redeploy job - don't want an always pending status!
+    # successful redeploy = successful commit status
+    # failed, skipped, cancelled redeploy = failure commit status
+    if: always() && needs.redeploy-pre.result == 'success'
+    needs:
+      - defaults  # to get access to the head-sha
+      - redeploy-pre  # to get the initial commit status context and description
+      - prerelease-deploy  # to get the overall status of this workflow
+    runs-on: ubuntu-latest
+    permissions:
+      statuses: write  # so we can set the commit status!
+      pull-requests: write  # so we can react to the comment
+    steps:
+      - name: React to Comment
+        uses: access-nri/actions/.github/actions/react-to-comment@main
+        with:
+          token: ${{ github.token }}
+          reaction: ${{ needs.prerelease-deploy.result == 'success' && '+1' || '-1' }}
+
+      - name: Set commit status from workflow ${{ needs.prerelease-deploy.result }}
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f  # v2.0.1
+        with:
+          status: ${{ needs.prerelease-deploy.result == 'success' && 'success' || 'failure' }}
+          sha: ${{ needs.defaults.outputs.head-sha }}
+          context: ${{ needs.redeploy-pre.outputs.commit-status-context }}
+          description: ${{ needs.redeploy-pre.outputs.commit-status-description }}
 
   notifier:
     name: Notifier
@@ -254,8 +396,9 @@ jobs:
         id: comment
         uses: access-nri/actions/.github/actions/pr-comment@main
         with:
+          pr: ${{ inputs.pr }}
           comment: |
-            :rocket: Deploying ${{ inputs.model }} `${{ needs.check-spack-yaml.outputs.release }}` as prerelease `${{ needs.check-spack-yaml.outputs.prerelease }}` with commit ${{ github.event.pull_request.head.sha }}
+            :rocket: Deploying ${{ inputs.model }} `${{ needs.check-spack-yaml.outputs.release }}` as prerelease `${{ needs.check-spack-yaml.outputs.prerelease }}` with commit ${{ needs.defaults.outputs.head-sha }}
             ${{ needs.check-config.outputs.config-settings-failures != '' && ':warning:There are issues with the `build-cd` deployment configuration. If this is unexpected, let @ACCESS-NRI/model-release know.' || '' }}
             <details>
             <summary>Details and usage instructions</summary>
@@ -270,7 +413,7 @@ jobs:
             module load ${{ needs.defaults.outputs.root-sbd }}/${{ needs.check-spack-yaml.outputs.prerelease }}
             ```
             where the binaries shall be on your `$PATH`.
-            This Prerelease is also accessible on Gadi via `/g/data/vk83/prerelease/apps/spack/${{ needs.check-config.outputs.spack-version }}/spack` in the `${{ needs.defaults.outputs.root-sbd }}-${{ needs.version.outputs.prerelease }}` environment.
+            This Prerelease is also accessible on Gadi via `/g/data/vk83/prerelease/apps/spack/${{ needs.check-config.outputs.spack-version }}/spack` in the `${{ needs.defaults.outputs.root-sbd }}-${{ needs.check-spack-yaml.outputs.prerelease }}` environment.
             </details>
 
             :hammer_and_wrench: Using: spack `${{ needs.check-config.outputs.spack-version }}`, spack-packages `${{ needs.check-config.outputs.spack-packages-version}}`, spack-config `${{ needs.check-config.outputs.spack-config-version }}`
@@ -291,9 +434,9 @@ jobs:
           PR_BODY_PATH: ./body.txt
           PR_BODY_PATH_UPDATED: ./updated.body.txt
           PRERELEASE_SECTION_REGEX: "^:rocket: .* :rocket:$"
-          PRERELEASE_SECTION: ":rocket: The latest prerelease `${{ needs.defaults.outputs.root-sbd }}/${{ needs.check-spack-yaml.outputs.prerelease }}` is here: ${{ steps.comment.outputs.comment-link }} :rocket:"
+          PRERELEASE_SECTION: ":rocket: The latest prerelease `${{ needs.defaults.outputs.root-sbd }}/${{ needs.check-spack-yaml.outputs.prerelease }}` at ${{ needs.defaults.outputs.head-sha }} is here: ${{ steps.comment.outputs.comment-link }} :rocket:"
         run: |
-          gh pr view ${{ github.event.pull_request.number }} --repo ${{ github.repository }} --json body --jq .body > ${{ env.PR_BODY_PATH }}
+          gh pr view ${{ inputs.pr }} --repo ${{ github.repository }} --json body --jq .body > ${{ env.PR_BODY_PATH }}
 
           # `awk` is a series of `CONDITION { ACTION }` pairs. No 'CONDITION' means 'TRUE', no '{ ACTION }' means 'print'.
           if grep -q '${{ env.PRERELEASE_SECTION_REGEX }}' ${{ env.PR_BODY_PATH }}; then  # there is an existing prerelease section
@@ -309,4 +452,4 @@ jobs:
 
           cat ${{ env.PR_BODY_PATH_UPDATED }}
 
-          gh pr edit ${{ github.event.pull_request.number }} --repo ${{ github.repository }} --body-file ${{ env.PR_BODY_PATH_UPDATED }}
+          gh pr edit ${{ inputs.pr }} --repo ${{ github.repository }} --body-file ${{ env.PR_BODY_PATH_UPDATED }}
