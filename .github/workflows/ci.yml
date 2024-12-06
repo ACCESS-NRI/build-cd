@@ -127,11 +127,23 @@ jobs:
       # String to describe the overall check
       commit-status-description: ${{ steps.commit-status-args.outputs.description }}
     steps:
+      - name: Check commenter permissions
+        id: commenter
+        uses: access-nri/actions/.github/actions/commenter-permission-check@main
+        with:
+          minimum-permission: write
+
       - name: React to Comment
         uses: access-nri/actions/.github/actions/react-to-comment@main
         with:
           token: ${{ github.token }}
-          reaction: rocket
+          reaction: ${{ steps.commenter.outputs.has-permission == 'true' && 'rocket' || '-1' }}
+
+      - name: Exit if no write permissions
+        if: steps.commenter.outputs.has-permission == 'false'
+        run: |
+          echo "User ${{ github.event.comment.user.login }} doesn't have 'write' permission on ${{ github.repository }}, not allowing deployment"
+          exit 1
 
       - name: Set Commit Status Args
         id: commit-status-args
