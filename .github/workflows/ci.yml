@@ -131,6 +131,8 @@ jobs:
         id: commenter
         uses: access-nri/actions/.github/actions/commenter-permission-check@main
         with:
+          # This means that commenters who use `!redeploy` must have at least `write` perms
+          # in the repository. `write` is probably the best fit. 
           minimum-permission: write
 
       - name: React to Comment
