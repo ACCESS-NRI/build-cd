@@ -98,11 +98,12 @@ jobs:
         # all the `!redeploy` comments, to get the next deployment number.
         # See https://docs.github.com/en/rest/deployments/deployments?apiVersion=2022-11-28#list-deployments
         run: |
+          # We --slurp the results because --paginate introduces potentially multiple array results
           pr_deployments=$(gh api \
-            -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" \
-            --paginate \
-            /repos/${{ github.repository }}/deployments \
-            --jq '[.[] | select(.ref == "${{ steps.pr.outputs.head }}")] | length'
+              -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" \
+              --paginate --slurp \
+              /repos/${{ github.repository }}/deployments \
+            | jq '[select(.[][].ref == "${{ steps.pr.outputs.head }}")] | length'
           )
           comment_deployments=$(gh pr view ${{ inputs.pr }} --repo ${{ github.repository }} \
             --json comments \
@@ -132,7 +133,7 @@ jobs:
         uses: access-nri/actions/.github/actions/commenter-permission-check@main
         with:
           # This means that commenters who use `!redeploy` must have at least `write` perms
-          # in the repository. `write` is probably the best fit. 
+          # in the repository. `write` is probably the best fit.
           minimum-permission: write
 
       - name: React to Comment
