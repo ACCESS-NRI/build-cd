@@ -109,7 +109,10 @@ jobs:
             --json comments \
             --jq '[.comments[] | select(.body | startswith("!redeploy"))] | length'
           )
-          next_deployment_number=$((pr_deployments + comment_deployments + 1))
+          # Since the number of $pr_deployments do not include the current deployment (yet),
+          # but $comment_deployments do, we need to increment the next deployment number by one if it is a pr deployment.
+          next_deployment_is_pr_deployment=${{ github.event_name == 'pull_request' && '1' || '0' }}
+          next_deployment_number=$((pr_deployments + comment_deployments + next_deployment_is_pr_deployment))
           echo "Next Deployment Number is $next_deployment_number"
           echo "next-deployment-number=$next_deployment_number" >> $GITHUB_OUTPUT
 
