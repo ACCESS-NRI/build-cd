@@ -24,8 +24,6 @@ on:
   #     - edited
 env:
   RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-  SPACK_YAML_MODEL_YQ: .spack.specs[0]
-  SPACK_YAML_MODEL_PROJECTION_YQ: .spack.modules.default.tcl.projections.${{ inputs.root-sbd }}
 jobs:
   defaults:
     name: Set Defaults
@@ -54,6 +52,8 @@ jobs:
       contents: write
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      SPACK_YAML_MODEL_YQ: .spack.specs[0]
+      SPACK_YAML_MODEL_PROJECTION_YQ: .spack.modules.default.tcl.projections.${{ needs.defaults.outputs.root-sbd }}
     steps:
       - uses: actions/checkout@v4
         with:
