@@ -255,6 +255,13 @@ jobs:
           data-location: ./spack.yaml
 
       - name: Check Model Version Modified
+        # We don't want to fire off model deployment version checks if the PR is never going to be merged.
+        # We determine this by checking if either the pull request, or the pull request that a comment
+        # belongs to, is drafted.
+        # Yes, github.event.issue.draft refers to the pull request if the comment is made on a pull request!
+        if: >-
+          (github.event_name == 'pull_request' && !github.event.pull_request.draft) ||
+          (github.event_name == 'issue_comment' && !github.event.issue.draft)
         id: version-modified
         run: |
           git checkout ${{ needs.defaults.outputs.base-ref }}
