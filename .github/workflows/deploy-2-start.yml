@@ -89,6 +89,26 @@ jobs:
             spack.yaml \
             ${{ secrets.USER }}@${{ secrets.HOST_DATA }}:${{ vars.SPACK_YAML_LOCATION }}/${{ inputs.model }}.spack.yaml
 
+      - name: Fetch git sources for packages to build
+        # Workaround for ACCESS-NRI/spack#2.
+        # TODO: Remove once underlying spack issue is fixed
+        run: |
+          ssh ${{ secrets.USER }}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
+
+          if [ ! -d "${{ steps.path.outputs.root }}/git_repos" ]; then
+            echo "::warning::Unable to find git_repos folder under ${{ steps.path.outputs.root }} - spack will attempt fetch instead"
+            exit 0
+          fi
+
+          cd "${{ steps.path.outputs.root }}/git_repos" || exit 1
+          # ls might not be space-separated all the time, xargs space-separates
+          for package_repo in $(ls | xargs); do
+            git -C "./$package_repo" remote show origin
+            git -C "./$package_repo" fetch --verbose --update-head-ok origin +refs/heads/*:refs/heads/*
+            echo "--------------------------"
+          done
+          EOT
+
       - name: Deploy to ${{ inputs.deployment-environment }}
         # ssh into deployment environment, create and activate the env, install the spack.yaml.
         run: |
