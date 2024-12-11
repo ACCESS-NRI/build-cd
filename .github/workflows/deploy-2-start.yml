@@ -100,12 +100,10 @@ jobs:
             exit 0
           fi
 
-          cd "${{ steps.path.outputs.root }}/git_repos" || exit 1
-          # ls might not be space-separated all the time, xargs space-separates
-          for package_repo in $(ls | xargs); do
-            git -C "./$package_repo" remote show origin
-            git -C "./$package_repo" fetch --verbose --update-head-ok origin +refs/heads/*:refs/heads/*
-            echo "--------------------------"
+          cd "${{ steps.path.outputs.root }}/git_repos" || exit 0
+
+          for package_repo in *; do
+            git -C "./$package_repo" fetch --verbose --update-head-ok origin "+refs/heads/*:refs/heads/*"
           done
           EOT
 
