@@ -2,6 +2,7 @@ name: Comment Command
 run-name: ${{ inputs.model }} Comment Command
 # NOTE: This workflow requires:
 # permissions.contents:write
+# permissions.pull-requests:write
 on:
   workflow_call:
     inputs:
@@ -12,7 +13,7 @@ on:
       root-sbd:
         type: string
         required: false
-        default: ${{ inputs.model }}
+        # default: ${{ inputs.model }}
         description: |
           The name of the root Spack Bundle Definition, if it is different from the model name.
           This is often a package named similarly in ACCESS-NRI/spack-packages.
@@ -26,12 +27,31 @@ env:
   SPACK_YAML_MODEL_YQ: .spack.specs[0]
   SPACK_YAML_MODEL_PROJECTION_YQ: .spack.modules.default.tcl.projections.${{ inputs.root-sbd }}
 jobs:
+  defaults:
+    name: Set Defaults
+    # Unfortunately, you can't set a dynamic default value based on `inputs` yet.
+    runs-on: ubuntu-latest
+    outputs:
+      root-sbd: ${{ steps.root-sbd.outputs.default }}
+    steps:
+      - name: root-sbd default
+        id: root-sbd
+        run: |
+          if [[ "${{ inputs.root-sbd }}" == "" ]]; then
+            echo "default=${{ inputs.model }}" >> $GITHUB_OUTPUT
+          else
+            echo "default=${{ inputs.root-sbd }}" >> $GITHUB_OUTPUT
+          fi
+
   bump-version:
     name: Bump spack.yaml
     if: github.event.issue.pull_request && startsWith(github.event.comment.body, '!bump')
+    needs:
+      - defaults
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
+      contents: write
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
@@ -48,7 +68,7 @@ jobs:
         #   version: The version that will be bumped (could be latest tag instead of original-version)
         #   bump: The bump type (major, minor or current as specified in the bump-version action)
         run: |
-          # Get the version of ${{ inputs.root-sbd }} from the spack.yaml in the PR the comment was written in
+          # Get the version of ${{ needs.defaults.outputs.root-sbd }} from the spack.yaml in the PR the comment was written in
           gh pr checkout ${{ github.event.issue.number }}
           original_version=$(yq e '${{ env.SPACK_YAML_MODEL_YQ }} | split("@git.") | .[1]' spack.yaml)
           echo "original-version=${original_version}" >> $GITHUB_OUTPUT
@@ -105,10 +125,10 @@ jobs:
 
       - name: Update, Commit and Push the Bump
         run: |
-          yq -i '${{ env.SPACK_YAML_MODEL_YQ }} = "${{ inputs.root-sbd }}@git.${{ steps.bump.outputs.after }}"' spack.yaml
+          yq -i '${{ env.SPACK_YAML_MODEL_YQ }} = "${{ needs.defaults.outputs.root-sbd }}@git.${{ steps.bump.outputs.after }}"' spack.yaml
           yq -i '${{ env.SPACK_YAML_MODEL_PROJECTION_YQ }} = "{name}/${{ steps.bump.outputs.after }}"' spack.yaml
           git add spack.yaml
-          git commit -m "spack.yaml: Updated ${{ inputs.root-sbd }} package version from ${{ steps.setup.outputs.original-version }} to ${{ steps.bump.outputs.after }}"
+          git commit -m "spack.yaml: Updated ${{ needs.defaults.outputs.root-sbd }} package version from ${{ steps.setup.outputs.original-version }} to ${{ steps.bump.outputs.after }}"
           git push
 
       - name: Success Notifier
