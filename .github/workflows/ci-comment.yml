@@ -13,6 +13,7 @@ on:
       root-sbd:
         type: string
         required: false
+        # The equivalent default is set in the defaults job below. 
         # default: ${{ inputs.model }}
         description: |
           The name of the root Spack Bundle Definition, if it is different from the model name.
