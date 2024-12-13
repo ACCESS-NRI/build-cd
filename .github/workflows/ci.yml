@@ -338,11 +338,11 @@ jobs:
         id: version
         # This step generates the release and prerelease version numbers.
         # The release is a general version number from the spack.yaml, looking the
-        # same as a regular release build. Ex. 'access-om2@git.2024.01.1' -> '2024.01.1'
+        # same as a regular release build, without optional variants. Ex. 'access-om2@git.2024.01.1 ~debug' -> '2024.01.1'
         # The prerelease looks like: `pr<pull request number>-<number of deployments of pull request>`.
         # Ex. Pull Request #12 with 2 deployments on branch -> `pr12-2`.
         run: |
-          echo "release=$(yq '${{ env.SPACK_YAML_MODEL_YQ }} | split("@git.") | .[1]' spack.yaml)" >> $GITHUB_OUTPUT
+          echo "release=$(yq '${{ env.SPACK_YAML_MODEL_YQ }} | capture("@git.(?<version>[^ ~+]+)") | .version' spack.yaml)" >> $GITHUB_OUTPUT
           echo "prerelease=pr${{ inputs.pr }}-${{ needs.defaults.outputs.next-deployment-number }}" >> $GITHUB_OUTPUT
 
   # -----------------------------
