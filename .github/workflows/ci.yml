@@ -342,7 +342,7 @@ jobs:
         # The prerelease looks like: `pr<pull request number>-<number of deployments of pull request>`.
         # Ex. Pull Request #12 with 2 deployments on branch -> `pr12-2`.
         run: |
-          echo "release=$(yq '${{ env.SPACK_YAML_MODEL_YQ }} | capture("@git.(?<version>[^ ~+]+)") | .version' spack.yaml)" >> $GITHUB_OUTPUT
+          echo "release=$(yq '${{ env.SPACK_YAML_MODEL_YQ }} | capture("@git\.(?<version>[^ ~+]+)") | .version' spack.yaml)" >> $GITHUB_OUTPUT
           echo "prerelease=pr${{ inputs.pr }}-${{ needs.defaults.outputs.next-deployment-number }}" >> $GITHUB_OUTPUT
 
   # -----------------------------
