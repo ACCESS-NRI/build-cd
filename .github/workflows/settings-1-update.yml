@@ -30,7 +30,7 @@ jobs:
 
       - name: Validate Deployment Settings
         id: validate
-        uses: access-nri/build-cd/.github/actions/validate-deployment-settings@main
+        uses: ./.github/actions/validate-deployment-settings
         with:
           settings-path: ${{ env.CONFIG_SETTINGS_PATH }}
           # TODO: Turn this into a matrix job of targets
@@ -124,7 +124,7 @@ jobs:
         # - deployment-environment: Gadi
         #   type: Prerelease
         # etc ...
-    uses: access-nri/build-cd/.github/workflows/settings-2-deploy.yml@main
+    uses: ./.github/workflows/settings-2-deploy.yml
     with:
       deployment-environment: ${{ matrix.update.deployment-environment }}
       spack-type: ${{ matrix.update.type }}

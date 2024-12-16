@@ -54,7 +54,7 @@ jobs:
           repository: ACCESS-NRI/build-cd
           ref: main
 
-      - uses: access-nri/build-cd/.github/actions/validate-deployment-settings@main
+      - uses: ./.github/actions/validate-deployment-settings
         with:
           settings-path: ./config/settings.json
           # TODO: Turn this into a matrix job of targets
@@ -103,7 +103,7 @@ jobs:
     needs:
       - defaults
       - push-tag
-    uses: access-nri/build-cd/.github/workflows/deploy-1-setup.yml@main
+    uses: ./.github/workflows/deploy-1-setup.yml
     with:
       ref: ${{ github.ref_name }}
       version: ${{ needs.push-tag.outputs.name }}

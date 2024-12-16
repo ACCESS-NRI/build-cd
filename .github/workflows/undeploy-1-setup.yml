@@ -34,7 +34,7 @@ jobs:
       fail-fast: false
       matrix:
         deployment-environment: ${{ fromJson(needs.get-prerelease-deployment-env.outputs.deployment-environments) }}
-    uses: access-nri/build-cd/.github/workflows/undeploy-2-start.yml@main
+    uses: ./.github/workflows/undeploy-2-start.yml
     with:
       deployment-environment: ${{ matrix.deployment-environment }}
       env-name: ${{ inputs.version-pattern }}

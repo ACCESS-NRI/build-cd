@@ -41,7 +41,7 @@ jobs:
     name: Undeploy Prereleases Matching ${{ needs.setup.outputs.version-pattern }}
     needs:
       - setup
-    uses: access-nri/build-cd/.github/workflows/undeploy-1-setup.yml@main
+    uses: ./.github/workflows/undeploy-1-setup.yml
     with:
       version-pattern: ${{ needs.setup.outputs.version-pattern }}
     secrets: inherit

@@ -76,7 +76,7 @@ jobs:
       fail-fast: false
       matrix:
         deployment-environment: ${{ fromJson(needs.setup-deployment-env.outputs.deployment-environments) }}
-    uses: access-nri/build-cd/.github/workflows/deploy-2-start.yml@main
+    uses: ./.github/workflows/deploy-2-start.yml
     with:
       type: ${{ inputs.type }}
       model: ${{ needs.setup-spack-env.outputs.model }}
