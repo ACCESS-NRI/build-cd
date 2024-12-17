@@ -55,6 +55,7 @@ jobs:
       head-sha: ${{ steps.pr.outputs.sha }}
       base-ref: ${{ steps.pr.outputs.base }}
       next-deployment-number: ${{ steps.branch.outputs.next-deployment-number }}
+      targets: ${{ steps.target.outputs.matrix }}
     steps:
       - name: root-sbd default
         id: root-sbd
@@ -116,6 +117,19 @@ jobs:
           echo "Next Deployment Number is $pr_deployments + $comment_deployments + $next_deployment_is_pr_deployment = $next_deployment_number"
           echo "next-deployment-number=$next_deployment_number" >> $GITHUB_OUTPUT
 
+      - name: Get deployment settings.json
+        uses: actions/checkout@v4
+        with:
+          repository: access-nri/build-cd
+          ref: main
+
+      - name: Generate Deployment Target Matrix
+        id: target
+        run: |
+          targets=$(jq --compact-output '.deployments' config/settings.json)
+          echo "$targets"
+          echo "targets=$targets" >> $GITHUB_OUTPUT
+
   redeploy-pre:
     name: '!redeploy Pending'
     if: github.event_name == 'issue_comment' && startsWith(github.event.comment.body, '!redeploy')
@@ -172,6 +186,9 @@ jobs:
     needs:
       - defaults
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: ${{ needs.defaults.outputs.targets }}
     outputs:
       spack-version: ${{ steps.spack.outputs.version }}
       spack-packages-version: ${{ steps.spack-packages.outputs.version }}
@@ -214,11 +231,10 @@ jobs:
 
       - name: Get spack-config version
         id: spack-config
-        # TODO: For future targets, we need to know which target we are using by this point
         run: |
           version=$(jq --compact-output --raw-output \
             --arg spack_version "${{ steps.spack.outputs.version }}" \
-            '.deployment.Gadi.Prerelease[$spack_version]."spack-config"' cd/config/settings.json
+            '.deployment.${{ matrix.target }}.Prerelease[$spack_version]."spack-config"' cd/config/settings.json
           )
           echo $version
           echo "version=$version" >> $GITHUB_OUTPUT
@@ -228,8 +244,7 @@ jobs:
         uses: access-nri/build-cd/.github/actions/validate-deployment-settings@main
         with:
           settings-path: ./cd/config/settings.json
-          # TODO: Turn this into a matrix job of targets
-          target: Gadi
+          target: ${{ matrix.target }}
 
   check-spack-yaml:
     name: Check spack.yaml
