@@ -190,6 +190,7 @@ jobs:
       matrix:
         target: ${{ needs.defaults.outputs.targets }}
     outputs:
+      # FIXME: This will have to be an artifact output in future...
       spack-version: ${{ steps.spack.outputs.version }}
       spack-packages-version: ${{ steps.spack-packages.outputs.version }}
       spack-config-version:  ${{ steps.spack-config.outputs.version }}
@@ -356,6 +357,7 @@ jobs:
         # same as a regular release build, without optional variants. Ex. 'access-om2@git.2024.01.1 ~debug' -> '2024.01.1'
         # The prerelease looks like: `pr<pull request number>-<number of deployments of pull request>`.
         # Ex. Pull Request #12 with 2 deployments on branch -> `pr12-2`.
+        # Note that for multi-target prereleases, they share the same deployment number.
         run: |
           echo "release=$(yq '${{ env.SPACK_YAML_MODEL_YQ }} | capture("@git\.(?<version>[^ ~+]+)") | .version' spack.yaml)" >> $GITHUB_OUTPUT
           echo "prerelease=pr${{ inputs.pr }}-${{ needs.defaults.outputs.next-deployment-number }}" >> $GITHUB_OUTPUT
@@ -420,11 +422,12 @@ jobs:
     steps:
       - name: PR Comment Notifier
         id: comment
-        uses: access-nri/actions/.github/actions/pr-comment@main
+        uses: access-nri/actions/.github/actions/comment@main
         with:
-          pr: ${{ inputs.pr }}
-          comment: |
-            :rocket: Deploying ${{ inputs.model }} `${{ needs.check-spack-yaml.outputs.release }}` as prerelease `${{ needs.check-spack-yaml.outputs.prerelease }}` with commit ${{ needs.defaults.outputs.head-sha }}
+          number: ${{ inputs.pr }}
+          # FIXME: If we remove the settings.json warning, this becomes a lot simpler when we move to multiple targets...
+          message: |
+            :rocket: Deploying `${{ inputs.model }}` `${{ needs.check-spack-yaml.outputs.release }}` as prerelease `${{ needs.check-spack-yaml.outputs.prerelease }}` with commit ${{ needs.defaults.outputs.head-sha }}
             ${{ needs.check-config.outputs.config-settings-failures != '' && ':warning:There are issues with the `build-cd` deployment configuration. If this is unexpected, let @ACCESS-NRI/model-release know.' || '' }}
             <details>
             <summary>Details and usage instructions</summary>
