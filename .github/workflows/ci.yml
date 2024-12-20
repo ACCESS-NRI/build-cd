@@ -39,7 +39,7 @@ on:
   #     - created
   #     - edited
 env:
-  SPACK_YAML_MODEL_YQ: .spack.specs[0]
+  RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 jobs:
   defaults:
     name: Set Defaults
@@ -54,8 +54,8 @@ jobs:
       head-ref: ${{ steps.pr.outputs.head }}
       head-sha: ${{ steps.pr.outputs.sha }}
       base-ref: ${{ steps.pr.outputs.base }}
-      next-deployment-number: ${{ steps.branch.outputs.next-deployment-number }}
-      targets: ${{ steps.target.outputs.matrix }}
+      prerelease-version: ${{ steps.prerelease.outputs.version }}
+      targets: ${{ steps.target.outputs.targets }}
     steps:
       - name: root-sbd default
         id: root-sbd
@@ -94,7 +94,7 @@ jobs:
           echo "base=$base" >> $GITHUB_OUTPUT
 
       - name: Branch metadata
-        id: branch
+        id: prerelease
         # Essentially, count all the deployment entries that match the given branch, as well as
         # all the `!redeploy` comments, to get the next deployment number.
         # See https://docs.github.com/en/rest/deployments/deployments?apiVersion=2022-11-28#list-deployments
@@ -115,7 +115,9 @@ jobs:
           next_deployment_is_pr_deployment=${{ github.event_name == 'pull_request' && '1' || '0' }}
           next_deployment_number=$((pr_deployments + comment_deployments + next_deployment_is_pr_deployment))
           echo "Next Deployment Number is $pr_deployments + $comment_deployments + $next_deployment_is_pr_deployment = $next_deployment_number"
-          echo "next-deployment-number=$next_deployment_number" >> $GITHUB_OUTPUT
+          version="${{ steps.root-sbd.outputs.default }}/pr${{ inputs.pr }}-$next_deployment_number"
+          echo "Prerelease version will be $version"
+          echo "version=$version" >> $GITHUB_OUTPUT
 
       - name: Get deployment settings.json
         uses: actions/checkout@v4
@@ -126,9 +128,10 @@ jobs:
       - name: Generate Deployment Target Matrix
         id: target
         run: |
-          targets=$(jq --compact-output '.deployments' config/settings.json)
+          targets=$(jq --raw-output --compact-output '.deployment | keys' config/settings.json)
           echo "$targets"
           echo "targets=$targets" >> $GITHUB_OUTPUT
+
 
   redeploy-pre:
     name: '!redeploy Pending'
@@ -181,208 +184,48 @@ jobs:
           context: ${{ steps.commit-status-args.outputs.context }}
           description: ${{ steps.commit-status-args.outputs.description }}
 
-  check-config:
-    name: Check Config Fields
+  pre-deploy-notifier:
+    name: Pre Deploy Notifier
     needs:
       - defaults
     runs-on: ubuntu-latest
+    outputs:
+      comment-url: ${{ steps.comment.outputs.comment-url }}
+    steps:
+      - name: PR Comment Notifier
+        id: comment
+        uses: access-nri/actions/.github/actions/comment@main
+        with:
+          number: ${{ inputs.pr }}
+          message: |
+            :rocket: [Currently Deploying](${{ env.RUN_URL }}) `${{ inputs.model }}` Prerelease as `${{ needs.defaults.outputs.prerelease-version }}` with commit ${{ needs.defaults.outputs.head-sha }}
+
+            This comment will be updated with the status of the deployment(s).
+
+  deploy:
+    name: Deploy
+    needs:
+      - defaults
     strategy:
+      fail-fast: false
       matrix:
-        target: ${{ needs.defaults.outputs.targets }}
-    outputs:
-      # FIXME: This will have to be an artifact output in future...
-      spack-version: ${{ steps.spack.outputs.version }}
-      spack-packages-version: ${{ steps.spack-packages.outputs.version }}
-      spack-config-version:  ${{ steps.spack-config.outputs.version }}
-      config-settings-failures: ${{ steps.settings.outputs.failures }}
-    steps:
-      - name: Checkout ${{ github.repository }} Config
-        uses: actions/checkout@v4
-        with:
-          path: model
-          ref: ${{ needs.defaults.outputs.head-ref }}
-
-      - name: Validate ${{ github.repository }} config/versions.json
-        uses: access-nri/schema/.github/actions/validate-with-schema@main
-        with:
-          schema-version: ${{ vars.CONFIG_VERSIONS_SCHEMA_VERSION }}
-          schema-location: au.org.access-nri/model/deployment/config/versions
-          data-location: ./model/config/versions.json
-
-      - name: Validate spack-packages version
-        id: spack-packages
-        uses: access-nri/build-cd/.github/actions/validate-repo-version@main
-        with:
-          repo-to-check: spack-packages
-          pr: ${{ needs.defaults.outputs.head-ref }}
-
-      - name: Validate spack version
-        id: spack
-        uses: access-nri/build-cd/.github/actions/validate-repo-version@main
-        with:
-          repo-to-check: spack
-          pr: ${{ needs.defaults.outputs.head-ref }}
-
-      - name: Checkout build-cd Config
-        uses: actions/checkout@v4
-        with:
-          repository: ACCESS-NRI/build-cd
-          ref: main
-          path: cd
-
-      - name: Get spack-config version
-        id: spack-config
-        run: |
-          version=$(jq --compact-output --raw-output \
-            --arg spack_version "${{ steps.spack.outputs.version }}" \
-            '.deployment.${{ matrix.target }}.Prerelease[$spack_version]."spack-config"' cd/config/settings.json
-          )
-          echo $version
-          echo "version=$version" >> $GITHUB_OUTPUT
-
-      - name: Validate build-cd config/settings.json
-        id: settings
-        uses: access-nri/build-cd/.github/actions/validate-deployment-settings@main
-        with:
-          settings-path: ./cd/config/settings.json
-          target: ${{ matrix.target }}
-
-  check-spack-yaml:
-    name: Check spack.yaml
-    runs-on: ubuntu-latest
-    needs:
-      - defaults
-    permissions:
-      pull-requests: write
-    outputs:
-      release: ${{ steps.version.outputs.release }}
-      prerelease: ${{ steps.version.outputs.prerelease }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ needs.defaults.outputs.head-ref }}
-
-      - name: Validate ACCESS-NRI spack.yaml Restrictions
-        uses: access-nri/schema/.github/actions/validate-with-schema@main
-        with:
-          schema-version: ${{ vars.SPACK_YAML_SCHEMA_VERSION }}
-          schema-location: au.org.access-nri/model/spack/environment/deployment
-          data-location: ./spack.yaml
-
-      - name: Check Model Version Modified
-        # We don't want to fire off model deployment version checks if the PR is never going to be merged.
-        # We determine this by checking if either the pull request, or the pull request that a comment
-        # belongs to, is drafted.
-        # Yes, github.event.issue.draft refers to the pull request if the comment is made on a pull request!
-        if: >-
-          (github.event_name == 'pull_request' && !github.event.pull_request.draft) ||
-          (github.event_name == 'issue_comment' && !github.event.issue.draft)
-        id: version-modified
-        run: |
-          git checkout ${{ needs.defaults.outputs.base-ref }}
-
-          if [ ! -f spack.yaml ]; then
-            echo "::notice::There is no previous version of the spack.yaml to check at ${{ needs.defaults.outputs.base-ref }}, continuing..."
-            git checkout ${{ needs.defaults.outputs.head-ref }}
-            exit 0
-          fi
-
-          base_version=$(yq e '${{ env.SPACK_YAML_MODEL_YQ }}' spack.yaml)
-
-          git checkout ${{ needs.defaults.outputs.head-ref }}
-          current_version=$(yq e '${{ env.SPACK_YAML_MODEL_YQ }}' spack.yaml)
-          echo "current=${current_version}" >> $GITHUB_OUTPUT
-
-          if [[ "${base_version}" == "${current_version}" ]]; then
-            echo "::warning::The version string hasn't been modified in this PR, but needs to be before merging."
-            exit 1
-          fi
-
-      - name: Same Model Version Failure Notifier
-        if: failure() && steps.version-modified.outcome == 'failure'
-        uses: access-nri/actions/.github/actions/pr-comment@main
-        with:
-          pr: ${{ inputs.pr }}
-          comment: |
-            The model version in the `spack.yaml` has not been updated.
-            Either update it manually, or comment the following to have it updated and committed automatically:
-            * `!bump major` for feature releases
-            * `!bump minor` for bugfixes
-
-      - name: Projection Version Matches
-        # this step checks that the versions of the packages themselves match with the
-        #  names of the projections, if they're given.
-        # For example, access-om3@git.2023.12.12 matches with the
-        #  modulefile access-om3/2023.12.12 (specifically, the version strings match)
-        # TODO: Move this into the `scripts` directory - it's getting unweildly.
-        run: |
-          FAILED="false"
-
-          # Get all the defined projections (minus 'all') and make them suitable for a bash for loop
-          DEPS=$(yq '.spack.modules.default.tcl.projections | del(.all) | keys | join(" ")' spack.yaml)
-
-          # for each of the modules
-          for DEP in $DEPS; do
-            DEP_VER=''
-            if [[ "$DEP" == "${{ needs.defaults.outputs.root-sbd }}" ]]; then
-              # The model version is the bit after '@git.', before any later, space-separated, optional variants.
-              # For example, in 'MODEL@git.VERSION type=ACCESS ~debug' the version is 'VERSION'.
-              DEP_VER=$(yq '.spack.specs[0] | capture(".+@git\\.(?<version>[^ ]+).*") | .version' spack.yaml)
-            else
-              # Capture the section after '@git.' or '@' (if it's not a git-attributed version) and before a possible '=' for a given dependency.
-              # Ex. '@git.2024.02.11' -> '2024.02.11', '@access-esm1.5' -> 'access-esm1.5', '@git.2024.05.21=access-esm1.5' -> '2024.05.21'
-              DEP_VER=$(yq ".spack.packages.\"$DEP\".require[0] | match(\"^@(?:git.)?([^=]*)\").captures[0].string" spack.yaml)
-            fi
-
-            # Get the version from the module projection, for comparison with DEP_VER
-            # Projections are of the form '{name}/VERSION[-{hash:7}]', in which we only care about VERSION. For example, '{name}/2024.11.11', or '{name}/2024.11.11-{hash:7}'
-            MODULE_NAME=$(yq ".spack.modules.default.tcl.projections.\"$DEP\"" spack.yaml)
-            MODULE_VER="${MODULE_NAME#*/}"  # Strip '{name}/' from '{name}/VERSION' module, even if VERSION contains '/'
-            MODULE_VER="${MODULE_VER%%-\{hash:7\}}"  # Strip a potential '-{hash:7}' appendix from the VERSION, since we won't have that in the DEP_VER
-
-            if [[ "$DEP_VER" != "$MODULE_VER" ]]; then
-              echo "::error::$DEP: Version of dependency and projection do not match ($DEP_VER != $MODULE_VER)"
-              FAILED='true'
-            fi
-          done
-          if [[ "$FAILED" == "true" ]]; then
-            exit 1
-          fi
-
-      - name: Generate Versions
-        id: version
-        # This step generates the release and prerelease version numbers.
-        # The release is a general version number from the spack.yaml, looking the
-        # same as a regular release build, without optional variants. Ex. 'access-om2@git.2024.01.1 ~debug' -> '2024.01.1'
-        # The prerelease looks like: `pr<pull request number>-<number of deployments of pull request>`.
-        # Ex. Pull Request #12 with 2 deployments on branch -> `pr12-2`.
-        # Note that for multi-target prereleases, they share the same deployment number.
-        run: |
-          echo "release=$(yq '${{ env.SPACK_YAML_MODEL_YQ }} | capture("@git\.(?<version>[^ ~+]+)") | .version' spack.yaml)" >> $GITHUB_OUTPUT
-          echo "prerelease=pr${{ inputs.pr }}-${{ needs.defaults.outputs.next-deployment-number }}" >> $GITHUB_OUTPUT
-
-  # -----------------------------
-  # | PRERELEASE DEPLOYMENT JOB |
-  # -----------------------------
-  prerelease-deploy:
-    name: Deploy to Prerelease
-    # This will create a `spack` environment with the name `<model>-pr<pull request number>-<deployment number>`.
-    # For example, `access-om3-pr13-3` for the third deployment on the PR#13.
-    needs:
-      - defaults  # so we can access `inputs.root-sbd` that could have defaulted to `inputs.model`
-      - check-spack-yaml  # implies all the spack.yaml-related checks have passed, has appropriate version for the prerelease build
-      - check-config  # implies all the json-related checks have passed
-    uses: access-nri/build-cd/.github/workflows/deploy-1-setup.yml@main
+        target: ${{ fromJson(needs.defaults.outputs.targets) }}
+    uses: access-nri/build-cd/.github/workflows/deploy-1-setup.yml@199-multi-target-deployments_rework-order
     with:
-      type: prerelease
-      ref: ${{ needs.defaults.outputs.head-ref }}
-      version: ${{ needs.check-spack-yaml.outputs.prerelease }}
-      root-sbd: ${{ needs.defaults.outputs.root-sbd }}
+      deployment-target: ${{ matrix.target }}
+      deployment-ref: ${{ needs.defaults.outputs.head-ref }}
+      deployment-type: Prerelease
+      # The prerelease looks like: `pr<pull request number>-<number of deployments of pull request>`.
+      # Ex. Pull Request #12 with 2 deployments on branch -> `pr12-2`.
+      # Note that for multi-target prereleases, they share the same deployment number.
+      deployment-version: ${{ needs.defaults.outputs.prerelease-version }}
+      prerelease-compare-ref: ${{ needs.defaults.outputs.base-ref }}
+      spack-manifest-path: ./spack.yaml
+      spack-manifest-root-sbd: ${{ needs.defaults.outputs.root-sbd }}
     secrets: inherit
 
   redeploy-post:
-    name: '!redeploy Status ${{ needs.prerelease-deploy.result }}'
+    name: '!redeploy Status ${{ needs.deploy.result }}'
     # Always set the commit status after the redeploy job - don't want an always pending status!
     # successful redeploy = successful commit status
     # failed, skipped, cancelled redeploy = failure commit status
@@ -390,7 +233,7 @@ jobs:
     needs:
       - defaults  # to get access to the head-sha
       - redeploy-pre  # to get the initial commit status context and description
-      - prerelease-deploy  # to get the overall status of this workflow
+      - deploy  # to get the overall status of this workflow
     runs-on: ubuntu-latest
     permissions:
       statuses: write  # so we can set the commit status!
@@ -400,41 +243,71 @@ jobs:
         uses: access-nri/actions/.github/actions/react-to-comment@main
         with:
           token: ${{ github.token }}
-          reaction: ${{ needs.prerelease-deploy.result == 'success' && '+1' || '-1' }}
+          reaction: ${{ needs.deploy.result == 'success' && '+1' || '-1' }}
 
-      - name: Set commit status from workflow ${{ needs.prerelease-deploy.result }}
+      - name: Set commit status from workflow ${{ needs.deploy.result }}
         uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f  # v2.0.1
         with:
-          status: ${{ needs.prerelease-deploy.result == 'success' && 'success' || 'failure' }}
+          status: ${{ needs.deploy.result == 'success' && 'success' || 'failure' }}
           sha: ${{ needs.defaults.outputs.head-sha }}
           context: ${{ needs.redeploy-pre.outputs.commit-status-context }}
           description: ${{ needs.redeploy-pre.outputs.commit-status-description }}
 
-  notifier:
-    name: Notifier
+  post-deploy-notifier:
+    name: Post-Deploy Notifier
+    if: always()
     needs:
       - defaults  # so we can access `inputs.root-sbd` that could have defaulted to `inputs.model`
-      - check-spack-yaml  # implies all the spack.yaml-related checks have passed, has appropriate version for the prerelease build
-      - check-config  # so we can access potential failures from config/settings.json validation
+      - pre-deploy-notifier  # to get the initial comment URL
+      - deploy  # so we can access deployment information such as versions used, status of deployments, etc.
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
+    env:
+      OUTPUT_ARTIFACT_PATH: ./merged_outputs
     steps:
+      - name: Download matrix deployment outputs
+        uses: actions/download-artifact@v4
+        with:
+          pattern: ${{ needs.deploy.outputs.general-outputs-artifact-glob }}
+          path: ${{ env.OUTPUT_ARTIFACT_PATH }}
+          merge-multiple: true
+
+      - name: Combine matrix deployment outputs
+        id: matrix-deploy
+        run: |
+          for file in ${{ env.OUTPUT_ARTIFACT_PATH }}/*; do
+            filename=$(basename -- "$file")
+            target="${filename##*.}"
+            echo "$target=$target" >> $GITHUB_ENV
+            jq --raw-output --arg t "$target" 'to_entries[] | "\($t)_\(.key)=\(.value)"' "$file" >> $GITHUB_ENV
+          done
+          cat $GITHUB_ENV
+
+          # Roll up the config failure booleans from each of the files, and return the overall result
+          echo "config-errors=$(jq --slurp 'map(.ci_configuration_check_failure | any)' ${{ env.OUTPUT_ARTIFACT_PATH }}/*)" >> $GITHUB_OUTPUT
+
+      # - name: Generate deployment messages for notifier
+      #   run: |
+      #     echo "DEPLOYMENT_INFORMATION<<EOF" >> $GITHUB_ENV
+      #     for target in $(jq --raw-output 'join(" ")' <<< "${{ needs.defaults.outputs.targets }}"); do
+      #       echo "### :desktop_computer: \`$target\` Deployment " >> $GITHUB_ENV
+      #       echo "" >> $GITHUB_ENV
+      #       echo "" >>
+      #     done
+      #     echo "EOF" >> $GITHUB_ENV
+
+      #     cat $GITHUB_ENV
+
       - name: PR Comment Notifier
         id: comment
-        uses: access-nri/actions/.github/actions/comment@main
+        uses: access-nri/actions/.github/actions/pr-comment@main
         with:
-          number: ${{ inputs.pr }}
-          # FIXME: If we remove the settings.json warning, this becomes a lot simpler when we move to multiple targets...
-          message: |
-            :rocket: Deploying `${{ inputs.model }}` `${{ needs.check-spack-yaml.outputs.release }}` as prerelease `${{ needs.check-spack-yaml.outputs.prerelease }}` with commit ${{ needs.defaults.outputs.head-sha }}
-            ${{ needs.check-config.outputs.config-settings-failures != '' && ':warning:There are issues with the `build-cd` deployment configuration. If this is unexpected, let @ACCESS-NRI/model-release know.' || '' }}
-            <details>
-            <summary>Details and usage instructions</summary>
+          comment: |
+            :rocket: [Deployed](${{ env.RUN_URL }}) `${{ inputs.model }}` as prerelease `${{ needs.defaults.outputs.prerelease-version }}` with commit ${{ needs.defaults.outputs.head-sha }}
+            ${{ steps.matrix-deploy.outputs.config-errors != 'true' && ':warning:There are issues with the `build-cd` deployment configuration. If this is unexpected, let @ACCESS-NRI/model-release know.' || '' }}
 
-            This `${{ inputs.model }}` model will be deployed as:
-            * `${{ needs.check-spack-yaml.outputs.release }}` as a Release (when merged).
-            * `${{ needs.check-spack-yaml.outputs.prerelease }}` as a Prerelease (during this PR).
+            # ${{ env.DEPLOYMENT_INFORMATION }}
 
             This Prerelease is accessible on Gadi using:
             ```bash
@@ -463,7 +336,7 @@ jobs:
           PR_BODY_PATH: ./body.txt
           PR_BODY_PATH_UPDATED: ./updated.body.txt
           PRERELEASE_SECTION_REGEX: "^:rocket: .* :rocket:$"
-          PRERELEASE_SECTION: ":rocket: The latest prerelease `${{ needs.defaults.outputs.root-sbd }}/${{ needs.check-spack-yaml.outputs.prerelease }}` at ${{ needs.defaults.outputs.head-sha }} is here: ${{ steps.comment.outputs.comment-link }} :rocket:"
+          PRERELEASE_SECTION: ":rocket: The latest prerelease `${{ needs.defaults.outputs.root-sbd }}/${{ needs.defaults.outputs.prerelease-version }}` at ${{ needs.defaults.outputs.head-sha }} is here: ${{ steps.comment.outputs.comment-url }} :rocket:"
         run: |
           gh pr view ${{ inputs.pr }} --repo ${{ github.repository }} --json body --jq .body > ${{ env.PR_BODY_PATH }}
 
