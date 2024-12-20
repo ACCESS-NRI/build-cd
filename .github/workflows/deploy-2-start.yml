@@ -31,6 +31,9 @@ on:
         type: string
         required: true
         description: The root SBD that is being used as the modulefile name
+    outputs:
+      modules-location:
+        value: ${{ jobs.deploy-to-environment.outputs.modules-location }}
 env:
   SPACK_YAML_SPEC_YQ: .spack.specs[0]
   SPACK_YAML_MODULEFILE_PROJECTION_YQ: .spack.modules.default.tcl.projections.${{ inputs.root-sbd }}
@@ -43,6 +46,7 @@ jobs:
     outputs:
       packages-version: ${{ steps.versions.outputs.packages }}
       config-version: ${{ steps.versions.outputs.config }}
+      modules-location: ${{ steps.module.outputs.location }}
     steps:
       # Deployment
       - uses: actions/checkout@v4
@@ -131,6 +135,11 @@ jobs:
           spack --debug install --fresh ${{ vars.SPACK_INSTALL_PARALLEL_JOBS }} || exit $?
           spack module tcl refresh -y
           EOT
+
+      - name: Export module location
+        id: module
+        run: |
+          echo "location=${{ vars.MODULE_LOCATION }}" >> $GITHUB_OUTPUT
 
       - name: Get metadata from ${{ inputs.deployment-environment }}
         env:
