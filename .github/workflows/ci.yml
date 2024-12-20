@@ -288,21 +288,22 @@ jobs:
             filename=$(basename -- "$file")
             target="${filename##*.}"
 
-            spack_version=$(jq '.spack_version' "$file")
-            spack_config_version=$(jq '.spack_config_version' "$file")
-            spack_packages_version=$(jq '.spack_packages_version' "$file")
-            release_deployment_version=$(jq '.release_deployment_version' "$file")
-            spack_environment_name=$(jq '.spack_environment_name' "$file")
-            deployment_result=$(jq '.deployment_result' "$file")
-            deployment_modules_location=$(jq '.deployment_modules_location' "$file")
-            deployment_spack_location=$(jq '.deployment_spack_location' "$file")
+            # For brevity, '-cr' is '--compact-output --raw-output'
+            spack_version=$(jq -cr '.spack_version' "$file")
+            spack_config_version=$(jq -cr '.spack_config_version' "$file")
+            spack_packages_version=$(jq -cr '.spack_packages_version' "$file")
+            release_deployment_version=$(jq -cr '.release_deployment_version' "$file")
+            spack_environment_name=$(jq -cr '.spack_environment_name' "$file")
+            deployment_result=$(jq -cr '.deployment_result' "$file")
+            deployment_modules_location=$(jq -cr '.deployment_modules_location' "$file")
+            deployment_spack_location=$(jq -cr '.deployment_spack_location' "$file")
 
             # Create the message for the deployment
             # Header
             if [[ "$deployment_result" == "success" ]]; then
-              echo "### :white_check_mark: :computer_desktop: \`$target\` Deployment" >> $GITHUB_OUTPUT
+              echo "### :white_check_mark: :desktop_computer: \`$target\` Deployment" >> $GITHUB_OUTPUT
             else
-              echo "### :x: :computer_desktop: \`$target\` Deployment" >> $GITHUB_OUTPUT
+              echo "### :x: :desktop_computer: \`$target\` Deployment" >> $GITHUB_OUTPUT
               continue
             fi
 
