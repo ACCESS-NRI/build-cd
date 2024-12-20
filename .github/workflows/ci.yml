@@ -209,11 +209,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-<<<<<<< HEAD
         target: ${{ fromJson(needs.defaults.outputs.targets) }}
-=======
-        target: ${{ needs.defaults.outputs.targets }}
->>>>>>> c9610e0 (TEST: ci.yml/deploy-1-setup: Comment out the comment, reference branch workflows)
     uses: access-nri/build-cd/.github/workflows/deploy-1-setup.yml@199-multi-target-deployments_rework-order
     with:
       deployment-target: ${{ matrix.target }}
@@ -307,20 +303,11 @@ jobs:
         id: comment
         uses: access-nri/actions/.github/actions/pr-comment@main
         with:
-<<<<<<< HEAD
           comment: |
             :rocket: [Deployed](${{ env.RUN_URL }}) `${{ inputs.model }}` as prerelease `${{ needs.defaults.outputs.prerelease-version }}` with commit ${{ needs.defaults.outputs.head-sha }}
             ${{ steps.matrix-deploy.outputs.config-errors != 'true' && ':warning:There are issues with the `build-cd` deployment configuration. If this is unexpected, let @ACCESS-NRI/model-release know.' || '' }}
 
-            # ${{ env.DEPLOYMENT_INFORMATION }}
-=======
-          url: ${{ needs.pre-deploy-notifier.outputs.comment-url }}
-          message: |
-            :rocket: [Deployed](${{ env.RUN_URL }}) `${{ inputs.model }}` as prerelease `${{ needs.defaults.outputs.prerelease-version }}` with commit ${{ needs.defaults.outputs.head-sha }}
-        #    ${{ needs.check-config.outputs.config-settings-failures != '' && ':warning:There are issues with the `build-cd` deployment configuration. If this is unexpected, let @ACCESS-NRI/model-release know.' || '' }}
-
-        # ${{ env.DEPLOYMENT_INFORMATION }}
->>>>>>> c9610e0 (TEST: ci.yml/deploy-1-setup: Comment out the comment, reference branch workflows)
+            ${{ env.DEPLOYMENT_INFORMATION }}
 
         # <details>
         # <summary>Details and usage instructions</summary>
