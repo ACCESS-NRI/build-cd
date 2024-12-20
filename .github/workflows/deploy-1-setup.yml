@@ -322,7 +322,7 @@ jobs:
             release_deployment_version: "${{ needs.check-spack-yaml.outputs.release }}",
             spack_environment_name: "${{ needs.check-spack-yaml.outputs.spack-env-name }}",
             deployment_result: "${{ needs.deployment.result }}",
-            deployment_modules_location: "${{ needs.deployment.outputs.modules-location }}"
+            deployment_modules_location: "${{ needs.deployment.outputs.modules-location }}",
             deployment_spack_location: "${{ needs.deployment.outputs.spack-location }}"
           }' > ./${{ env.UPLOAD_FILE_NAME }}
 
