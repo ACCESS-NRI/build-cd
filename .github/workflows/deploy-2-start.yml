@@ -46,7 +46,8 @@ jobs:
     outputs:
       packages-version: ${{ steps.versions.outputs.packages }}
       config-version: ${{ steps.versions.outputs.config }}
-      modules-location: ${{ steps.module.outputs.location }}
+      spack-location: ${{ steps.location.outputs.spack }}
+      modules-location: ${{ steps.location.outputs.modules }}
     steps:
       # Deployment
       - uses: actions/checkout@v4
@@ -136,10 +137,11 @@ jobs:
           spack module tcl refresh -y
           EOT
 
-      - name: Export module location
-        id: module
+      - name: Export deployment target locations
+        id: location
         run: |
-          echo "location=${{ vars.MODULE_LOCATION }}" >> $GITHUB_OUTPUT
+          echo "spack=${{ steps.path.outputs.spack }}" >> $GITHUB_OUTPUT
+          echo "modules=${{ vars.MODULE_LOCATION }}" >> $GITHUB_OUTPUT
 
       - name: Get metadata from ${{ inputs.deployment-environment }}
         env:

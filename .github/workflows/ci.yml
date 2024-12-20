@@ -54,6 +54,7 @@ jobs:
       head-ref: ${{ steps.pr.outputs.head }}
       head-sha: ${{ steps.pr.outputs.sha }}
       base-ref: ${{ steps.pr.outputs.base }}
+      next-deployment-number: ${{ steps.prerelease.outputs.next-deployment-number }}
       prerelease-version: ${{ steps.prerelease.outputs.version }}
       targets: ${{ steps.target.outputs.targets }}
     steps:
@@ -110,12 +111,15 @@ jobs:
             --json comments \
             --jq '[.comments[] | select(.body | startswith("!redeploy"))] | length'
           )
+
           # Since the number of $pr_deployments do not include the current deployment (yet),
           # but $comment_deployments do, we need to increment the next deployment number by one if it is a pr deployment.
           next_deployment_is_pr_deployment=${{ github.event_name == 'pull_request' && '1' || '0' }}
           next_deployment_number=$((pr_deployments + comment_deployments + next_deployment_is_pr_deployment))
           echo "Next Deployment Number is $pr_deployments + $comment_deployments + $next_deployment_is_pr_deployment = $next_deployment_number"
-          version="${{ steps.root-sbd.outputs.default }}/pr${{ inputs.pr }}-$next_deployment_number"
+          echo "next-deployment-number=$next_deployment_number" >> $GITHUB_OUTPUT
+
+          version="pr${{ inputs.pr }}-$next_deployment_number"
           echo "Prerelease version will be $version"
           echo "version=$version" >> $GITHUB_OUTPUT
 
@@ -273,31 +277,71 @@ jobs:
           path: ${{ env.OUTPUT_ARTIFACT_PATH }}
           merge-multiple: true
 
-      - name: Combine matrix deployment outputs
-        id: matrix-deploy
+      - name: Create deployment message
+        id: matrix-output-parser
+        # Outputs defined in deploy-1-setup.yml under the outputs-upload job
+        shell: python
         run: |
+          echo "deployments-message<<EOF" >> $GITHUB_OUTPUT
+
           for file in ${{ env.OUTPUT_ARTIFACT_PATH }}/*; do
+            # Setting all the variables that would be needed for the PR comment creation...
             filename=$(basename -- "$file")
             target="${filename##*.}"
-            echo "$target=$target" >> $GITHUB_ENV
-            jq --raw-output --arg t "$target" 'to_entries[] | "\($t)_\(.key)=\(.value)"' "$file" >> $GITHUB_ENV
+
+            spack_version=$(jq '.spack_version' "$file")
+            spack_config_version=$(jq '.spack_config_version' "$file")
+            spack_packages_version=$(jq '.spack_packages_version' "$file")
+            release_deployment_version=$(jq '.release_deployment_version' "$file")
+            spack_environment_name=$(jq '.spack_environment_name' "$file")
+            deployment_result=$(jq '.deployment_result' "$file")
+            deployment_modules_location=$(jq '.deployment_modules_location' "$file")
+            deployment_spack_location=$(jq '.deployment_spack_location' "$file")
+
+            # Create the message for the deployment
+            # Header
+            if [[ "$deployment_result" == "success" ]]; then
+              echo "### :white_check_mark: :computer_desktop: \`$target\` Deployment" >> $GITHUB_OUTPUT
+            else
+              echo "### :x: :computer_desktop: \`$target\` Deployment" >> $GITHUB_OUTPUT
+              continue
+            fi
+
+            # Deployment Details
+            echo "<details>" >> $GITHUB_OUTPUT
+            echo "<summary>Usage Instructions</summary>" >> $GITHUB_OUTPUT
+            echo "Deployed as: " >> $GITHUB_OUTPUT
+            echo "* \`$release_deployment_version\` as a Release (when merged)." >> $GITHUB_OUTPUT
+            echo "* \`${{ needs.defaults.outputs.prerelease-version }}\` as a Prerelease (during this PR)." >> $GITHUB_OUTPUT
+
+            echo "This Prerelease is accessible on \`$target\` using:" >> $GITHUB_OUTPUT
+            echo "\`\`\`bash" >> $GITHUB_OUTPUT
+            echo "module use $deployment_modules_location" >> $GITHUB_OUTPUT
+            echo "module load ${{ needs.defaults.outputs.root-sbd }}/${{ needs.defaults.outputs.prerelease-version }}" >> $GITHUB_OUTPUT
+            echo "\`\`\`" >> $GITHUB_OUTPUT
+            echo "where the binaries shall be on your \`$PATH\`." >> $GITHUB_OUTPUT
+            echo "For advanced users, this Prerelease is also accessible on \`$target\` via \`$deployment_spack_location\` in the \`${{ needs.defaults.outputs.root-sbd }}-${{ needs.defaults.outputs.prerelease-version }}\` environment." >> $GITHUB_OUTPUT
+            echo "</details>" >> $GITHUB_OUTPUT
+
+            # Configuration Details
+            echo "<details>" >> $GITHUB_OUTPUT
+            echo "<summary>Configuration Details</summary>" >> $GITHUB_OUTPUT
+            echo "This Prelease was deployed using:" >> $GITHUB_OUTPUT
+            echo "* \`access-nri/spack\` on branch [$spack_version](https://github.com/ACCESS-NRI/spack/tree/releases/v${spack_version})" >> $GITHUB_OUTPUT
+            echo "* \`access-nri/spack-packages\` version [$spack_packages_version](https://github.com/ACCESS-NRI/spack-packages/releases/tag/${spack_packages_version})" >> $GITHUB_OUTPUT
+            echo "* \`access-nri/spack-config\` version [$spack_config_version](https://github.com/ACCESS-NRI/spack-config/releases/tag/${spack_config_version})" >> $GITHUB_OUTPUT
+            echo "" >> $GITHUB_OUTPUT
+            echo "If the above was not expected, please commit changes to \`config/versions.json\`." >> $GITHUB_OUTPUT
+            echo "</details>" >> $GITHUB_OUTPUT
           done
-          cat $GITHUB_ENV
 
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Config failure roll up
+        id: output-config
+        run: |
           # Roll up the config failure booleans from each of the files, and return the overall result
-          echo "config-errors=$(jq --slurp 'map(.ci_configuration_check_failure | any)' ${{ env.OUTPUT_ARTIFACT_PATH }}/*)" >> $GITHUB_OUTPUT
-
-      # - name: Generate deployment messages for notifier
-      #   run: |
-      #     echo "DEPLOYMENT_INFORMATION<<EOF" >> $GITHUB_ENV
-      #     for target in $(jq --raw-output 'join(" ")' <<< "${{ needs.defaults.outputs.targets }}"); do
-      #       echo "### :desktop_computer: \`$target\` Deployment " >> $GITHUB_ENV
-      #       echo "" >> $GITHUB_ENV
-      #       echo "" >>
-      #     done
-      #     echo "EOF" >> $GITHUB_ENV
-
-      #     cat $GITHUB_ENV
+          echo "errors=$(jq --slurp 'map(.ci_configuration_check_failure | any)' ${{ env.OUTPUT_ARTIFACT_PATH }}/*)" >> $GITHUB_OUTPUT
 
       - name: PR Comment Notifier
         id: comment
@@ -305,37 +349,9 @@ jobs:
         with:
           comment: |
             :rocket: [Deployed](${{ env.RUN_URL }}) `${{ inputs.model }}` as prerelease `${{ needs.defaults.outputs.prerelease-version }}` with commit ${{ needs.defaults.outputs.head-sha }}
-            ${{ steps.matrix-deploy.outputs.config-errors != 'true' && ':warning:There are issues with the `build-cd` deployment configuration. If this is unexpected, let @ACCESS-NRI/model-release know.' || '' }}
+            ${{ steps.output-config.outputs.errors != 'true' && ':warning:There are issues with the `build-cd` deployment configuration. If this is unexpected, let @ACCESS-NRI/model-release know.' || '' }}
 
-            ${{ env.DEPLOYMENT_INFORMATION }}
-
-        # <details>
-        # <summary>Details and usage instructions</summary>
-
-        # This `${{ inputs.model }}` model will be deployed as:
-        # * `${{ needs.check-spack-yaml.outputs.release }}` as a Release (when merged).
-        # * `${{ needs.check-spack-yaml.outputs.prerelease }}` as a Prerelease (during this PR).
-
-        # This Prerelease is accessible on Gadi using:
-        # ```bash
-        # module use /g/data/vk83/prerelease/modules
-        # module load ${{ needs.defaults.outputs.root-sbd }}/${{ needs.check-spack-yaml.outputs.prerelease }}
-        # ```
-        # where the binaries shall be on your `$PATH`.
-        # This Prerelease is also accessible on Gadi via `/g/data/vk83/prerelease/apps/spack/${{ needs.check-config.outputs.spack-version }}/spack` in the `${{ needs.defaults.outputs.root-sbd }}-${{ needs.check-spack-yaml.outputs.prerelease }}` environment.
-        # </details>
-
-        # :hammer_and_wrench: Using: spack `${{ needs.check-config.outputs.spack-version }}`, spack-packages `${{ needs.check-config.outputs.spack-packages-version}}`, spack-config `${{ needs.check-config.outputs.spack-config-version }}`
-        # <details>
-        # <summary>Details</summary>
-
-        # It will be deployed using:
-        # * `access-nri/spack` on branch [`${{ needs.check-config.outputs.spack-version }}`](https://github.com/ACCESS-NRI/spack/tree/releases/v${{ needs.check-config.outputs.spack-version }})
-        # * `access-nri/spack-packages` version [`${{ needs.check-config.outputs.spack-packages-version }}`](https://github.com/ACCESS-NRI/spack-packages/releases/tag/${{ needs.check-config.outputs.spack-packages-version }})
-        # * `access-nri/spack-config` version [`${{ needs.check-config.outputs.spack-config-version }}`](https://github.com/ACCESS-NRI/spack-config/releases/tag/${{ needs.check-config.outputs.spack-config-version }})
-
-        # If this is not what was expected, commit changes to `config/versions.json`.
-        # </details>
+            ${{ steps.matrix-output-parser.outputs.deployments-message }}
 
       - name: PR Description Notifier
         env:
