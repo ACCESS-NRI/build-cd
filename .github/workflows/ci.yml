@@ -280,7 +280,6 @@ jobs:
       - name: Create deployment message
         id: matrix-output-parser
         # Outputs defined in deploy-1-setup.yml under the outputs-upload job
-        shell: python
         run: |
           echo "deployments-message<<EOF" >> $GITHUB_OUTPUT
 
