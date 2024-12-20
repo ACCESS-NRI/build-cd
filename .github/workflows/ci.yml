@@ -209,7 +209,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+<<<<<<< HEAD
         target: ${{ fromJson(needs.defaults.outputs.targets) }}
+=======
+        target: ${{ needs.defaults.outputs.targets }}
+>>>>>>> c9610e0 (TEST: ci.yml/deploy-1-setup: Comment out the comment, reference branch workflows)
     uses: access-nri/build-cd/.github/workflows/deploy-1-setup.yml@199-multi-target-deployments_rework-order
     with:
       deployment-target: ${{ matrix.target }}
@@ -303,32 +307,48 @@ jobs:
         id: comment
         uses: access-nri/actions/.github/actions/pr-comment@main
         with:
+<<<<<<< HEAD
           comment: |
             :rocket: [Deployed](${{ env.RUN_URL }}) `${{ inputs.model }}` as prerelease `${{ needs.defaults.outputs.prerelease-version }}` with commit ${{ needs.defaults.outputs.head-sha }}
             ${{ steps.matrix-deploy.outputs.config-errors != 'true' && ':warning:There are issues with the `build-cd` deployment configuration. If this is unexpected, let @ACCESS-NRI/model-release know.' || '' }}
 
             # ${{ env.DEPLOYMENT_INFORMATION }}
+=======
+          url: ${{ needs.pre-deploy-notifier.outputs.comment-url }}
+          message: |
+            :rocket: [Deployed](${{ env.RUN_URL }}) `${{ inputs.model }}` as prerelease `${{ needs.defaults.outputs.prerelease-version }}` with commit ${{ needs.defaults.outputs.head-sha }}
+        #    ${{ needs.check-config.outputs.config-settings-failures != '' && ':warning:There are issues with the `build-cd` deployment configuration. If this is unexpected, let @ACCESS-NRI/model-release know.' || '' }}
 
-            This Prerelease is accessible on Gadi using:
-            ```bash
-            module use /g/data/vk83/prerelease/modules
-            module load ${{ needs.defaults.outputs.root-sbd }}/${{ needs.check-spack-yaml.outputs.prerelease }}
-            ```
-            where the binaries shall be on your `$PATH`.
-            This Prerelease is also accessible on Gadi via `/g/data/vk83/prerelease/apps/spack/${{ needs.check-config.outputs.spack-version }}/spack` in the `${{ needs.defaults.outputs.root-sbd }}-${{ needs.check-spack-yaml.outputs.prerelease }}` environment.
-            </details>
+        # ${{ env.DEPLOYMENT_INFORMATION }}
+>>>>>>> c9610e0 (TEST: ci.yml/deploy-1-setup: Comment out the comment, reference branch workflows)
 
-            :hammer_and_wrench: Using: spack `${{ needs.check-config.outputs.spack-version }}`, spack-packages `${{ needs.check-config.outputs.spack-packages-version}}`, spack-config `${{ needs.check-config.outputs.spack-config-version }}`
-            <details>
-            <summary>Details</summary>
+        # <details>
+        # <summary>Details and usage instructions</summary>
 
-            It will be deployed using:
-            * `access-nri/spack` on branch [`${{ needs.check-config.outputs.spack-version }}`](https://github.com/ACCESS-NRI/spack/tree/releases/v${{ needs.check-config.outputs.spack-version }})
-            * `access-nri/spack-packages` version [`${{ needs.check-config.outputs.spack-packages-version }}`](https://github.com/ACCESS-NRI/spack-packages/releases/tag/${{ needs.check-config.outputs.spack-packages-version }})
-            * `access-nri/spack-config` version [`${{ needs.check-config.outputs.spack-config-version }}`](https://github.com/ACCESS-NRI/spack-config/releases/tag/${{ needs.check-config.outputs.spack-config-version }})
+        # This `${{ inputs.model }}` model will be deployed as:
+        # * `${{ needs.check-spack-yaml.outputs.release }}` as a Release (when merged).
+        # * `${{ needs.check-spack-yaml.outputs.prerelease }}` as a Prerelease (during this PR).
 
-            If this is not what was expected, commit changes to `config/versions.json`.
-            </details>
+        # This Prerelease is accessible on Gadi using:
+        # ```bash
+        # module use /g/data/vk83/prerelease/modules
+        # module load ${{ needs.defaults.outputs.root-sbd }}/${{ needs.check-spack-yaml.outputs.prerelease }}
+        # ```
+        # where the binaries shall be on your `$PATH`.
+        # This Prerelease is also accessible on Gadi via `/g/data/vk83/prerelease/apps/spack/${{ needs.check-config.outputs.spack-version }}/spack` in the `${{ needs.defaults.outputs.root-sbd }}-${{ needs.check-spack-yaml.outputs.prerelease }}` environment.
+        # </details>
+
+        # :hammer_and_wrench: Using: spack `${{ needs.check-config.outputs.spack-version }}`, spack-packages `${{ needs.check-config.outputs.spack-packages-version}}`, spack-config `${{ needs.check-config.outputs.spack-config-version }}`
+        # <details>
+        # <summary>Details</summary>
+
+        # It will be deployed using:
+        # * `access-nri/spack` on branch [`${{ needs.check-config.outputs.spack-version }}`](https://github.com/ACCESS-NRI/spack/tree/releases/v${{ needs.check-config.outputs.spack-version }})
+        # * `access-nri/spack-packages` version [`${{ needs.check-config.outputs.spack-packages-version }}`](https://github.com/ACCESS-NRI/spack-packages/releases/tag/${{ needs.check-config.outputs.spack-packages-version }})
+        # * `access-nri/spack-config` version [`${{ needs.check-config.outputs.spack-config-version }}`](https://github.com/ACCESS-NRI/spack-config/releases/tag/${{ needs.check-config.outputs.spack-config-version }})
+
+        # If this is not what was expected, commit changes to `config/versions.json`.
+        # </details>
 
       - name: PR Description Notifier
         env:
