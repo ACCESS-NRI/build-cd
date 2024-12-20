@@ -269,16 +269,23 @@ jobs:
     needs:
       - check-config  # Verify configuration information is correct
       - check-spack-yaml  # Verify spack manifest information is correct
-    uses: access-nri/build-cd/.github/workflows/deploy-2-start.yml@main
-    with:
-      type: ${{ inputs.deployment-target }}
-      model: ${{ inputs.spack-manifest-root-sbd }}
-      ref: ${{ inputs.deployment-ref }}
-      version: ${{ inputs.deployment-version }}
-      env-name: ${{ needs.check-spack-yaml.outputs.spack-env-name }}
-      deployment-environment: ${{ inputs.deployment-target }}
-      root-sbd: ${{ inputs.spack-manifest-root-sbd }}
-    secrets: inherit
+    runs-on: ubuntu-latest
+    outputs:
+      modules-location: ${{ steps.modules.outputs.modules }}
+    steps:
+      - run: echo "::notice::Stub deployment"
+      - id: modules
+        run: echo "modules=/some/path" >> $GITHUB_OUTPUT
+    # uses: access-nri/build-cd/.github/workflows/deploy-2-start.yml@199-multi-target-deployments_rework-order
+    # with:
+    #   type: ${{ inputs.deployment-target }}
+    #   model: ${{ inputs.spack-manifest-root-sbd }}
+    #   ref: ${{ inputs.deployment-ref }}
+    #   version: ${{ inputs.deployment-version }}
+    #   env-name: ${{ needs.check-spack-yaml.outputs.spack-env-name }}
+    #   deployment-environment: ${{ inputs.deployment-target }}
+    #   root-sbd: ${{ inputs.spack-manifest-root-sbd }}
+    # secrets: inherit
 
   outputs-upload:
     name: Outputs Upload
