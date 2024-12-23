@@ -91,50 +91,182 @@ on:
     #     description: |
     #       Directory containing the spack instance of the deployed model on the inputs.deployment-target
 jobs:
-  setup-spack-env:
-    name: Setup Spack Environment
+  check-config:
+    name: Check Config
     runs-on: ubuntu-latest
     outputs:
-      # Model name inferred from repository name
-      model: ${{ steps.get-model.outputs.model }}
-      # Spack env name in form <model>-<version>
-      env-name: ${{ steps.get-env-name.outputs.env-name }}
+      spack-version: ${{ steps.spack.outputs.version }}
+      spack-packages-version: ${{ steps.spack-packages.outputs.version }}
+      spack-config-version:  ${{ steps.spack-config.outputs.version }}
+      config-settings-failures: ${{ steps.settings.outputs.failures }}
     steps:
-      - name: Get Model
-        id: get-model
-        # for the cases where the repo name is in uppercase but the package name is lowercase (eg. access-nri/MOM5)
-        # and also the cases where there is a '.' in the repo name, which isn't spack-compliant (eg. access-nri/ACCESS-ESM1.5)
-        run: echo "model=$(echo ${{ github.event.repository.name }} | tr [:upper:] [:lower:] | tr '.' 'p')" >> $GITHUB_OUTPUT
+      - name: Checkout ${{ github.repository }} Config
+        uses: actions/checkout@v4
+        with:
+          path: model
+          ref: ${{ inputs.deployment-ref }}
+
+      - name: Validate ${{ github.repository }} config/versions.json
+        uses: access-nri/schema/.github/actions/validate-with-schema@main
+        with:
+          schema-version: ${{ vars.CONFIG_VERSIONS_SCHEMA_VERSION }}
+          schema-location: au.org.access-nri/model/deployment/config/versions
+          data-location: ./model/config/versions.json
+
+      - name: Validate spack-packages version
+        id: spack-packages
+        uses: access-nri/build-cd/.github/actions/validate-repo-version@main
+        with:
+          repo-to-check: spack-packages
+          pr: ${{ inputs.deployment-ref }}
+
+      - name: Validate spack version
+        id: spack
+        uses: access-nri/build-cd/.github/actions/validate-repo-version@main
+        with:
+          repo-to-check: spack
+          pr: ${{ inputs.deployment-ref }}
+
+      - name: Checkout build-cd Config
+        uses: actions/checkout@v4
+        with:
+          repository: ACCESS-NRI/build-cd
+          ref: main
+          path: cd
+
+      - name: Get spack-config version
+        id: spack-config
+        run: |
+          version=$(jq --compact-output --raw-output \
+              --arg spack_version "${{ steps.spack.outputs.version }}" \
+              '.deployment.${{ inputs.deployment-target }}.${{ inputs.deployment-type }}[$spack_version]."spack-config"' cd/config/settings.json
+          )
+          echo $version
+          echo "version=$version" >> $GITHUB_OUTPUT
+
+      - name: Validate build-cd config/settings.json
+        id: settings
+        uses: access-nri/build-cd/.github/actions/validate-deployment-settings@main
+        with:
+          settings-path: ./cd/config/settings.json
+          target: ${{ inputs.deployment-target }}
+
+  check-spack-yaml:
+    name: Check Spack Manifest
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    env:
+      SPACK_YAML_MODEL_YQ: .spack.specs[0]
+    outputs:
+      # Release version of the deployment. Inferred if not given in inputs.deployment-version
+      release: ${{ steps.version.outputs.release }}
+      # Spack env name in form <model>-<version>
+      spack-env-name: ${{ steps.get-env-name.outputs.env-name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.deployment-ref }}
+
+      - name: Validate ACCESS-NRI spack.yaml Restrictions
+        uses: access-nri/schema/.github/actions/validate-with-schema@main
+        with:
+          schema-version: ${{ vars.SPACK_YAML_SCHEMA_VERSION }}
+          schema-location: au.org.access-nri/model/spack/environment/deployment
+          data-location: ${{ inputs.spack-manifest-path }}
+
+      - name: Check Model Version Modified
+        # We don't want to fire off model deployment version checks if the PR is never going to be merged.
+        # We determine this by checking if either the pull request, or the pull request that a comment
+        # belongs to, is drafted.
+        # Yes, github.event.issue.draft refers to the pull request if the comment is made on a pull request!
+        if: >-
+          inputs.deployment-type != 'Release' &&
+          (github.event_name == 'pull_request' && !github.event.pull_request.draft) ||
+          (github.event_name == 'issue_comment' && !github.event.issue.draft)
+        id: version-modified
+        run: |
+          git checkout ${{ inputs.prerelease-compare-ref }}
+
+          if [ ! -f spack.yaml ]; then
+              echo "::notice::There is no previous version of the spack.yaml to check at ${{ inputs.prerelease-compare-ref }}, continuing..."
+              git checkout ${{ inputs.deployment-ref }}
+              exit 0
+          fi
+
+          base_version=$(yq e '${{ env.SPACK_YAML_MODEL_YQ }}' spack.yaml)
+
+          git checkout ${{ inputs.deployment-ref }}
+          current_version=$(yq e '${{ env.SPACK_YAML_MODEL_YQ }}' spack.yaml)
+          echo "current=${current_version}" >> $GITHUB_OUTPUT
+
+          if [[ "${base_version}" == "${current_version}" ]]; then
+              echo "::warning::The version string hasn't been modified in this PR, but needs to be before merging."
+              exit 1
+          fi
+
+      - name: Same Model Version Failure Notifier
+        if: failure() && steps.version-modified.outcome == 'failure'
+        uses: access-nri/actions/.github/actions/pr-comment@main
+        with:
+          comment: |
+              The model version in the `${{ inputs.spack-manifest-path }}` has not been updated.
+              Either update it manually, or comment the following to have it updated and committed automatically:
+              * `!bump major` for feature releases
+              * `!bump minor` for bugfixes
+
+      - name: Projection Version Matches
+        # this step checks that the versions of the packages themselves match with the
+        #  names of the projections, if they're given.
+        # For example, access-om3@git.2023.12.12 matches with the
+        #  modulefile access-om3/2023.12.12 (specifically, the version strings match)
+        # TODO: Move this into the `scripts` directory - it's getting unweildly.
+        run: |
+          FAILED="false"
+
+          # Get all the defined projections (minus 'all') and make them suitable for a bash for loop
+          DEPS=$(yq '.spack.modules.default.tcl.projections | del(.all) | keys | join(" ")' spack.yaml)
+
+          # for each of the modules
+          for DEP in $DEPS; do
+            DEP_VER=''
+            if [[ "$DEP" == "${{ inputs.spack-manifest-root-sbd }}" ]]; then
+              # The model version is the bit after '@git.', before any later, space-separated, optional variants.
+              # For example, in 'MODEL@git.VERSION type=ACCESS ~debug' the version is 'VERSION'.
+              DEP_VER=$(yq '.spack.specs[0] | capture(".+@git\\.(?<version>[^ ]+).*") | .version' spack.yaml)
+            else
+              # Capture the section after '@git.' or '@' (if it's not a git-attributed version) and before a possible '=' for a given dependency.
+              # Ex. '@git.2024.02.11' -> '2024.02.11', '@access-esm1.5' -> 'access-esm1.5', '@git.2024.05.21=access-esm1.5' -> '2024.05.21'
+              DEP_VER=$(yq ".spack.packages.\"$DEP\".require[0] | match(\"^@(?:git.)?([^=]*)\").captures[0].string" spack.yaml)
+            fi
+
+            # Get the version from the module projection, for comparison with DEP_VER
+            # Projections are of the form '{name}/VERSION[-{hash:7}]', in which we only care about VERSION. For example, '{name}/2024.11.11', or '{name}/2024.11.11-{hash:7}'
+            MODULE_NAME=$(yq ".spack.modules.default.tcl.projections.\"$DEP\"" spack.yaml)
+            MODULE_VER="${MODULE_NAME#*/}"  # Strip '{name}/' from '{name}/VERSION' module, even if VERSION contains '/'
+            MODULE_VER="${MODULE_VER%%-\{hash:7\}}"  # Strip a potential '-{hash:7}' appendix from the VERSION, since we won't have that in the DEP_VER
+
+            if [[ "$DEP_VER" != "$MODULE_VER" ]]; then
+              echo "::error::$DEP: Version of dependency and projection do not match ($DEP_VER != $MODULE_VER)"
+              FAILED='true'
+            fi
+          done
+          if [[ "$FAILED" == "true" ]]; then
+            exit 1
+          fi
+
+      - name: Generate Versions
+        id: version
+        # This step generates the release version number, if it wasn't already given.
+        # The release is a general version number from the spack.yaml, looking the
+        # same as a regular release build, without optional variants. Ex. 'access-om2@git.2024.01.1 ~debug' -> '2024.01.1'
+        run: echo "release=$(yq '${{ env.SPACK_YAML_MODEL_YQ }} | capture("@git\.(?<version>[^ ~+]+)") | .version' spack.yaml)" >> $GITHUB_OUTPUT
 
       - name: Set Spack Env Name String
         id: get-env-name
         # replace occurences of '.' with '_' in environment name as spack doesn't support '.'. Ex: 'access-om2-v1.0.0' -> 'access-om2-v1_0_0'.
-        run: echo "env-name=$(echo '${{ steps.get-model.outputs.model }}-${{ inputs.version }}' | tr '.' '_')" >> $GITHUB_OUTPUT
-
-  setup-deployment-env:
-    name: Setup Deployment Environment
-    runs-on: ubuntu-latest
-    outputs:
-      deployment-environments: ${{ steps.get-deployment-environment.outputs.deployment-environments }}
-    steps:
-      - name: Checkout Config
-        uses: actions/checkout@v4
-        with:
-          repository: access-nri/build-cd
-
-      - name: Get Environments
-        id: get-deployment-environment
-        run: |
-          if [[ "${{ inputs.type }}" == "release" ]]; then
-            # Convention is to just have the name by itself for release (eg. 'Gadi')
-            echo "deployment-environments=$(jq --compact-output '.deployment | keys' ${{ env.CONFIG_SETTINGS_PATH }})" >> $GITHUB_OUTPUT
-          elif [[ "${{ inputs.type }}" == "prerelease" ]]; then
-            # Convention is to have the name + Prerelease (eg. 'Gadi Prerelease')
-            echo "deployment-environments=$(jq --compact-output '[.deployment | keys | "\(.[]) Prerelease"]' ${{ env.CONFIG_SETTINGS_PATH }})" >> $GITHUB_OUTPUT
-          else
-            echo "::error::The 'type' input was invalid. Check the inputs documentation."
-            exit 1
-          fi
+        run: echo "env-name=$(echo '${{ inputs.spack-manifest-root-sbd }}-${{ inputs.deployment-version }}' | tr '.' '_')" >> $GITHUB_OUTPUT
 
   deployment:
     name: Deployment

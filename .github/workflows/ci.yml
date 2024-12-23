@@ -167,201 +167,27 @@ jobs:
           context: ${{ steps.commit-status-args.outputs.context }}
           description: ${{ steps.commit-status-args.outputs.description }}
 
-  check-config:
-    name: Check Config Fields
+  deploy:
+    name: Deploy
     needs:
       - defaults
-    runs-on: ubuntu-latest
-    outputs:
-      spack-version: ${{ steps.spack.outputs.version }}
-      spack-packages-version: ${{ steps.spack-packages.outputs.version }}
-      spack-config-version:  ${{ steps.spack-config.outputs.version }}
-      config-settings-failures: ${{ steps.settings.outputs.failures }}
-    steps:
-      - name: Checkout ${{ github.repository }} Config
-        uses: actions/checkout@v4
-        with:
-          path: model
-          ref: ${{ needs.defaults.outputs.head-ref }}
-
-      - name: Validate ${{ github.repository }} config/versions.json
-        uses: access-nri/schema/.github/actions/validate-with-schema@main
-        with:
-          schema-version: ${{ vars.CONFIG_VERSIONS_SCHEMA_VERSION }}
-          schema-location: au.org.access-nri/model/deployment/config/versions
-          data-location: ./model/config/versions.json
-
-      - name: Validate spack-packages version
-        id: spack-packages
-        uses: access-nri/build-cd/.github/actions/validate-repo-version@main
-        with:
-          repo-to-check: spack-packages
-          pr: ${{ needs.defaults.outputs.head-ref }}
-
-      - name: Validate spack version
-        id: spack
-        uses: access-nri/build-cd/.github/actions/validate-repo-version@main
-        with:
-          repo-to-check: spack
-          pr: ${{ needs.defaults.outputs.head-ref }}
-
-      - name: Checkout build-cd Config
-        uses: actions/checkout@v4
-        with:
-          repository: ACCESS-NRI/build-cd
-          ref: main
-          path: cd
-
-      - name: Get spack-config version
-        id: spack-config
-        # TODO: For future targets, we need to know which target we are using by this point
-        run: |
-          version=$(jq --compact-output --raw-output \
-            --arg spack_version "${{ steps.spack.outputs.version }}" \
-            '.deployment.Gadi.Prerelease[$spack_version]."spack-config"' cd/config/settings.json
-          )
-          echo $version
-          echo "version=$version" >> $GITHUB_OUTPUT
-
-      - name: Validate build-cd config/settings.json
-        id: settings
-        uses: access-nri/build-cd/.github/actions/validate-deployment-settings@main
-        with:
-          settings-path: ./cd/config/settings.json
-          # TODO: Turn this into a matrix job of targets
-          target: Gadi
-
-  check-spack-yaml:
-    name: Check spack.yaml
-    runs-on: ubuntu-latest
-    needs:
-      - defaults
-    permissions:
-      pull-requests: write
-    outputs:
-      release: ${{ steps.version.outputs.release }}
-      prerelease: ${{ steps.version.outputs.prerelease }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ needs.defaults.outputs.head-ref }}
-
-      - name: Validate ACCESS-NRI spack.yaml Restrictions
-        uses: access-nri/schema/.github/actions/validate-with-schema@main
-        with:
-          schema-version: ${{ vars.SPACK_YAML_SCHEMA_VERSION }}
-          schema-location: au.org.access-nri/model/spack/environment/deployment
-          data-location: ./spack.yaml
-
-      - name: Check Model Version Modified
-        # We don't want to fire off model deployment version checks if the PR is never going to be merged.
-        # We determine this by checking if either the pull request, or the pull request that a comment
-        # belongs to, is drafted.
-        # Yes, github.event.issue.draft refers to the pull request if the comment is made on a pull request!
-        if: >-
-          (github.event_name == 'pull_request' && !github.event.pull_request.draft) ||
-          (github.event_name == 'issue_comment' && !github.event.issue.draft)
-        id: version-modified
-        run: |
-          git checkout ${{ needs.defaults.outputs.base-ref }}
-
-          if [ ! -f spack.yaml ]; then
-            echo "::notice::There is no previous version of the spack.yaml to check at ${{ needs.defaults.outputs.base-ref }}, continuing..."
-            git checkout ${{ needs.defaults.outputs.head-ref }}
-            exit 0
-          fi
-
-          base_version=$(yq e '${{ env.SPACK_YAML_MODEL_YQ }}' spack.yaml)
-
-          git checkout ${{ needs.defaults.outputs.head-ref }}
-          current_version=$(yq e '${{ env.SPACK_YAML_MODEL_YQ }}' spack.yaml)
-          echo "current=${current_version}" >> $GITHUB_OUTPUT
-
-          if [[ "${base_version}" == "${current_version}" ]]; then
-            echo "::warning::The version string hasn't been modified in this PR, but needs to be before merging."
-            exit 1
-          fi
-
-      - name: Same Model Version Failure Notifier
-        if: failure() && steps.version-modified.outcome == 'failure'
-        uses: access-nri/actions/.github/actions/pr-comment@main
-        with:
-          pr: ${{ inputs.pr }}
-          comment: |
-            The model version in the `spack.yaml` has not been updated.
-            Either update it manually, or comment the following to have it updated and committed automatically:
-            * `!bump major` for feature releases
-            * `!bump minor` for bugfixes
-
-      - name: Projection Version Matches
-        # this step checks that the versions of the packages themselves match with the
-        #  names of the projections, if they're given.
-        # For example, access-om3@git.2023.12.12 matches with the
-        #  modulefile access-om3/2023.12.12 (specifically, the version strings match)
-        # TODO: Move this into the `scripts` directory - it's getting unweildly.
-        run: |
-          FAILED="false"
-
-          # Get all the defined projections (minus 'all') and make them suitable for a bash for loop
-          DEPS=$(yq '.spack.modules.default.tcl.projections | del(.all) | keys | join(" ")' spack.yaml)
-
-          # for each of the modules
-          for DEP in $DEPS; do
-            DEP_VER=''
-            if [[ "$DEP" == "${{ needs.defaults.outputs.root-sbd }}" ]]; then
-              # The model version is the bit after '@git.', before any later, space-separated, optional variants.
-              # For example, in 'MODEL@git.VERSION type=ACCESS ~debug' the version is 'VERSION'.
-              DEP_VER=$(yq '.spack.specs[0] | capture(".+@git\\.(?<version>[^ ]+).*") | .version' spack.yaml)
-            else
-              # Capture the section after '@git.' or '@' (if it's not a git-attributed version) and before a possible '=' for a given dependency.
-              # Ex. '@git.2024.02.11' -> '2024.02.11', '@access-esm1.5' -> 'access-esm1.5', '@git.2024.05.21=access-esm1.5' -> '2024.05.21'
-              DEP_VER=$(yq ".spack.packages.\"$DEP\".require[0] | match(\"^@(?:git.)?([^=]*)\").captures[0].string" spack.yaml)
-            fi
-
-            # Get the version from the module projection, for comparison with DEP_VER
-            # Projections are of the form '{name}/VERSION[-{hash:7}]', in which we only care about VERSION. For example, '{name}/2024.11.11', or '{name}/2024.11.11-{hash:7}'
-            MODULE_NAME=$(yq ".spack.modules.default.tcl.projections.\"$DEP\"" spack.yaml)
-            MODULE_VER="${MODULE_NAME#*/}"  # Strip '{name}/' from '{name}/VERSION' module, even if VERSION contains '/'
-            MODULE_VER="${MODULE_VER%%-\{hash:7\}}"  # Strip a potential '-{hash:7}' appendix from the VERSION, since we won't have that in the DEP_VER
-
-            if [[ "$DEP_VER" != "$MODULE_VER" ]]; then
-              echo "::error::$DEP: Version of dependency and projection do not match ($DEP_VER != $MODULE_VER)"
-              FAILED='true'
-            fi
-          done
-          if [[ "$FAILED" == "true" ]]; then
-            exit 1
-          fi
-
-      - name: Generate Versions
-        id: version
-        # This step generates the release and prerelease version numbers.
-        # The release is a general version number from the spack.yaml, looking the
-        # same as a regular release build, without optional variants. Ex. 'access-om2@git.2024.01.1 ~debug' -> '2024.01.1'
-        # The prerelease looks like: `pr<pull request number>-<number of deployments of pull request>`.
-        # Ex. Pull Request #12 with 2 deployments on branch -> `pr12-2`.
-        run: |
-          echo "release=$(yq '${{ env.SPACK_YAML_MODEL_YQ }} | capture("@git\.(?<version>[^ ~+]+)") | .version' spack.yaml)" >> $GITHUB_OUTPUT
-          echo "prerelease=pr${{ inputs.pr }}-${{ needs.defaults.outputs.next-deployment-number }}" >> $GITHUB_OUTPUT
-
-  # -----------------------------
-  # | PRERELEASE DEPLOYMENT JOB |
-  # -----------------------------
-  prerelease-deploy:
-    name: Deploy to Prerelease
-    # This will create a `spack` environment with the name `<model>-pr<pull request number>-<deployment number>`.
-    # For example, `access-om3-pr13-3` for the third deployment on the PR#13.
-    needs:
-      - defaults  # so we can access `inputs.root-sbd` that could have defaulted to `inputs.model`
-      - check-spack-yaml  # implies all the spack.yaml-related checks have passed, has appropriate version for the prerelease build
-      - check-config  # implies all the json-related checks have passed
+    strategy:
+      fail-fast: false
+      matrix:
+        # Example: ['Gadi', 'Setonix', ...]
+        target: ${{ fromJson(needs.defaults.outputs.targets) }}
     uses: access-nri/build-cd/.github/workflows/deploy-1-setup.yml@main
     with:
-      type: prerelease
-      ref: ${{ needs.defaults.outputs.head-ref }}
-      version: ${{ needs.check-spack-yaml.outputs.prerelease }}
-      root-sbd: ${{ needs.defaults.outputs.root-sbd }}
+      deployment-target: ${{ matrix.target }}
+      deployment-ref: ${{ needs.defaults.outputs.head-ref }}
+      deployment-type: Prerelease
+      # The prerelease looks like: `pr<pull request number>-<number of deployments of pull request>`.
+      # Ex. Pull Request #12 with 2 deployments on branch -> `pr12-2`.
+      # Note that for multi-target prereleases, they share the same deployment number.
+      deployment-version: ${{ needs.defaults.outputs.prerelease-version }}
+      prerelease-compare-ref: ${{ needs.defaults.outputs.base-ref }}
+      spack-manifest-path: ./spack.yaml
+      spack-manifest-root-sbd: ${{ needs.defaults.outputs.root-sbd }}
     secrets: inherit
 
   redeploy-post:
