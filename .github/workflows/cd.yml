@@ -35,6 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       root-sbd: ${{ steps.root-sbd.outputs.default }}
+      targets: ${{ steps.target.outputs.matrix }}
     steps:
       - name: root-sbd
         id: root-sbd
@@ -45,9 +46,27 @@ jobs:
             echo "default=${{ inputs.root-sbd }}" >> $GITHUB_OUTPUT
           fi
 
+      - name: Get deployment settings.json
+        uses: actions/checkout@v4
+        with:
+          repository: access-nri/build-cd
+          ref: main
+
+      - name: Generate Deployment Target Matrix
+        id: target
+        run: |
+          targets=$(jq --compact-output '.deployments' config/settings.json)
+          echo "$targets"
+          echo "targets=$targets" >> $GITHUB_OUTPUT
+
   verify-settings:
     name: Verify Deployment Settings
     runs-on: ubuntu-latest
+    needs:
+      - defaults
+    strategy:
+      matrix:
+        target: ${{ fromJson(needs.defaults.outputs.targets) }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -57,8 +76,7 @@ jobs:
       - uses: access-nri/build-cd/.github/actions/validate-deployment-settings@main
         with:
           settings-path: ./config/settings.json
-          # TODO: Turn this into a matrix job of targets
-          target: Gadi
+          target: ${{ matrix.target }}
           error-level: error
 
   push-tag:
@@ -103,11 +121,17 @@ jobs:
     needs:
       - defaults
       - push-tag
+    strategy:
+      matrix:
+        target: ${{ fromJson(needs.defaults.outputs.targets) }}
     uses: access-nri/build-cd/.github/workflows/deploy-1-setup.yml@main
     with:
-      ref: ${{ github.ref_name }}
-      version: ${{ needs.push-tag.outputs.name }}
-      root-sbd: ${{ needs.defaults.outputs.root-sbd }}
+      deployment-target: ${{ matrix.target }}
+      deployment-ref: ${{ github.ref_name }}
+      deployment-type: Release
+      deployment-version: ${{ needs.push-tag.outputs.name }}
+      spack-manifest-path: ./spack.yaml
+      spack-manifest-root-sbd: ${{ needs.defaults.outputs.root-sbd }}
     secrets: inherit
     permissions:
       contents: write
