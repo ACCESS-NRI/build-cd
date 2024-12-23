@@ -31,6 +31,13 @@ on:
         type: string
         required: true
         description: The root SBD that is being used as the modulefile name
+    outputs:
+      modules-location:
+        value: ${{ jobs.deploy-to-environment.outputs.modules-location }}
+        description: The location of the modules directory on the deployment environment
+      spack-location:
+        value: ${{ jobs.deploy-to-environment.outputs.spack-location }}
+        description: The location of the spack directory on the deployment environment
 env:
   SPACK_YAML_SPEC_YQ: .spack.specs[0]
   SPACK_YAML_MODULEFILE_PROJECTION_YQ: .spack.modules.default.tcl.projections.${{ inputs.root-sbd }}
@@ -43,6 +50,8 @@ jobs:
     outputs:
       packages-version: ${{ steps.versions.outputs.packages }}
       config-version: ${{ steps.versions.outputs.config }}
+      spack-location: ${{ steps.location.outputs.spack }}
+      modules-location: ${{ steps.location.outputs.modules }}
     steps:
       # Deployment
       - uses: actions/checkout@v4
