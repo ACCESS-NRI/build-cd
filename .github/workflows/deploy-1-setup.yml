@@ -1,26 +1,95 @@
-name: Deployment Setup
+name: Deploy
 on:
   workflow_call:
     inputs:
-      type:
+      deployment-target:
+        type: string
+        required: true
+        description: |
+          The target machine for the model being deployed.
+          Equivalent to the name of the GitHub Environment, minus a potential Prerelease Type.
+      deployment-type:
+        type: string
+        required: true
+        description: |
+          The type of model being deployed.
+          Can be one of: Release, Prerelease.
+      deployment-version:
+        type: string
+        required: true
+        description: |
+          The version of the model being deployed.
+          Usually takes the form of either a git tag (2024.12.0), or a Prerelease version (pr12-2)
+      deployment-ref:
+        type: string
+        required: true
+        description: |
+          The git ref where the spack manifest that will be deployed is located.
+          In Prereleases, this is the HEAD of the source branch of the PR.
+      prerelease-compare-ref:
         type: string
         required: false
-        default: release
-        description: The type of deployment - either 'release' or 'prerelease'
-      ref:
+        description: |
+          Optional git ref to compare against the current inputs.deployment-ref
+          Useful for checking that files have been modified appropriately.
+      spack-manifest-path:
         type: string
         required: true
-        description: The git commit-ish ref where the `spack.yaml` is located
-      version:
+        default: spack.yaml
+        description: |
+          Relative path in the Model Deployment Repository that contains the spack manifest file.
+          Usually a spack.yaml file.
+      spack-manifest-root-sbd:
         type: string
         required: true
-        description: The version for the model being deployed
-      root-sbd:
-        type: string
-        required: true
-        description: The root SBD that is being used as the modulefile name
-env:
-  CONFIG_SETTINGS_PATH: ./config/settings.json
+        description: |
+          Within the spack manifest, the overarching spack bundle that contains all other packages.
+          Usually the first entry in the .spack.specs section of the manifest.
+    outputs:
+      general-outputs-artifact-glob:
+        value: ${{ jobs.outputs-upload.outputs.general-artifact-name }}
+        description: |
+          General pattern for the artifact that contains the outputs for this invocation of the job.
+          Output files are of the form deploy-outputs.{{inputs.deployment-target}}
+    # TODO: This is a workaround for matrixed dynamic job outputs. See https://github.com/orgs/community/discussions/17245
+    # The outputs in the file are below:
+    #   spack-version:
+    #     value: ${{ jobs.check-config.outputs.spack-version }}
+    #     description: |
+    #       Branch of 'access-nri/spack' that is used to deploy the model.
+    #       The VERSION part of the 'releases/VERSION' branch.
+    #   spack-config-version:
+    #     value: ${{ jobs.check-config.outputs.spack-config-version }}
+    #     description: |
+    #       Git ref of 'access-nri/spack-config' that is used to configure spack.
+    #   spack-packages-version:
+    #     value: ${{ jobs.check-config.outputs.spack-packages-version }}
+    #     description: |
+    #       Git ref of 'access-nri/spack-packages' that is used to reference custom packages in spack.
+    #   release-deployment-version:
+    #     value: ${{ jobs.check-spack-yaml.outputs.release }}
+    #     description: |
+    #       Version of the model being deployed as if it were a release version.
+    #   ci-configuration-check-failure:
+    #     value: ${{ jobs.check-config.outputs.config-settings-failures }}
+    #     description: |
+    #       Boolean true/false for whether the configuration check failed for inputs.deployment-target
+    #   spack-environment-name:
+    #     value: ${{ jobs.check-spack-yaml.outputs.spack-env-name }}
+    #     description: |
+    #       Name for the spack environment that contains the deployed model
+    #   deployment-result:
+    #    value: ${{ jobs.deployment.result }}
+    #    description: |
+    #      Result of the deployment - skipped/cancelled/success/failure
+    #   deployment-modules-location:
+    #     value: ${{ jobs.deployment.outputs.module-location }}
+    #     description: |
+    #       Directory containing the modules of the deployed model on the inputs.deployment-target
+    #   deployment-spack-location:
+    #     value: ${{ jobs.deployment.outputs.spack-location }}
+    #     description: |
+    #       Directory containing the spack instance of the deployed model on the inputs.deployment-target
 jobs:
   setup-spack-env:
     name: Setup Spack Environment
