@@ -269,21 +269,17 @@ jobs:
         run: echo "env-name=$(echo '${{ inputs.spack-manifest-root-sbd }}-${{ inputs.deployment-version }}' | tr '.' '_')" >> $GITHUB_OUTPUT
 
   deployment:
-    name: Deployment
+    name: ${{ inputs.deployment-target }}
     needs:
-      - setup-spack-env
-      - setup-deployment-env
-    strategy:
-      fail-fast: false
-      matrix:
-        deployment-environment: ${{ fromJson(needs.setup-deployment-env.outputs.deployment-environments) }}
+      - check-config  # Verify configuration information is correct
+      - check-spack-yaml  # Verify spack manifest information is correct
     uses: access-nri/build-cd/.github/workflows/deploy-2-start.yml@main
     with:
-      type: ${{ inputs.type }}
-      model: ${{ needs.setup-spack-env.outputs.model }}
-      ref: ${{ inputs.ref }}
-      version: ${{ inputs.version }}
-      env-name: ${{ needs.setup-spack-env.outputs.env-name }}
-      deployment-environment: ${{ matrix.deployment-environment }}
-      root-sbd: ${{ inputs.root-sbd }}
+      type: ${{ inputs.deployment-type }}
+      model: ${{ inputs.spack-manifest-root-sbd }}
+      ref: ${{ inputs.deployment-ref }}
+      version: ${{ inputs.deployment-version }}
+      env-name: ${{ needs.check-spack-yaml.outputs.spack-env-name }}
+      deployment-environment: ${{ inputs.deployment-type == 'Prerelease' && format('{0} Prerelease', inputs.deployment-target) || inputs.deployment-target }}
+      root-sbd: ${{ inputs.spack-manifest-root-sbd }}
     secrets: inherit
