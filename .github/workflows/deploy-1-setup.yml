@@ -283,3 +283,42 @@ jobs:
       deployment-environment: ${{ inputs.deployment-type == 'Prerelease' && format('{0} Prerelease', inputs.deployment-target) || inputs.deployment-target }}
       root-sbd: ${{ inputs.spack-manifest-root-sbd }}
     secrets: inherit
+
+  outputs-upload:
+    name: Outputs Upload
+    # Creates a JSON artifact with information on the deployment created during this run.
+    # In workflows that call this as a matrix, one must do a deep merge with all files generated from the matrix,
+    # using the outputs.general-outputs-artifact-name artifact as part of the workflow run.
+    if: always()
+    # always, because we might want to interrogate some of the information even in a failed deployment.
+    needs:
+      - check-config
+      - check-spack-yaml
+      - deployment
+    runs-on: ubuntu-latest
+    env:
+      UPLOAD_FILE_NAME: deploy-outputs.${{ inputs.deployment-target }}
+    outputs:
+      general-artifact-name: deploy-outputs.*
+    steps:
+      - name: Create outputs file
+        # See the on.workflow_call.outputs section for details on the info created.
+        run: |
+          jq --null-input '{
+            spack_version: "${{ needs.check-config.outputs.spack-version }}",
+            spack_config_version: "${{ needs.check-config.outputs.spack-config-version }}",
+            spack_packages_version: "${{ needs.check-config.outputs.spack-packages-version }}",
+            ci_configuration_check_failure: ${{ needs.check-config.outputs.config-settings-failures != '' }},
+            release_deployment_version: "${{ needs.check-spack-yaml.outputs.release }}",
+            spack_environment_name: "${{ needs.check-spack-yaml.outputs.spack-env-name }}",
+            deployment_result: "${{ needs.deployment.result }}",
+            deployment_modules_location: "${{ needs.deployment.outputs.modules-location }}",
+            deployment_spack_location: "${{ needs.deployment.outputs.spack-location }}"
+          }' > ./${{ env.UPLOAD_FILE_NAME }}
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.UPLOAD_FILE_NAME }}
+          path: ./${{ env.UPLOAD_FILE_NAME }}
+          if-no-files-found: error
