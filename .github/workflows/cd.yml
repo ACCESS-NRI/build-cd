@@ -55,7 +55,7 @@ jobs:
       - name: Generate Deployment Target Matrix
         id: target
         run: |
-          targets=$(jq --compact-output '.deployments' config/settings.json)
+          targets=$(jq --compact-output --raw-output '.deployment | keys' config/settings.json)
           echo "$targets"
           echo "targets=$targets" >> $GITHUB_OUTPUT
 
