@@ -92,7 +92,7 @@ on:
     #       Directory containing the spack instance of the deployed model on the inputs.deployment-target
 jobs:
   check-config:
-    name: Check Config
+    name: '${{ inputs.deployment-target }}: Check Config'
     runs-on: ubuntu-latest
     outputs:
       spack-version: ${{ steps.spack.outputs.version }}
@@ -152,7 +152,7 @@ jobs:
           target: ${{ inputs.deployment-target }}
 
   check-spack-yaml:
-    name: Check Spack Manifest
+    name: '${{ inputs.deployment-target }}: Check Spack Manifest'
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
@@ -285,7 +285,7 @@ jobs:
     secrets: inherit
 
   outputs-upload:
-    name: Outputs Upload
+    name: '${{ inputs.deployment-target }}:Outputs Upload'
     # Creates a JSON artifact with information on the deployment created during this run.
     # In workflows that call this as a matrix, one must do a deep merge with all files generated from the matrix,
     # using the outputs.general-outputs-artifact-name artifact as part of the workflow run.
