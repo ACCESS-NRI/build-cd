@@ -319,6 +319,7 @@ jobs:
             echo "" >> $GITHUB_OUTPUT
             echo "If the above was not expected, please commit changes to \`config/versions.json\`." >> $GITHUB_OUTPUT
             echo "</details>" >> $GITHUB_OUTPUT
+            echo "" >> $GITHUB_OUTPUT
           done
 
           echo "EOF" >> $GITHUB_OUTPUT
