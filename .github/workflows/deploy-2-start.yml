@@ -208,6 +208,13 @@ jobs:
             '${{ secrets.USER}}@${{ secrets.HOST_DATA }}:${{ env.SPACK_ENV_PATH }}/spack.*' \
             ./${{ env.ARTIFACT_NAME }}
 
+          # Rename the files to include the deployment environment
+          cd ./${{ env.ARTIFACT_NAME }}
+          for file in *; do
+            mv "$file" "${{ inputs.deployment-environment }}.$file"
+          done
+          cd -
+
       - name: Upload Metadata Artifact
         uses: actions/upload-artifact@v4
         with:
