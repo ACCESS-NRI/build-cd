@@ -46,10 +46,15 @@ on:
           Within the spack manifest, the overarching spack bundle that contains all other packages.
           Usually the first entry in the .spack.specs section of the manifest.
     outputs:
+      general-metadata-artifact-glob:
+        value: ${{ jobs.deployment.outputs.general-metadata-artifact-glob }}
+        description: |
+          General pattern for the artifact that contains the deployment metadata files for this invocation of the job.
+          These files are of the form deploy-metadata.{{inputs.deployment-target}}
       general-outputs-artifact-glob:
         value: ${{ jobs.outputs-upload.outputs.general-artifact-name }}
         description: |
-          General pattern for the artifact that contains the outputs for this invocation of the job.
+          General pattern for the artifact that contains the text outputs for this invocation of the job.
           Output files are of the form deploy-outputs.{{inputs.deployment-target}}
     # TODO: This is a workaround for matrixed dynamic job outputs. See https://github.com/orgs/community/discussions/17245
     # The outputs in the file are below:
@@ -273,7 +278,7 @@ jobs:
     needs:
       - check-config  # Verify configuration information is correct
       - check-spack-yaml  # Verify spack manifest information is correct
-    uses: access-nri/build-cd/.github/workflows/deploy-2-start.yml@main
+    uses: access-nri/build-cd/.github/workflows/deploy-2-start.yml@v3
     with:
       type: ${{ inputs.deployment-type }}
       model: ${{ inputs.spack-manifest-root-sbd }}

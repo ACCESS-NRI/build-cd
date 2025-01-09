@@ -28,6 +28,8 @@ on:
 
 env:
   SPACK_YAML_MODEL_YQ: .spack.specs[0]
+  METADATA_PATH: /opt/metadata
+  OUTPUTS_PATH: /opt/outputs
 jobs:
   defaults:
     name: Set Defaults
@@ -124,7 +126,7 @@ jobs:
     strategy:
       matrix:
         target: ${{ fromJson(needs.defaults.outputs.targets) }}
-    uses: access-nri/build-cd/.github/workflows/deploy-1-setup.yml@main
+    uses: access-nri/build-cd/.github/workflows/deploy-1-setup.yml@v3
     with:
       deployment-target: ${{ matrix.target }}
       deployment-ref: ${{ github.ref_name }}
@@ -135,3 +137,118 @@ jobs:
     secrets: inherit
     permissions:
       contents: write
+
+  release:
+    name: Create Release
+    needs:
+      - defaults
+      - push-tag
+      - deploy-release
+    runs-on: ubuntu-latest
+    outputs:
+      url: ${{ steps.release.outputs.url }}
+      created-at: ${{ steps.metadata.outputs.created-at }}
+    steps:
+      - name: Download Metadata Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: ${{ needs.deploy-release.outputs.general-metadata-artifact-glob }}
+          path: ${{ env.METADATA_PATH }}
+          merge-multiple: true
+
+      - name: Download Outputs Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: ${{ needs.deploy-release.outputs.general-outputs-artifact-glob }}
+          path: ${{ env.OUTPUTS_PATH}}
+          merge-multiple: true
+
+      - name: Generate Release Notes
+        id: release-body
+        run: |
+          echo "body<<EOF" >> $GITHUB_OUTPUT
+
+          echo "This is an official release of \`${{ inputs.model }}\` \`${{ needs.push-tag.outputs.name }}\`. " >> $GITHUB_OUTPUT
+          echo "## Deployment Information" >> $GITHUB_OUTPUT
+
+          for file in ${{ env.OUTPUTS_PATH }}/*; do
+            # Setting all the variables that would be needed for the release body creation...
+            filename=$(basename -- "$file")
+            target="${filename##*.}"
+
+            # For brevity, '-cr' is '--compact-output --raw-output'
+            spack_version=$(jq -cr '.spack_version' "$file")
+            spack_config_version=$(jq -cr '.spack_config_version' "$file")
+            spack_packages_version=$(jq -cr '.spack_packages_version' "$file")
+            deployment_modules_location=$(jq -cr '.deployment_modules_location' "$file")
+
+            echo "### \`$target\`" >> $GITHUB_OUTPUT
+            echo "Deployed using [spack $spack_version](https://github.com/ACCESS-NRI/spack/tree/releases/$spack_version), [spack-packages $spack_packages_version](https://github.com/ACCESS-NRI/spack-packages/releases/tag/$spack_packages_version) and [spack-config $spack_config_version](https://github.com/ACCESS-NRI/spack-config/releases/tag/$spack_config_version)." >> $GITHUB_OUTPUT
+            echo "Deployed as module accessible using:" >> $GITHUB_OUTPUT
+            echo "\`\`\`bash" >> $GITHUB_OUTPUT
+            echo "module use $deployment_modules_location" >> $GITHUB_OUTPUT
+            echo "module load ${{ needs.defaults.outputs.root-sbd }}/${{ needs.push-tag.outputs.name }}" >> $GITHUB_OUTPUT
+            echo "\`\`\`" >> $GITHUB_OUTPUT
+            echo "" >> $GITHUB_OUTPUT
+          done
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        id: release
+        uses: softprops/action-gh-release@69320dbe05506a9a39fc8ae11030b214ec2d1f87  # v2.0.5
+        with:
+          tag_name: ${{ needs.push-tag.outputs.name }}
+          name: ${{ inputs.model}} ${{ needs.push-tag.outputs.name }}
+          body: |
+            ${{ steps.release-body.outputs.body }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: |
+            ${{ env.METADATA_PATH }}/*.spack.yaml
+            ${{ env.METADATA_PATH }}/*.spack.lock
+            ${{ env.METADATA_PATH }}/*.spack.location
+            ${{ env.METADATA_PATH }}/*.spack.location.json
+
+      - name: Release Metadata
+        id: metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: echo "created-at=$(gh release view --json createdAt --jq '.createdAt' --repo ${{ github.repository }})" >> $GITHUB_OUTPUT
+
+  # FIXME: This won't work until ACCESS-NRI/build-cd#201 is resolved
+  build-db:
+    name: Build DB Metadata Upload
+    needs:
+      - deploy-release
+      - release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Metadata Artifact
+        uses: actions/download-artifact@v4
+        with:
+          pattern: ${{ needs.deploy-release.outputs.general-metadata-artifact-glob }}
+          path: ${{ env.METADATA_PATH }}
+
+      - name: Checkout Upload Script
+        uses: actions/checkout@v4
+        with:
+          repository: access-nri/build-cd
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ vars.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install Build Metadata Script Requirements
+        run: pip install -r tools/release_provenance/requirements.txt
+
+      - name: Upload Build Metadata
+        env:
+          BUILD_DB_CONNECTION_STR: ${{ secrets.BUILD_DB_CONNECTION_STR }}
+          OUTPUT_PATH: ./metadata_output
+        run: |
+          ./scripts/generate-build-metadata.bash ${{ needs.release.outputs.url }} ${{ needs.release.outputs.created-at }} ${{ needs.deploy-to-environment.outputs.packages-version }} ${{ needs.deploy-to-environment.outputs.config-version }} ${{ env.METADATA_PATH }} ${{ env.OUTPUT_PATH }} ${{ inputs.root-sbd }} ${{ vars.BUILD_DB_PACKAGES }}
+
+          echo "Attempting upload of build_metadata.json"
+          python ./tools/release_provenance/save_release.py "${{ env.OUTPUT_PATH }}/build_metadata.json"
