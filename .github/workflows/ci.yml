@@ -253,76 +253,18 @@ jobs:
     env:
       OUTPUT_ARTIFACT_PATH: ./merged_outputs
     steps:
+      - name: Checkout build-cd for scripts
+        uses: actions/checkout@v4
+        with:
+          repository: access-nri/build-cd
+          ref: v3
+
       - name: Download matrix deployment outputs
         uses: actions/download-artifact@v4
         with:
           pattern: ${{ needs.deploy.outputs.general-outputs-artifact-glob }}
           path: ${{ env.OUTPUT_ARTIFACT_PATH }}
           merge-multiple: true
-
-      - name: Create deployment message
-        id: matrix-output-parser
-        # Outputs defined in deploy-1-setup.yml under the outputs-upload job
-        # Creates a comment of the form: https://github.com/ACCESS-NRI/ACCESS-TEST/pull/15#issuecomment-2558675980
-        run: |
-          echo "deployments-message<<EOF" >> $GITHUB_OUTPUT
-
-          for file in ${{ env.OUTPUT_ARTIFACT_PATH }}/*; do
-            # Setting all the variables that would be needed for the PR comment creation...
-            filename=$(basename -- "$file")
-            target="${filename##*.}"
-
-            # For brevity, '-cr' is '--compact-output --raw-output'
-            spack_version=$(jq -cr '.spack_version' "$file")
-            spack_config_version=$(jq -cr '.spack_config_version' "$file")
-            spack_packages_version=$(jq -cr '.spack_packages_version' "$file")
-            release_deployment_version=$(jq -cr '.release_deployment_version' "$file")
-            spack_environment_name=$(jq -cr '.spack_environment_name' "$file")
-            deployment_result=$(jq -cr '.deployment_result' "$file")
-            deployment_modules_location=$(jq -cr '.deployment_modules_location' "$file")
-            deployment_spack_location=$(jq -cr '.deployment_spack_location' "$file")
-
-            # Create the message for the deployment
-            # Header
-            if [[ "$deployment_result" == "success" ]]; then
-              echo "### :white_check_mark: :desktop_computer: \`$target\` Deployment" >> $GITHUB_OUTPUT
-            else
-              echo "### :x: :desktop_computer: \`$target\` Deployment" >> $GITHUB_OUTPUT
-              continue
-            fi
-
-            # Deployment Details
-            echo "<details>" >> $GITHUB_OUTPUT
-            echo "<summary>Usage Instructions</summary>" >> $GITHUB_OUTPUT
-            echo "" >> $GITHUB_OUTPUT
-            echo "Deployed as: " >> $GITHUB_OUTPUT
-            echo "* \`$release_deployment_version\` as a Release (when merged)." >> $GITHUB_OUTPUT
-            echo "* \`${{ needs.defaults.outputs.prerelease-version }}\` as a Prerelease (during this PR)." >> $GITHUB_OUTPUT
-            echo "" >> $GITHUB_OUTPUT
-            echo "This Prerelease is accessible on \`$target\` using:" >> $GITHUB_OUTPUT
-            echo "\`\`\`bash" >> $GITHUB_OUTPUT
-            echo "module use $deployment_modules_location" >> $GITHUB_OUTPUT
-            echo "module load ${{ needs.defaults.outputs.root-sbd }}/${{ needs.defaults.outputs.prerelease-version }}" >> $GITHUB_OUTPUT
-            echo "\`\`\`" >> $GITHUB_OUTPUT
-            echo "where the binaries shall be on your \`PATH\`." >> $GITHUB_OUTPUT
-            echo "For advanced users, this Prerelease is also accessible on \`$target\` via \`$deployment_spack_location\` in the \`${{ needs.defaults.outputs.root-sbd }}-${{ needs.defaults.outputs.prerelease-version }}\` environment." >> $GITHUB_OUTPUT
-            echo "</details>" >> $GITHUB_OUTPUT
-
-            # Configuration Details
-            echo "<details>" >> $GITHUB_OUTPUT
-            echo "<summary>Configuration Details</summary>" >> $GITHUB_OUTPUT
-            echo "" >> $GITHUB_OUTPUT
-            echo "This Prelease was deployed using:" >> $GITHUB_OUTPUT
-            echo "* \`access-nri/spack\` on branch [$spack_version](https://github.com/ACCESS-NRI/spack/tree/releases/v${spack_version})" >> $GITHUB_OUTPUT
-            echo "* \`access-nri/spack-packages\` version [$spack_packages_version](https://github.com/ACCESS-NRI/spack-packages/releases/tag/${spack_packages_version})" >> $GITHUB_OUTPUT
-            echo "* \`access-nri/spack-config\` version [$spack_config_version](https://github.com/ACCESS-NRI/spack-config/releases/tag/${spack_config_version})" >> $GITHUB_OUTPUT
-            echo "" >> $GITHUB_OUTPUT
-            echo "If the above was not expected, please commit changes to \`config/versions.json\`." >> $GITHUB_OUTPUT
-            echo "</details>" >> $GITHUB_OUTPUT
-            echo "" >> $GITHUB_OUTPUT
-          done
-
-          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Config status roll up
         id: config-rollup
@@ -337,15 +279,47 @@ jobs:
         run: |
           echo "errors=$(jq --slurp 'map(.deployment_result == "success") | all | not' ${{ env.OUTPUT_ARTIFACT_PATH }}/*)" >> $GITHUB_OUTPUT
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.12
+          cache: pip
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -q -q -r scripts/jinja_tempate/requirements.txt
+
+      - name: Create deployment message
+        id: matrix-output-parser
+        # Outputs defined in deploy-1-setup.yml under the outputs-upload job
+        # Creates a comment of the form: https://github.com/ACCESS-NRI/ACCESS-TEST/pull/15#issuecomment-2558675980
+        env:
+          J2_MODEL: ${{ inputs.model }}
+          J2_PRERELEASE_VERSION: ${{ needs.defaults.outputs.prerelease-version }}
+          J2_ROOT_SBD: ${{ needs.defaults.outputs.root-sbd }}
+          J2_DEPLOYMENT_ERRORS: ${{ steps.deployment-rollup.outputs.errors }}
+          J2_CONFIG_ERRORS: ${{ steps.config-rollup.outputs.errors }}
+          J2_HEAD_SHA: ${{ needs.defaults.outputs.head-sha }}
+          J2_RUN_URL: ${{ env.RUN_URL }}
+          TEMPLATED_COMMENT_BODY_PATH: "/opt/comment-body.md"
+        run: |
+          python -m scripts/jinja_template/render_deployment_info.py \
+            --type deployment_comment
+            --template scripts/jinja_template/templates/deployment-comment-body.md.j2
+            --deployment-outputs ${{ env.OUTPUT_ARTIFACT_PATH }}
+            --output ${{ env.TEMPLATED_COMMENT_BODY_PATH }}
+
+          echo "deployment-comment<<EOF" >> $(cat ${{ env.TEMPLATED_COMMENT_BODY_PATH }})" >> $GITHUB_OUTPUT
+          echo "$(cat ${{ env.TEMPLATED_COMMENT_BODY_PATH }})" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
       - name: PR Comment Notifier
         id: comment
         uses: access-nri/actions/.github/actions/pr-comment@main
         with:
           comment: |
-            :rocket: [${{ steps.deployment-rollup.outputs.errors == 'true' && 'Attempted to deploy' || 'Deployed' }}](${{ env.RUN_URL }}) `${{ inputs.model }}` as prerelease `${{ needs.defaults.outputs.root-sbd }}/${{ needs.defaults.outputs.prerelease-version }}` with commit ${{ needs.defaults.outputs.head-sha }}
-            ${{ steps.config-rollup.outputs.errors == 'true' && ':warning:There are issues with the `build-cd` deployment configuration. If this is unexpected, let @ACCESS-NRI/model-release know.' || '' }}
-
-            ${{ steps.matrix-output-parser.outputs.deployments-message }}
+            ${{ steps.matrix-output-parser.outputs.deployment-comment }}
 
       - name: PR Description Notifier
         env:
@@ -353,7 +327,7 @@ jobs:
           PR_BODY_PATH: ./body.txt
           PR_BODY_PATH_UPDATED: ./updated.body.txt
           PRERELEASE_SECTION_REGEX: "^:rocket: .* :rocket:$"
-          PRERELEASE_SECTION: ":rocket: The latest prerelease `${{ needs.defaults.outputs.root-sbd }}/${{ needs.defaults.outputs.prerelease-version }}` at ${{ needs.defaults.outputs.head-sha }} is here: ${{ steps.comment.outputs.comment-url }} :rocket:"
+          PRERELEASE_SECTION: ":rocket: The latest prerelease `${{ needs.defaults.outputs.root-sbd }}/${{ needs.defaults.outputs.prerelease-version }}` at ${{ needs.defaults.outputs.head-sha }} is here: ${{ steps.comment.outputs.comment-link }} :rocket:"
         run: |
           gh pr view ${{ inputs.pr }} --repo ${{ github.repository }} --json body --jq .body > ${{ env.PR_BODY_PATH }}
 

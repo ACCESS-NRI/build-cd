@@ -145,10 +145,18 @@ jobs:
       - push-tag
       - deploy-release
     runs-on: ubuntu-latest
+    env:
+      TEMPLATED_RELEASE_BODY_PATH: /opt/release-body.md
     outputs:
       url: ${{ steps.release.outputs.url }}
       created-at: ${{ steps.metadata.outputs.created-at }}
     steps:
+      - name: Checkout build-cd
+        uses: actions/checkout@v4
+        with:
+          repository: access-nri/build-cd
+          ref: v3
+
       - name: Download Metadata Artifacts
         uses: actions/download-artifact@v4
         with:
@@ -160,38 +168,32 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           pattern: ${{ needs.deploy-release.outputs.general-outputs-artifact-glob }}
-          path: ${{ env.OUTPUTS_PATH}}
+          path: ${{ env.OUTPUTS_PATH }}
           merge-multiple: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.12
+          cache: pip
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -q -q -r scripts/jinja_tempate/requirements.txt
 
       - name: Generate Release Notes
         id: release-body
+        env:
+          J2_MODEL: ${{ inputs.model }}
+          J2_VERSION: ${{ needs.push-tag.outputs.name }}
+          J2_ROOT_SBD: ${{ needs.defaults.outputs.root-sbd }}
         run: |
-          echo "body<<EOF" >> $GITHUB_OUTPUT
-
-          echo "This is an official release of \`${{ inputs.model }}\` \`${{ needs.push-tag.outputs.name }}\`. " >> $GITHUB_OUTPUT
-          echo "## Deployment Information" >> $GITHUB_OUTPUT
-
-          for file in ${{ env.OUTPUTS_PATH }}/*; do
-            # Setting all the variables that would be needed for the release body creation...
-            filename=$(basename -- "$file")
-            target="${filename##*.}"
-
-            # For brevity, '-cr' is '--compact-output --raw-output'
-            spack_version=$(jq -cr '.spack_version' "$file")
-            spack_config_version=$(jq -cr '.spack_config_version' "$file")
-            spack_packages_version=$(jq -cr '.spack_packages_version' "$file")
-            deployment_modules_location=$(jq -cr '.deployment_modules_location' "$file")
-
-            echo "### \`$target\`" >> $GITHUB_OUTPUT
-            echo "Deployed using [spack $spack_version](https://github.com/ACCESS-NRI/spack/tree/releases/$spack_version), [spack-packages $spack_packages_version](https://github.com/ACCESS-NRI/spack-packages/releases/tag/$spack_packages_version) and [spack-config $spack_config_version](https://github.com/ACCESS-NRI/spack-config/releases/tag/$spack_config_version)." >> $GITHUB_OUTPUT
-            echo "Deployed as module accessible using:" >> $GITHUB_OUTPUT
-            echo "\`\`\`bash" >> $GITHUB_OUTPUT
-            echo "module use $deployment_modules_location" >> $GITHUB_OUTPUT
-            echo "module load ${{ needs.defaults.outputs.root-sbd }}/${{ needs.push-tag.outputs.name }}" >> $GITHUB_OUTPUT
-            echo "\`\`\`" >> $GITHUB_OUTPUT
-            echo "" >> $GITHUB_OUTPUT
-          done
-          echo "EOF" >> $GITHUB_OUTPUT
+          python -m scripts/jinja_template/render_deployment_info.py \
+            --type release_notes
+            --template scripts/jinja_template/templates/release-body.md.j2
+            --deployment-outputs ${{ env.OUTPUTS_PATH }}
+            --output ${{ env.TEMPLATED_RELEASE_BODY_PATH }}
 
       - name: Create Release
         id: release
@@ -199,8 +201,7 @@ jobs:
         with:
           tag_name: ${{ needs.push-tag.outputs.name }}
           name: ${{ inputs.model}} ${{ needs.push-tag.outputs.name }}
-          body: |
-            ${{ steps.release-body.outputs.body }}
+          body_path: ${{ env.TEMPLATED_RELEASE_BODY_PATH }}
           generate_release_notes: true
           fail_on_unmatched_files: true
           files: |
