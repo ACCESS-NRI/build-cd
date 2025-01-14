@@ -304,13 +304,12 @@ jobs:
           J2_RUN_URL: ${{ env.RUN_URL }}
           TEMPLATED_COMMENT_BODY_PATH: "/opt/comment-body.md"
         run: |
-          python -m scripts/jinja_template/render_deployment_info.py \
-            --type deployment_comment
+          python -m scripts.jinja_template.render_deployment_info \
             --template scripts/jinja_template/templates/deployment-comment-body.md.j2
             --deployment-outputs ${{ env.OUTPUT_ARTIFACT_PATH }}
             --output ${{ env.TEMPLATED_COMMENT_BODY_PATH }}
 
-          echo "deployment-comment<<EOF" >> $(cat ${{ env.TEMPLATED_COMMENT_BODY_PATH }})" >> $GITHUB_OUTPUT
+          echo "deployment-comment<<EOF" >> $GITHUB_OUTPUT
           echo "$(cat ${{ env.TEMPLATED_COMMENT_BODY_PATH }})" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
