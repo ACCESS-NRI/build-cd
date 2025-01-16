@@ -1,0 +1,11 @@
+{
+  "spack_version": "0.22",
+  "spack_config_version": "2024.11.27",
+  "spack_packages_version": "2024.09.20",
+  "ci_configuration_check_failure": false,
+  "release_deployment_version": "2024.11.16",
+  "spack_environment_name": "access-test-pr15-11",
+  "deployment_result": "success",
+  "deployment_modules_location": "/g/data/vk83/prerelease/modules",
+  "deployment_spack_location": "/g/data/vk83/prerelease/apps/spack/0.22/spack"
+}

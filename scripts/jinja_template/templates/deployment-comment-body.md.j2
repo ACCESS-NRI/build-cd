@@ -1,0 +1,45 @@
+:rocket: [{{ 'Attempted to deploy' if deployment_errors else 'Deployed' }}]({{ run_url }}) `{{ root_sbd }}` Prerelease `{{ prerelease_version }}` with commit {{ head_sha }}
+{% if config_errors %}
+:warning:There are issues with the `build-cd` deployment configuration. If this is unexpected, let @ACCESS-NRI/model-release know.
+{% endif %}
+
+{% for deployment in deployments %}
+{% if deployment.result == "success" %}
+### :desktop_computer: `{{ deployment.name }}` Deployment :heavy_check_mark:
+
+<details>
+<summary>Usage Instructions</summary>
+
+This `{{ model }}` model will be deployed to `{{ deployment.name }}` as:
+* `{{ deployment.release_version }}` as a Release (when merged).
+* `{{ prerelease_version }}` as a Prerelease (during this PR).
+
+This Prerelease is accessible on `{{ deployment.name }}` using:
+```bash
+module use {{ deployment.modules_location }}
+module load {{ root_sbd }}/{{ prerelease_version}}
+```
+
+When using the above modules, the binaries shall be on your `$PATH`.
+
+For advanced users, this Prerelease is also accessible on `{{ deployment.name }}` via `{{ deployment.spack_location }}` in the `{{ root_sbd }}-{{ prerelease_version }}` environment.
+
+</details>
+
+<details>
+<summary>Configuration Information</summary>
+
+This Prerelease is deployed using:
+* `access-nri/spack` on branch [`{{ deployment.spack_version }}`](https://github.com/ACCESS-NRI/spack/tree/releases/v{{ deployment.spack_version }})
+* `access-nri/spack-packages` version [`{{ deployment.spack_packages_version }}`](https://github.com/ACCESS-NRI/spack-packages/releases/tag/{{ deployment.spack_packages_version }})
+* `access-nri/spack-config` version [`{{ deployment.spack_config_version }}`](https://github.com/ACCESS-NRI/spack-config/releases/tag/{{ deployment.spack_config_version }})
+
+If the above was not what was expected, commit changes to `config/versions.json` in this PR.
+
+</details>
+
+{% else %}
+### :desktop_computer: `{{ deployment.name }}` Deployment :x:
+
+{% endif %}
+{% endfor %}
