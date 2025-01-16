@@ -190,8 +190,8 @@ jobs:
           J2_ROOT_SBD: ${{ needs.defaults.outputs.root-sbd }}
         run: |
           python -m scripts.jinja_template.render_deployment_info \
-            --template scripts/jinja_template/templates/release-body.md.j2
-            --deployment-outputs ${{ env.OUTPUTS_PATH }}
+            --template scripts/jinja_template/templates/release-body.md.j2 \
+            --deployment-outputs ${{ env.OUTPUTS_PATH }} \
             --output ${{ env.TEMPLATED_RELEASE_BODY_PATH }}
 
       - name: Create Release

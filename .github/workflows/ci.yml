@@ -305,8 +305,8 @@ jobs:
           J2_RUN_URL: ${{ env.RUN_URL }}
         run: |
           python -m scripts.jinja_template.render_deployment_info \
-            --template scripts/jinja_template/templates/deployment-comment-body.md.j2
-            --deployment-outputs ${{ env.OUTPUT_ARTIFACT_PATH }}
+            --template scripts/jinja_template/templates/deployment-comment-body.md.j2 \
+            --deployment-outputs ${{ env.OUTPUT_ARTIFACT_PATH }} \
             --output ${{ env.TEMPLATED_COMMENT_BODY_PATH }}
 
       - name: PR Comment Notifier
