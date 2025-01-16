@@ -252,6 +252,7 @@ jobs:
       pull-requests: write
     env:
       OUTPUT_ARTIFACT_PATH: ./merged_outputs
+      TEMPLATED_COMMENT_BODY_PATH: /opt/comment-body.md
     steps:
       - name: Checkout build-cd for scripts
         uses: actions/checkout@v4
@@ -302,23 +303,17 @@ jobs:
           J2_CONFIG_ERRORS: ${{ steps.config-rollup.outputs.errors }}
           J2_HEAD_SHA: ${{ needs.defaults.outputs.head-sha }}
           J2_RUN_URL: ${{ env.RUN_URL }}
-          TEMPLATED_COMMENT_BODY_PATH: "/opt/comment-body.md"
         run: |
           python -m scripts.jinja_template.render_deployment_info \
             --template scripts/jinja_template/templates/deployment-comment-body.md.j2
             --deployment-outputs ${{ env.OUTPUT_ARTIFACT_PATH }}
             --output ${{ env.TEMPLATED_COMMENT_BODY_PATH }}
 
-          echo "deployment-comment<<EOF" >> $GITHUB_OUTPUT
-          echo "$(cat ${{ env.TEMPLATED_COMMENT_BODY_PATH }})" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
       - name: PR Comment Notifier
         id: comment
         uses: access-nri/actions/.github/actions/pr-comment@main
         with:
-          comment: |
-            ${{ steps.matrix-output-parser.outputs.deployment-comment }}
+          comment-file: ${{ env.TEMPLATED_COMMENT_BODY_PATH }}
 
       - name: PR Description Notifier
         env:
