@@ -180,7 +180,7 @@ jobs:
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -q -q -r scripts/jinja_tempate/requirements.txt
+          pip install -q -q -r scripts/jinja_template/requirements.txt
 
       - name: Generate Release Notes
         id: release-body
