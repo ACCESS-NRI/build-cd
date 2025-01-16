@@ -25,7 +25,7 @@ def env_vars(request, monkeypatch):
 
     yield request.param
 
-def test_build_deployment_context_envs(env_vars):
+def test_build_deployment_context__valid_envs(env_vars):
     context = build_deployment_context(
         template_prefix="J2_",
         deployments_folder_path="tests/scripts/jinja_template/inputs",
@@ -34,6 +34,14 @@ def test_build_deployment_context_envs(env_vars):
     for env_name, key, value in env_vars:
         assert key in context, f"{key} (from {env_name}) does not exist in {context}"
         assert value == context[f"{key}"], f"{value} does not equal expected {context[f"{key}"]}"
+
+def test_build_deployment_context__invalid_envs(env_vars):
+    context = build_deployment_context(
+        template_prefix="SOMETHING_",
+        deployments_folder_path="tests/scripts/jinja_template/inputs"
+    )
+
+    assert len(context) == 1, "Environment variables were added with an incorrect template_prefix"
 
 
 def test_build_deployments_context_from_folder(deployments_folder):
