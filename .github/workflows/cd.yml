@@ -27,7 +27,9 @@ on:
   #     - spack.yaml
 
 env:
-  SPACK_YAML_MODEL_YQ: .spack.specs[0]
+  # This attempts to get the spack.yaml model first via the multi-target
+  # .spack.definitions.root_package method, then the traditional '.spack.specs[0]'.
+  SPACK_YAML_MODEL_YQ: (.spack.definitions[] | select(."root_package") | .[][]) // .spack.specs[0]
   METADATA_PATH: /opt/metadata
   OUTPUTS_PATH: /opt/outputs
 jobs:
