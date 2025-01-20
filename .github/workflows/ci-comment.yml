@@ -55,7 +55,7 @@ jobs:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       # This attempts to get the spack.yaml model first via the multi-target
       # .spack.definitions.root_package method, then the traditional '.spack.specs[0]'.
-      SPACK_YAML_MODEL_YQ: (.spack.definitions[] | select(."root_package") | .[][]) // .spack.specs[0]
+      SPACK_YAML_MODEL_YQ: (.spack.definitions[] | select(."ROOT_PACKAGE") | .[][]) // .spack.specs[0]
       SPACK_YAML_MODEL_PROJECTION_YQ: .spack.modules.default.tcl.projections.${{ needs.defaults.outputs.root-sbd }}
     steps:
       - uses: actions/checkout@v4

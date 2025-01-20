@@ -46,7 +46,7 @@ on:
 env:
   # This attempts to get the spack.yaml model first via the multi-target
   # .spack.definitions.root_package method, then the traditional '.spack.specs[0]'.
-  SPACK_YAML_MODEL_YQ: (.spack.definitions[] | select(."root_package") | .[][]) // .spack.specs[0]
+  SPACK_YAML_MODEL_YQ: (.spack.definitions[] | select(."ROOT_PACKAGE") | .[][]) // .spack.specs[0]
   SPACK_YAML_MODULEFILE_PROJECTION_YQ: .spack.modules.default.tcl.projections.${{ inputs.root-sbd }}
   METADATA_PATH: /opt/metadata
   ARTIFACT_NAME: deploy-metadata.${{ inputs.deployment-environment }}
