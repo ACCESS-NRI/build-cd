@@ -132,11 +132,24 @@ jobs:
       - name: Generate Deployment Target Matrix
         id: target
         # These are used in the deploy job to determine the targets to deploy to - irrespective of the type of deployment.
+        # We use the list of valid targets (from build-cd) and targets set in the caller repository to determine the final list.
         run: |
-          targets=$(jq --raw-output --compact-output '.deployment | keys' config/settings.json)
-          echo "$targets"
-          echo "targets=$targets" >> $GITHUB_OUTPUT
+          valid_targets=$(jq --raw-output --compact-output \
+            '.deployment | keys' \
+            config/settings.json
+          )
+          repo_prerelease_targets=$(jq --null-input --raw-output --compact-output \
+            --arg valids "${{ vars.PRERELEASE_DEPLOYMENT_TARGETS }}" \
+            '$valids | split(" ")'
+          )
+          targets=$(jq --null-input --raw-output --compact-output\
+            --argjson valid "$valid_targets" \
+            --argjson ours "$repo_prerelease_targets" \
+            '$valid - ($valid - $ours)'
+          )
 
+          echo "From build-cd's valid targets: $valid_targets, and ${{ github.repository }}s chosen targets: $repo_prerelease_targets, we will deploy to $targets"
+          echo "targets=$targets" >> $GITHUB_OUTPUT
 
   redeploy-pre:
     name: '!redeploy Pending'

@@ -58,9 +58,24 @@ jobs:
 
       - name: Generate Deployment Target Matrix
         id: target
+        # These are used in the deploy job to determine the targets to deploy to - irrespective of the type of deployment.
+        # We use the list of valid targets (from build-cd) and targets set in the caller repository to determine the final list.
         run: |
-          targets=$(jq --compact-output --raw-output '.deployment | keys' config/settings.json)
-          echo "$targets"
+          valid_targets=$(jq --raw-output --compact-output \
+            '.deployment | keys' \
+            config/settings.json
+          )
+          repo_release_targets=$(jq --null-input --raw-output --compact-output \
+            --arg valids "${{ vars.RELEASE_DEPLOYMENT_TARGETS }}" \
+            '$valids | split(" ")'
+          )
+          targets=$(jq --null-input --raw-output --compact-output\
+            --argjson valid "$valid_targets" \
+            --argjson ours "$repo_release_targets" \
+            '$valid - ($valid - $ours)'
+          )
+
+          echo "From build-cd's valid targets: $valid_targets, and ${{ github.repository }}s chosen targets: $repo_release_targets, we will deploy to $targets"
           echo "targets=$targets" >> $GITHUB_OUTPUT
 
   verify-settings:
