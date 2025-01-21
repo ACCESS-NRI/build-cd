@@ -59,7 +59,7 @@ jobs:
       - name: Generate Deployment Target Matrix
         id: target
         # These are used in the deploy job to determine the targets to deploy to - irrespective of the type of deployment.
-        # We use the list of valid targets (from build-cd) and targets set in the caller repository to determine the final list.
+        # We use the list of valid targets (from build-cd) intersected with targets set in the caller repository to determine the final list.
         run: |
           valid_targets=$(jq --raw-output --compact-output \
             '.deployment | keys' \
@@ -69,6 +69,7 @@ jobs:
             --arg valids "${{ vars.RELEASE_DEPLOYMENT_TARGETS }}" \
             '$valids | split(" ")'
           )
+          # This is the intersection between the valid and caller-defined targets
           targets=$(jq --null-input --raw-output --compact-output\
             --argjson valid "$valid_targets" \
             --argjson ours "$repo_release_targets" \
