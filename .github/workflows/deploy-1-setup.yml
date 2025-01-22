@@ -162,7 +162,9 @@ jobs:
     permissions:
       pull-requests: write
     env:
-      SPACK_YAML_MODEL_YQ: .spack.specs[0]
+      # This attempts to get the spack.yaml model first via the multi-target
+      # .spack.definitions.root_package method, then the traditional '.spack.specs[0]'.
+      SPACK_YAML_MODEL_YQ: (.spack.definitions[] | select(."ROOT_PACKAGE") | .[][]) // .spack.specs[0]
     outputs:
       # Release version of the deployment. Inferred if not given in inputs.deployment-version
       release: ${{ steps.version.outputs.release }}
