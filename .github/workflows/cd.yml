@@ -39,7 +39,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       root-sbd: ${{ steps.root-sbd.outputs.default }}
-      targets: ${{ steps.target.outputs.matrix }}
+      targets: ${{ steps.target.outputs.valid-targets }}
     steps:
       - name: root-sbd
         id: root-sbd
