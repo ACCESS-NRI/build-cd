@@ -29,16 +29,16 @@ runs:
           '.deployment | keys' \
           config/settings.json
         )
-        repo_prerelease_targets=$(jq --null-input --raw-output --compact-output \
-          --arg valids "${{ inputs.deployment-targets }}" \
+        repo_targets=$(jq --null-input --raw-output --compact-output \
+          --arg valids "${{ inputs.targets }}" \
           '$valids | split(" ")'
         )
         # This is the intersection between the valid and caller-defined targets
         targets=$(jq --null-input --raw-output --compact-output\
           --argjson valid "$valid_targets" \
-          --argjson ours "$repo_prerelease_targets" \
+          --argjson ours "$repo_targets" \
           '$valid - ($valid - $ours)'
         )
 
-        echo "From build-cd's valid targets: $valid_targets, and ${{ github.repository }}s chosen targets: $repo_prerelease_targets, we will deploy to $targets"
+        echo "From build-cd's valid targets: $valid_targets, and ${{ github.repository }}s chosen targets: $repo_targets, we will deploy to $targets"
         echo "targets=$targets" >> $GITHUB_OUTPUT
