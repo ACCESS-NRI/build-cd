@@ -50,34 +50,11 @@ jobs:
             echo "default=${{ inputs.root-sbd }}" >> $GITHUB_OUTPUT
           fi
 
-      - name: Get deployment settings.json
-        uses: actions/checkout@v4
-        with:
-          repository: access-nri/build-cd
-          ref: main
-
       - name: Generate Deployment Target Matrix
         id: target
-        # These are used in the deploy job to determine the targets to deploy to - irrespective of the type of deployment.
-        # We use the list of valid targets (from build-cd) intersected with targets set in the caller repository to determine the final list.
-        run: |
-          valid_targets=$(jq --raw-output --compact-output \
-            '.deployment | keys' \
-            config/settings.json
-          )
-          repo_release_targets=$(jq --null-input --raw-output --compact-output \
-            --arg valids "${{ vars.RELEASE_DEPLOYMENT_TARGETS }}" \
-            '$valids | split(" ")'
-          )
-          # This is the intersection between the valid and caller-defined targets
-          targets=$(jq --null-input --raw-output --compact-output\
-            --argjson valid "$valid_targets" \
-            --argjson ours "$repo_release_targets" \
-            '$valid - ($valid - $ours)'
-          )
-
-          echo "From build-cd's valid targets: $valid_targets, and ${{ github.repository }}s chosen targets: $repo_release_targets, we will deploy to $targets"
-          echo "targets=$targets" >> $GITHUB_OUTPUT
+        uses: access-nri/build-cd/.github/actions/get-target-matrix@v3
+        with:
+          targets: ${{ vars.RELEASE_DEPLOYMENT_TARGETS }}
 
   verify-settings:
     name: Verify Deployment Settings
