@@ -6,7 +6,7 @@ This repository houses reusable workflows, actions and scripts for the building 
 
 These are the repositories with the `deployment` topic.
 
-To find the most up to date deployment repositories, run:
+To find the most up to date deployment repositories, use [this search URL](https://github.com/orgs/ACCESS-NRI/repositories?q=topic%3Adeployment+-topic%3Atemplate) or run:
 
 ```bash
 gh search repos --owner access-nri --json name --jq '[.[].name] | @sh' -- topic:deployment -topic:template
