@@ -18,7 +18,7 @@ gh search repos --owner access-nri --json name --jq '[.[].name] | @sh' -- topic:
 * [ACCESS-NRI/ACCESS-OM2-BGC](https://github.com/ACCESS-NRI/ACCESS-OM2-BGC)
 * [ACCESS-NRI/ACCESS-OM3](https://github.com/ACCESS-NRI/ACCESS-OM3)
 * [ACCESS-NRI/ACCESS-ESM1.5](https://github.com/ACCESS-NRI/ACCESS-ESM1.5)
-* [ACCESS-NRI/ACCESS-ESM1.6](https://github.com/ACCESS-NRI/ACCESS-OM2)
+* [ACCESS-NRI/ACCESS-ESM1.6](https://github.com/ACCESS-NRI/ACCESS-ESM1.6)
 * [ACCESS-NRI/CABLE-standalone](https://github.com/ACCESS-NRI/CABLE-standalone)
 
 ### Testing and Template Repositories
