@@ -8,13 +8,13 @@
           "spack-config": "2024.03.22"
         },
         "0.22": {
-          "spack": "21da7d7e2b5e2680cd9d2e0a2fb4a7d13d8baa9d",
+          "spack": "54edfb12f97a7bab2754ee58a1efffcb9a031232",
           "spack-config": "2024.11.27"
         }
       },
       "Prerelease": {
         "0.22": {
-          "spack": "21da7d7e2b5e2680cd9d2e0a2fb4a7d13d8baa9d",
+          "spack": "54edfb12f97a7bab2754ee58a1efffcb9a031232",
           "spack-config": "2024.11.27"
         }
       }
