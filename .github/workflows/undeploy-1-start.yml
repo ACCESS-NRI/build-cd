@@ -1,0 +1,90 @@
+name: Remove Deployment From Target
+on:
+  workflow_call:
+    inputs:
+      version-pattern:
+        type: string
+        required: true
+        description: |
+          A glob of spack environments to remove.
+          For example, `access-om3-pr12-*`.
+      target:
+        type: string
+        required: true
+        description: |
+          The deployment target to remove the environments from.
+          This comes from the GitHub Environment Name - for example, Gadi.
+      type:
+        type: string
+        required: true
+        description: |
+          The type of deployment to remove the environments from.
+          Must be one of: Prerelease, Release.
+jobs:
+  validate-inputs:
+    name: Validate Inputs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate Inputs
+        id: validate
+        run: |
+          if [[ "${{ inputs.type }}" != "Prerelease" || "${{ inputs.type }}" != "Release" ]]; then
+            echo "::error::Invalid type: ${{ inputs.type }}. Must be one of: Prerelease, Release."
+            exit 1
+          fi
+          echo "Validated inputs: ${{ inputs.version-pattern }} for ${{ inputs.target }} ${{ inputs.type }}"
+
+  undeploy-from-environment:
+    name: Undeploy ${{ inputs.version-pattern }} from ${{ inputs.target }} ${{ inputs.type }}
+    needs: validate-inputs
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.target }} ${{ inputs.type != 'Release' && inputs.type }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get Spack Version From config/versions.json
+        id: versions
+        run: echo "spack=$(jq --compact-output --raw-output '.spack' ./config/versions.json)" >> $GITHUB_OUTPUT
+
+      - name: Get ${{ inputs.target }} Remote Paths
+        id: path
+        uses: access-nri/build-cd/.github/actions/get-deploy-paths@main
+        with:
+          spack-installs-root-path: ${{ vars.SPACK_INSTALLS_ROOT_LOCATION }}
+          spack-version: ${{ steps.versions.outputs.spack }}
+          deployment-environment: ${{ inputs.target }} ${{ inputs.type != 'Release' && inputs.type }}
+
+      - name: Setup SSH
+        id: ssh
+        uses: access-nri/actions/.github/actions/setup-ssh@main
+        with:
+          private-key: ${{ secrets.SSH_KEY }}
+          hosts: |
+            ${{ secrets.HOST }}
+            ${{ secrets.HOST_DATA }}
+
+      - name: Undeploy
+        # ssh into deployment environment, create and activate the env, remove all the unneeded environments
+        id: undeploy
+        run: |
+          ssh ${{ secrets.USER}}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
+          . ${{ steps.path.outputs.spack-config }}/spack-enable.bash
+          envs=$(find ${{ steps.path.outputs.spack }}/../environments -type d -name '${{ inputs.version-pattern }}' -printf '%f ')
+
+          for env in $envs; do
+            spack env activate $env
+            spack uninstall --remove --dependents --yes-to-all --all
+            spack env deactivate
+            spack env rm $env --yes-to-all
+          done
+          spack gc --yes-to-all
+          EOT
+
+      - name: Undeploy Status Notifier
+        if: always()
+        run: |
+          if [[ "${{ steps.undeploy.outcome }}" == "success" ]]; then
+            echo "::notice::Deployment ${{ inputs.version-pattern }} was successfully removed from ${{ inputs.target }} ${{ inputs.type }}, found at ${{ steps.path.outputs.spack }}"
+          else
+            echo "::error::Deployment ${{ inputs.version-pattern }} couldn't be removed from ${{ inputs.target }} ${{ inputs.type }}, found at ${{ steps.path.outputs.spack }}. Please check manually."
+          fi
