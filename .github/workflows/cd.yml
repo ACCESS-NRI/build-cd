@@ -39,7 +39,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       root-sbd: ${{ steps.root-sbd.outputs.default }}
-      targets: ${{ steps.target.outputs.matrix }}
+      targets: ${{ steps.target.outputs.valid-targets }}
     steps:
       - name: root-sbd
         id: root-sbd
@@ -50,18 +50,11 @@ jobs:
             echo "default=${{ inputs.root-sbd }}" >> $GITHUB_OUTPUT
           fi
 
-      - name: Get deployment settings.json
-        uses: actions/checkout@v4
-        with:
-          repository: access-nri/build-cd
-          ref: main
-
       - name: Generate Deployment Target Matrix
         id: target
-        run: |
-          targets=$(jq --compact-output --raw-output '.deployment | keys' config/settings.json)
-          echo "$targets"
-          echo "targets=$targets" >> $GITHUB_OUTPUT
+        uses: access-nri/build-cd/.github/actions/get-target-matrix@v3
+        with:
+          targets: ${{ vars.RELEASE_DEPLOYMENT_TARGETS }}
 
   verify-settings:
     name: Verify Deployment Settings

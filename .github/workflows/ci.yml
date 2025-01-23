@@ -56,7 +56,7 @@ jobs:
       base-ref: ${{ steps.pr.outputs.base }}
       next-deployment-number: ${{ steps.prerelease.outputs.next-deployment-number }}
       prerelease-version: ${{ steps.prerelease.outputs.version }}
-      targets: ${{ steps.target.outputs.targets }}
+      targets: ${{ steps.target.outputs.valid-targets }}
     steps:
       - name: root-sbd default
         id: root-sbd
@@ -123,20 +123,11 @@ jobs:
           echo "Prerelease version will be $version"
           echo "version=$version" >> $GITHUB_OUTPUT
 
-      - name: Get deployment settings.json
-        uses: actions/checkout@v4
-        with:
-          repository: access-nri/build-cd
-          ref: main
-
       - name: Generate Deployment Target Matrix
         id: target
-        # These are used in the deploy job to determine the targets to deploy to - irrespective of the type of deployment.
-        run: |
-          targets=$(jq --raw-output --compact-output '.deployment | keys' config/settings.json)
-          echo "$targets"
-          echo "targets=$targets" >> $GITHUB_OUTPUT
-
+        uses: access-nri/build-cd/.github/actions/get-target-matrix@v3
+        with:
+          targets: ${{ vars.PRERELEASE_DEPLOYMENT_TARGETS }}
 
   redeploy-pre:
     name: '!redeploy Pending'
