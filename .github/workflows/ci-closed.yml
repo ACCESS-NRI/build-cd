@@ -50,7 +50,7 @@ jobs:
       matrix:
         target: ${{ fromJson(needs.setup.outputs.targets) }}
       fail-fast: false
-    uses: access-nri/build-cd/.github/workflows/undeploy-1-setup.yml@main
+    uses: access-nri/build-cd/.github/workflows/undeploy-1-start.yml@main
     with:
       version-pattern: ${{ inputs.root-sbd }}-pr${{ github.event.pull_request.number }}-*
       target: ${{ matrix.target }}
