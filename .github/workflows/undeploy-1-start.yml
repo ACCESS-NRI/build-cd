@@ -48,7 +48,7 @@ jobs:
 
       - name: Get ${{ inputs.target }} Remote Paths
         id: path
-        uses: access-nri/build-cd/.github/actions/get-deploy-paths@v4
+        uses: access-nri/build-cd/.github/actions/get-deploy-paths@dev-121-multi-target-workflows_TEST
         with:
           spack-installs-root-path: ${{ vars.SPACK_INSTALLS_ROOT_LOCATION }}
           spack-version: ${{ steps.versions.outputs.spack }}

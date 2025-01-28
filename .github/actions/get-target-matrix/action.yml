@@ -13,16 +13,11 @@ outputs:
 runs:
   using: composite
   steps:
-    - name: Get default branch
-      shell: bash
-      id: default
-      run: echo "branch=$(gh repo view access-nri/build-cd --json defaultBranchRef --jq '.[].name')" >> $GITHUB_OUTPUT
-
     - name: Get deployment settings.json
       uses: actions/checkout@v4
       with:
         repository: access-nri/build-cd
-        ref: ${{ steps.default.outputs.branch }}
+        ref: dev-121-multi-target-workflows_TEST
 
     - name: Generate Deployment Target Matrix
       shell: bash

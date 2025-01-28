@@ -84,7 +84,7 @@ jobs:
 
       - name: Get ${{ inputs.deployment-target }} ${{ inputs.deployment-type }} Remote Paths
         id: path
-        uses: access-nri/build-cd/.github/actions/get-deploy-paths@v4
+        uses: access-nri/build-cd/.github/actions/get-deploy-paths@dev-121-multi-target-workflows_TEST
         with:
           spack-installs-root-path: ${{ vars.SPACK_INSTALLS_ROOT_LOCATION }}
           spack-version: ${{ steps.versions.outputs.spack }}
@@ -169,11 +169,12 @@ jobs:
           echo "spack=${{ steps.path.outputs.spack }}" >> $GITHUB_OUTPUT
           echo "modules=${{ vars.DEPLOYED_MODULES_DIR }}" >> $GITHUB_OUTPUT
 
-      - name: Get metadata from ${{ inputs.deployment-target }} ${{ inputs.deployment-type}}
+      - name: Get metadata from ${{ inputs.deployment-target }} ${{ inputs.deployment-type }}
         env:
           SPACK_ENV_PATH: ${{ steps.path.outputs.spack }}/../environments/${{ inputs.env-name }}
         run: |
           ssh ${{ secrets.USER }}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
+
           # Export vars.DEPLOYMENT_TARGET
           export DEPLOYMENT_TARGET="${{ vars.DEPLOYMENT_TARGET }}"
           echo "DEPLOYMENT_TARGET exported as $DEPLOYMENT_TARGET"

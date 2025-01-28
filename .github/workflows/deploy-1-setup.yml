@@ -121,27 +121,23 @@ jobs:
 
       - name: Validate spack-packages version
         id: spack-packages
-        uses: access-nri/build-cd/.github/actions/validate-repo-version@v4
+        uses: access-nri/build-cd/.github/actions/validate-repo-version@dev-121-multi-target-workflows_TEST
         with:
           repo-to-check: spack-packages
           pr: ${{ inputs.deployment-ref }}
 
       - name: Validate spack version
         id: spack
-        uses: access-nri/build-cd/.github/actions/validate-repo-version@v4
+        uses: access-nri/build-cd/.github/actions/validate-repo-version@dev-121-multi-target-workflows_TEST
         with:
           repo-to-check: spack
           pr: ${{ inputs.deployment-ref }}
 
-      - name: Get default branch
-        id: default
-        run: echo "branch=$(gh repo view access-nri/build-cd --json defaultBranchRef --jq '.[].name')" >> $GITHUB_OUTPUT
-
       - name: Checkout build-cd Config
         uses: actions/checkout@v4
         with:
-          repository: access-nri/build-cd
-          ref: ${{ steps.default.outputs.branch }}
+          repository: ACCESS-NRI/build-cd
+          ref: dev-121-multi-target-workflows_TEST
           path: cd
 
       - name: Get spack-config version
@@ -156,7 +152,7 @@ jobs:
 
       - name: Validate build-cd config/settings.json
         id: settings
-        uses: access-nri/build-cd/.github/actions/validate-deployment-settings@v4
+        uses: access-nri/build-cd/.github/actions/validate-deployment-settings@dev-121-multi-target-workflows_TEST
         with:
           settings-path: ./cd/config/settings.json
           target: ${{ inputs.deployment-target }}
@@ -285,7 +281,7 @@ jobs:
     needs:
       - check-config  # Verify configuration information is correct
       - check-spack-yaml  # Verify spack manifest information is correct
-    uses: access-nri/build-cd/.github/workflows/deploy-2-start.yml@v4
+    uses: access-nri/build-cd/.github/workflows/deploy-2-start.yml@dev-121-multi-target-workflows_TEST
     with:
       type: ${{ inputs.deployment-type }}
       model: ${{ inputs.spack-manifest-root-sbd }}
