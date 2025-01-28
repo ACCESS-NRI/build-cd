@@ -1,5 +1,6 @@
 name: Deploy
 on:
+  # This is invoked by both `on.pull_request` and `on.push` events.
   workflow_call:
     inputs:
       deployment-target:
@@ -241,7 +242,7 @@ jobs:
             if [[ "$DEP" == "${{ inputs.spack-manifest-root-sbd }}" ]]; then
               # The model version is the bit after '@git.', before any later, space-separated, optional variants.
               # For example, in 'MODEL@git.VERSION type=ACCESS ~debug' the version is 'VERSION'.
-              DEP_VER=$(yq '.spack.specs[0] | capture(".+@git\\.(?<version>[^ ]+).*") | .version' spack.yaml)
+              DEP_VER=$(yq '${{ env.SPACK_YAML_MODEL_YQ }} | capture(".+@git\\.(?<version>[^ ]+).*") | .version' spack.yaml)
             else
               # Capture the section after '@git.' or '@' (if it's not a git-attributed version) and before a possible '=' for a given dependency.
               # Ex. '@git.2024.02.11' -> '2024.02.11', '@access-esm1.5' -> 'access-esm1.5', '@git.2024.05.21=access-esm1.5' -> '2024.05.21'

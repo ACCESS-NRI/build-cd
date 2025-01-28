@@ -97,7 +97,7 @@ jobs:
         # Also removes the `@git.VERSION` specifier for Prereleases so
         # we don't have to shift tags around.
         run: |
-          yq -i '${{ env.SPACK_YAML_SPEC_YQ }} = (${{ env.SPACK_YAML_SPEC_YQ }} | split("@").[0])' spack.yaml
+          yq -i '${{ env.SPACK_YAML_MODEL_YQ }} = (${{ env.SPACK_YAML_MODEL_YQ }} | split("@").[0])' spack.yaml
           yq -i '${{ env.SPACK_YAML_MODULEFILE_PROJECTION_YQ }} = "{name}/${{ inputs.version }}"' spack.yaml
           echo '::notice::Prerelease accessible as module `${{ inputs.model}}/${{ inputs.version }}`'
 
@@ -135,6 +135,10 @@ jobs:
             exit 1
           fi
 
+          # Export vars.DEPLOYMENT_TARGET
+          export DEPLOYMENT_TARGET="${{ vars.DEPLOYMENT_TARGET }}"
+          echo "DEPLOYMENT_TARGET exported as $DEPLOYMENT_TARGET"
+
           # Update spack-packages
           git -C ${{ steps.path.outputs.spack-packages }} fetch
           git -C ${{ steps.path.outputs.spack-packages }} checkout --force ${{ steps.versions.outputs.packages }}
@@ -160,7 +164,11 @@ jobs:
         env:
           SPACK_ENV_PATH: ${{ steps.path.outputs.spack }}/../environments/${{ inputs.env-name }}
         run: |
-          ssh ${{ secrets.USER}}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
+          ssh ${{ secrets.USER }}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
+          # Export vars.DEPLOYMENT_TARGET
+          export DEPLOYMENT_TARGET="${{ vars.DEPLOYMENT_TARGET }}"
+          echo "DEPLOYMENT_TARGET exported as $DEPLOYMENT_TARGET"
+
           . ${{ steps.path.outputs.spack-config }}/spack-enable.bash
           spack env activate ${{ inputs.env-name }}
 

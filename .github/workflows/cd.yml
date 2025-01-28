@@ -132,6 +132,9 @@ jobs:
     secrets: inherit
     permissions:
       contents: write
+      # We require pull-requests:write despite not using it in this path,
+      # because it is needed by the pull_request invocation of the workflow.
+      pull-requests: write
 
   release:
     name: Create Release
@@ -214,6 +217,7 @@ jobs:
   build-db:
     name: Build DB Metadata Upload
     needs:
+      - defaults
       - deploy-release
       - release
     runs-on: ubuntu-latest
@@ -260,7 +264,7 @@ jobs:
             ${{ needs.release.outputs.url }} ${{ needs.release.outputs.created-at }} \
             ${{ steps.spack-versions.outputs.packages-version }} ${{ steps.spack-versions.outputs.config-version }} \
             ${{ env.METADATA_PATH }} ${{ env.OUTPUTS_PATH }} \
-            ${{ inputs.root-sbd }} ${{ vars.BUILD_DB_PACKAGES }}
+            ${{ needs.defaults.outputs.root-sbd }} ${{ vars.BUILD_DB_PACKAGES }}
 
           echo "Attempting upload of build_metadata.json"
           python ./tools/release_provenance/save_release.py "${{ env.OUTPUTS_PATH }}/build_metadata.json"

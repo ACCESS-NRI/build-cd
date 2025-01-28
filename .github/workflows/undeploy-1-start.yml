@@ -28,7 +28,7 @@ jobs:
       - name: Validate Inputs
         id: validate
         run: |
-          if [[ "${{ inputs.type }}" != "Prerelease" || "${{ inputs.type }}" != "Release" ]]; then
+          if [[ "${{ inputs.type }}" != "Prerelease" && "${{ inputs.type }}" != "Release" ]]; then
             echo "::error::Invalid type: ${{ inputs.type }}. Must be one of: Prerelease, Release."
             exit 1
           fi
