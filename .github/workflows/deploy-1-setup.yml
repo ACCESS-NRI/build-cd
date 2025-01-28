@@ -288,7 +288,8 @@ jobs:
       ref: ${{ inputs.deployment-ref }}
       version: ${{ inputs.deployment-version }}
       env-name: ${{ needs.check-spack-yaml.outputs.spack-env-name }}
-      deployment-environment: ${{ inputs.deployment-type == 'Prerelease' && format('{0} Prerelease', inputs.deployment-target) || inputs.deployment-target }}
+      deployment-target: ${{ inputs.deployment-target }}
+      deployment-type: ${{ inputs.deployment-type }}
       root-sbd: ${{ inputs.spack-manifest-root-sbd }}
     secrets: inherit
 

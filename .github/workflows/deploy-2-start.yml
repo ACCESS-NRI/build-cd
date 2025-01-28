@@ -1,5 +1,5 @@
 name: Deploy Start
-concurrency: ${{ inputs.deployment-environment }}
+concurrency: ${{ inputs.deployment-target }} ${{ inputs.deployment-type }}
 on:
   workflow_call:
     inputs:
@@ -23,10 +23,19 @@ on:
         type: string
         required: true
         description: The spack-env-compliant environment name for the model
-      deployment-environment:
+      deployment-target:
         type: string
         required: true
-        description: The GitHub deployment environment name
+        description: |
+          The GitHub Environment, minus a potential Type.
+          Combined with inputs.deployment-type to create the GitHub Environment name.
+      deployment-type:
+        type: string
+        required: true
+        description: |
+          The type of deployment.
+          Can be one of: Release, Prerelease.
+          Combined with inputs.deployment-type to create the GitHub Environment name.
       root-sbd:
         type: string
         required: true
@@ -49,12 +58,12 @@ env:
   SPACK_YAML_MODEL_YQ: (.spack.definitions[] | select(."ROOT_PACKAGE") | .[][]) // .spack.specs[0]
   SPACK_YAML_MODULEFILE_PROJECTION_YQ: .spack.modules.default.tcl.projections.${{ inputs.root-sbd }}
   METADATA_PATH: /opt/metadata
-  ARTIFACT_NAME: deploy-metadata.${{ inputs.deployment-environment }}
+  ARTIFACT_NAME: deploy-metadata.${{ inputs.deployment-target }}
 jobs:
   deploy-to-environment:
-    name: Deploy to ${{ inputs.deployment-environment }}
+    name: Deploy to ${{ inputs.deployment-target }} ${{ inputs.deployment-type }}
     runs-on: ubuntu-latest
-    environment: ${{ inputs.deployment-environment }}
+    environment: ${{ inputs.deployment-target }} ${{ inputs.deployment-type != 'Release' && inputs.deployment-type || '' }}
     outputs:
       packages-version: ${{ steps.versions.outputs.packages }}
       config-version: ${{ steps.versions.outputs.config }}
@@ -73,13 +82,13 @@ jobs:
           echo "spack=$(jq --compact-output --raw-output '.spack' ./config/versions.json)" >> $GITHUB_OUTPUT
           echo "packages=$(jq --compact-output --raw-output '."spack-packages"' ./config/versions.json)" >> $GITHUB_OUTPUT
 
-      - name: Get ${{ inputs.deployment-environment }} Remote Paths
+      - name: Get ${{ inputs.deployment-target }} ${{ inputs.deployment-type }} Remote Paths
         id: path
         uses: access-nri/build-cd/.github/actions/get-deploy-paths@main
         with:
           spack-installs-root-path: ${{ vars.SPACK_INSTALLS_ROOT_LOCATION }}
           spack-version: ${{ steps.versions.outputs.spack }}
-          deployment-environment: ${{ inputs.deployment-environment }}
+          deployment-environment: ${{ inputs.deployment-target }} ${{ inputs.deployment-type }}
 
       - name: Setup SSH
         id: ssh
@@ -125,13 +134,13 @@ jobs:
           done
           EOT
 
-      - name: Deploy to ${{ inputs.deployment-environment }}
+      - name: Deploy to ${{ inputs.deployment-target }} ${{ inputs.deployment-type }}
         # ssh into deployment environment, create and activate the env, install the spack.yaml.
         run: |
           ssh ${{ secrets.USER}}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
           # Check that a suitable deployment location exists
           if [ ! -d "${{ steps.path.outputs.root }}" ]; then
-            echo '::error::A deployment of spack does not exist in `${{ steps.path.outputs.root }}` for `${{ inputs.deployment-environment }}`'
+            echo '::error::A deployment of spack does not exist in `${{ steps.path.outputs.root }}` for `${{ inputs.deployment-target }} ${{ inputs.deployment-type}}`'
             exit 1
           fi
 
@@ -160,7 +169,7 @@ jobs:
           echo "spack=${{ steps.path.outputs.spack }}" >> $GITHUB_OUTPUT
           echo "modules=${{ vars.DEPLOYED_MODULES_DIR }}" >> $GITHUB_OUTPUT
 
-      - name: Get metadata from ${{ inputs.deployment-environment }}
+      - name: Get metadata from ${{ inputs.deployment-target }} ${{ inputs.deployment-type}}
         env:
           SPACK_ENV_PATH: ${{ steps.path.outputs.spack }}/../environments/${{ inputs.env-name }}
         run: |
@@ -221,7 +230,7 @@ jobs:
           # Rename the files to include the deployment environment
           cd ./${{ env.ARTIFACT_NAME }}
           for file in *; do
-            mv "$file" "${{ inputs.deployment-environment }}.$file"
+            mv "$file" "${{ inputs.deployment-target }}.$file"
           done
           cd -
 
