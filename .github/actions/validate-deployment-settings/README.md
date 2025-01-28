@@ -22,7 +22,7 @@ This action validates various `ACCESS-NRI/build-cd` deployment settings.
 # ...
 - name: Validate settings
   id: settings
-  uses: access-nri/build-cd/.github/actions/validate-deployment-settings@main
+  uses: access-nri/build-cd/.github/actions/validate-deployment-settings@vX
   with:
     settings-path: ./some/settings.json
     target: Supercomputer

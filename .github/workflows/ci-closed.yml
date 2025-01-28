@@ -38,7 +38,7 @@ jobs:
 
       - name: Generate Deployment Target Matrix
         id: target
-        uses: access-nri/build-cd/.github/actions/get-target-matrix@v3
+        uses: access-nri/build-cd/.github/actions/get-target-matrix@v4
         with:
           targets: ${{ vars.PRERELEASE_DEPLOYMENT_TARGETS }}
 
@@ -50,7 +50,7 @@ jobs:
       matrix:
         target: ${{ fromJson(needs.setup.outputs.targets) }}
       fail-fast: false
-    uses: access-nri/build-cd/.github/workflows/undeploy-1-start.yml@main
+    uses: access-nri/build-cd/.github/workflows/undeploy-1-start.yml@v4
     with:
       version-pattern: ${{ inputs.root-sbd }}-pr${{ github.event.pull_request.number }}-*
       target: ${{ matrix.target }}

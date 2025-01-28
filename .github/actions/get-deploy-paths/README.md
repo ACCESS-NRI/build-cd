@@ -30,7 +30,7 @@ jobs:
     steps:
       - name: Get Deployment Paths
         id: paths
-        uses: access-nri/build-cd/.github/actions/get-deploy-paths@main
+        uses: access-nri/build-cd/.github/actions/get-deploy-paths@vX
         with:
           spack-installs-root-path: ${{ vars.SPACK_INSTALLS_ROOT_PATH }}
           spack-version: "0.21"

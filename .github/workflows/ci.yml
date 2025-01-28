@@ -125,7 +125,7 @@ jobs:
 
       - name: Generate Deployment Target Matrix
         id: target
-        uses: access-nri/build-cd/.github/actions/get-target-matrix@v3
+        uses: access-nri/build-cd/.github/actions/get-target-matrix@v4
         with:
           targets: ${{ vars.PRERELEASE_DEPLOYMENT_TARGETS }}
 
@@ -189,7 +189,7 @@ jobs:
       matrix:
         # Example: ['Gadi', 'Setonix', ...]
         target: ${{ fromJson(needs.defaults.outputs.targets) }}
-    uses: access-nri/build-cd/.github/workflows/deploy-1-setup.yml@main
+    uses: access-nri/build-cd/.github/workflows/deploy-1-setup.yml@v4
     with:
       deployment-target: ${{ matrix.target }}
       deployment-ref: ${{ needs.defaults.outputs.head-ref }}
@@ -245,11 +245,15 @@ jobs:
       OUTPUT_ARTIFACT_PATH: ./merged_outputs
       TEMPLATED_COMMENT_BODY_PATH: /opt/comment-body.md
     steps:
+      - name: Get default branch
+        id: default
+        run: echo "branch=$(gh repo view access-nri/build-cd --json defaultBranchRef --jq '.[].name')" >> $GITHUB_OUTPUT
+
       - name: Checkout build-cd for scripts
         uses: actions/checkout@v4
         with:
           repository: access-nri/build-cd
-          ref: v3
+          ref: ${{ steps.default.outputs.branch }}
 
       - name: Download matrix deployment outputs
         uses: actions/download-artifact@v4

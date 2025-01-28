@@ -20,11 +20,16 @@ jobs:
     outputs:
       targets: ${{ steps.target.outputs.matrix }}
     steps:
+      - name: Get default branch
+        shell: bash
+        id: default
+        run: echo "branch=$(gh repo view access-nri/build-cd --json defaultBranchRef --jq '.[].name')" >> $GITHUB_OUTPUT
+
       - name: Get deployment settings.json
         uses: actions/checkout@v4
         with:
           repository: access-nri/build-cd
-          ref: main
+          ref: ${{ steps.default.outputs.branch }}
 
       - name: Generate Deployment Target Matrix
         id: target
@@ -54,7 +59,7 @@ jobs:
 
       - name: Validate Deployment Settings
         id: validate
-        uses: access-nri/build-cd/.github/actions/validate-deployment-settings@main
+        uses: access-nri/build-cd/.github/actions/validate-deployment-settings@v4
         with:
           settings-path: ${{ env.CONFIG_SETTINGS_PATH }}
           target: ${{ matrix.target }}
@@ -147,7 +152,7 @@ jobs:
         # - deployment-environment: Gadi
         #   type: Prerelease
         # etc ...
-    uses: access-nri/build-cd/.github/workflows/settings-2-deploy.yml@main
+    uses: access-nri/build-cd/.github/workflows/settings-2-deploy.yml@v4
     with:
       deployment-environment: ${{ matrix.update.deployment-environment }}
       spack-type: ${{ matrix.update.type }}

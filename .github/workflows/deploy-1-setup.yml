@@ -121,23 +121,27 @@ jobs:
 
       - name: Validate spack-packages version
         id: spack-packages
-        uses: access-nri/build-cd/.github/actions/validate-repo-version@main
+        uses: access-nri/build-cd/.github/actions/validate-repo-version@v4
         with:
           repo-to-check: spack-packages
           pr: ${{ inputs.deployment-ref }}
 
       - name: Validate spack version
         id: spack
-        uses: access-nri/build-cd/.github/actions/validate-repo-version@main
+        uses: access-nri/build-cd/.github/actions/validate-repo-version@v4
         with:
           repo-to-check: spack
           pr: ${{ inputs.deployment-ref }}
 
+      - name: Get default branch
+        id: default
+        run: echo "branch=$(gh repo view access-nri/build-cd --json defaultBranchRef --jq '.[].name')" >> $GITHUB_OUTPUT
+
       - name: Checkout build-cd Config
         uses: actions/checkout@v4
         with:
-          repository: ACCESS-NRI/build-cd
-          ref: main
+          repository: access-nri/build-cd
+          ref: ${{ steps.default.outputs.branch }}
           path: cd
 
       - name: Get spack-config version
@@ -152,7 +156,7 @@ jobs:
 
       - name: Validate build-cd config/settings.json
         id: settings
-        uses: access-nri/build-cd/.github/actions/validate-deployment-settings@main
+        uses: access-nri/build-cd/.github/actions/validate-deployment-settings@v4
         with:
           settings-path: ./cd/config/settings.json
           target: ${{ inputs.deployment-target }}
@@ -281,7 +285,7 @@ jobs:
     needs:
       - check-config  # Verify configuration information is correct
       - check-spack-yaml  # Verify spack manifest information is correct
-    uses: access-nri/build-cd/.github/workflows/deploy-2-start.yml@v3
+    uses: access-nri/build-cd/.github/workflows/deploy-2-start.yml@v4
     with:
       type: ${{ inputs.deployment-type }}
       model: ${{ inputs.spack-manifest-root-sbd }}

@@ -25,7 +25,7 @@ jobs:
       valid-targets: ${{ steps.generate.outputs.valid-targets }}
     steps:
       - id: generate
-        uses: access-nri/build-cd/.github/actions/get-target-matrix@main
+        uses: access-nri/build-cd/.github/actions/get-target-matrix@vX
         with:
           targets: ${{ vars.MODEL_REPO_TARGETS }}
 
