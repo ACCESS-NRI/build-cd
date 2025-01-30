@@ -65,14 +65,9 @@ jobs:
       matrix:
         target: ${{ fromJson(needs.defaults.outputs.targets) }}
     steps:
-      - name: Get default branch
-        id: default
-        run: echo "branch=$(gh repo view access-nri/build-cd --json defaultBranchRef --jq '.[].name')" >> $GITHUB_OUTPUT
-
       - uses: actions/checkout@v4
         with:
           repository: access-nri/build-cd
-          ref: ${{ steps.default.outputs.branch }}
 
       - uses: access-nri/build-cd/.github/actions/validate-deployment-settings@v4
         with:
@@ -153,15 +148,10 @@ jobs:
       url: ${{ steps.release.outputs.url }}
       created-at: ${{ steps.metadata.outputs.created-at }}
     steps:
-      - name: Get default branch
-        id: default
-        run: echo "branch=$(gh repo view access-nri/build-cd --json defaultBranchRef --jq '.[].name')" >> $GITHUB_OUTPUT
-
       - name: Checkout build-cd
         uses: actions/checkout@v4
         with:
           repository: access-nri/build-cd
-          ref: ${{ steps.default.outputs.branch }}
 
       - name: Download Metadata Artifacts
         uses: actions/download-artifact@v4

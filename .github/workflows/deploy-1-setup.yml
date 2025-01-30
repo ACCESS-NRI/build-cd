@@ -133,15 +133,10 @@ jobs:
           repo-to-check: spack
           pr: ${{ inputs.deployment-ref }}
 
-      - name: Get default branch
-        id: default
-        run: echo "branch=$(gh repo view access-nri/build-cd --json defaultBranchRef --jq '.[].name')" >> $GITHUB_OUTPUT
-
       - name: Checkout build-cd Config
         uses: actions/checkout@v4
         with:
           repository: access-nri/build-cd
-          ref: ${{ steps.default.outputs.branch }}
           path: cd
 
       - name: Get spack-config version
