@@ -9,10 +9,10 @@ run-name: ${{ inputs.model }} PR Closed Cleanup
 on:
   workflow_call:
     inputs:
-      model:
+      root-sbd:
         type: string
         required: true
-        description: The model that is being tested and deployed
+        description: The model package name that is going to be removed
   # Callers usually have the trigger:
   # pull_request:
   #   types:
@@ -29,19 +29,30 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version-pattern: ${{ steps.version.outputs.pattern }}
+      targets: ${{ steps.target.outputs.valid-targets }}
     steps:
-      - name: Version Pattern
+      - name: Get Version Pattern
         id: version
         # For example, `access-om3-pr12-*`
-        run: |
-          repo_name_sanitized=$(echo ${{ github.event.repository.name }} | tr [:upper:] [:lower:] | tr '.' 'p' )
-          echo "pattern=${repo_name_sanitized}-pr${{ github.event.pull_request.number }}-*" >> $GITHUB_OUTPUT
+        run: echo "pattern=${{ inputs.root-sbd }}-pr${{ github.event.pull_request.number }}-*" >> $GITHUB_OUTPUT
+
+      - name: Generate Deployment Target Matrix
+        id: target
+        uses: access-nri/build-cd/.github/actions/get-target-matrix@v4
+        with:
+          targets: ${{ vars.PRERELEASE_DEPLOYMENT_TARGETS }}
 
   undeploy-prereleases:
     name: Undeploy Prereleases Matching ${{ needs.setup.outputs.version-pattern }}
     needs:
       - setup
-    uses: access-nri/build-cd/.github/workflows/undeploy-1-setup.yml@main
+    strategy:
+      matrix:
+        target: ${{ fromJson(needs.setup.outputs.targets) }}
+      fail-fast: false
+    uses: access-nri/build-cd/.github/workflows/undeploy-1-start.yml@v4
     with:
-      version-pattern: ${{ needs.setup.outputs.version-pattern }}
+      version-pattern: ${{ inputs.root-sbd }}-pr${{ github.event.pull_request.number }}-*
+      target: ${{ matrix.target }}
+      type: Prerelease
     secrets: inherit

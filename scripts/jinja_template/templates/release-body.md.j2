@@ -1,0 +1,15 @@
+This is an official release of `{{ model }}` `{{ version }}` to the HPC(s) {% for deployment in deployments %} `{{ deployment.name }}`{{"," if not loop.last else "" }}{% endfor %}.
+
+## Deployment Information
+{% for deployment in deployments %}
+### `{{ deployment.name }}`
+
+Deployed using [spack {{ deployment.spack_version }}](https://github.com/ACCESS-NRI/spack/tree/releases/{{ deployment.spack_version }}), [spack-packages {{ deployment.spack_packages_version }}](https://github.com/ACCESS-NRI/spack-packages/releases/tag/{{ deployment.spack_packages_version }}) and [spack-config {{ deployment.spack_config_version }}](https://github.com/ACCESS-NRI/spack-config/releases/tag/{{ deployment.spack_config_version }}).
+
+Deployed as a module accessible using:
+
+```bash
+module use {{ deployment.modules_location }}
+module load {{ root_sbd }}/{{ version }}
+```
+{% endfor %}

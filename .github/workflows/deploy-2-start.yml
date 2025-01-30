@@ -1,12 +1,12 @@
 name: Deploy Start
-concurrency: ${{ inputs.deployment-environment }}
+concurrency: ${{ inputs.deployment-target }} ${{ inputs.deployment-type }}
 on:
   workflow_call:
     inputs:
       type:
         type: string
         required: true
-        description: The type of deployment - either 'release' or 'prerelease'
+        description: The type of deployment - either 'Release' or 'Prerelease'
       model:
         type: string
         required: true
@@ -23,26 +23,53 @@ on:
         type: string
         required: true
         description: The spack-env-compliant environment name for the model
-      deployment-environment:
+      deployment-target:
         type: string
         required: true
-        description: The GitHub deployment environment name
+        description: |
+          The GitHub Environment, minus a potential Type.
+          Combined with inputs.deployment-type to create the GitHub Environment name.
+      deployment-type:
+        type: string
+        required: true
+        description: |
+          The type of deployment.
+          Can be one of: Release, Prerelease.
+          Combined with inputs.deployment-type to create the GitHub Environment name.
       root-sbd:
         type: string
         required: true
         description: The root SBD that is being used as the modulefile name
+    outputs:
+      modules-location:
+        value: ${{ jobs.deploy-to-environment.outputs.modules-location }}
+        description: The location of the modules directory on the deployment environment
+      spack-location:
+        value: ${{ jobs.deploy-to-environment.outputs.spack-location }}
+        description: The location of the spack directory on the deployment environment
+      general-metadata-artifact-glob:
+        value: ${{ jobs.deploy-to-environment.outputs.metadata-artifact-name }}
+        description: |
+          General pattern for the artifact that contains the deployment metadata files for this invocation of the job.
+          These files are of the form deploy-metadata.{{inputs.deployment-target}}
 env:
-  SPACK_YAML_SPEC_YQ: .spack.specs[0]
+  # This attempts to get the spack.yaml model first via the multi-target
+  # .spack.definitions.root_package method, then the traditional '.spack.specs[0]'.
+  SPACK_YAML_MODEL_YQ: (.spack.definitions[] | select(."ROOT_PACKAGE") | .[][]) // .spack.specs[0]
   SPACK_YAML_MODULEFILE_PROJECTION_YQ: .spack.modules.default.tcl.projections.${{ inputs.root-sbd }}
   METADATA_PATH: /opt/metadata
+  ARTIFACT_NAME: deploy-metadata.${{ inputs.deployment-target }}
 jobs:
   deploy-to-environment:
-    name: Deploy to ${{ inputs.deployment-environment }}
+    name: Deploy to ${{ inputs.deployment-target }} ${{ inputs.deployment-type }}
     runs-on: ubuntu-latest
-    environment: ${{ inputs.deployment-environment }}
+    environment: ${{ inputs.deployment-target }} ${{ inputs.deployment-type != 'Release' && inputs.deployment-type || '' }}
     outputs:
       packages-version: ${{ steps.versions.outputs.packages }}
       config-version: ${{ steps.versions.outputs.config }}
+      spack-location: ${{ steps.location.outputs.spack }}
+      modules-location: ${{ steps.location.outputs.modules }}
+      metadata-artifact-name: ${{ env.ARTIFACT_NAME }}
     steps:
       # Deployment
       - uses: actions/checkout@v4
@@ -55,13 +82,13 @@ jobs:
           echo "spack=$(jq --compact-output --raw-output '.spack' ./config/versions.json)" >> $GITHUB_OUTPUT
           echo "packages=$(jq --compact-output --raw-output '."spack-packages"' ./config/versions.json)" >> $GITHUB_OUTPUT
 
-      - name: Get ${{ inputs.deployment-environment }} Remote Paths
+      - name: Get ${{ inputs.deployment-target }} ${{ inputs.deployment-type }} Remote Paths
         id: path
-        uses: access-nri/build-cd/.github/actions/get-deploy-paths@main
+        uses: access-nri/build-cd/.github/actions/get-deploy-paths@v4
         with:
           spack-installs-root-path: ${{ vars.SPACK_INSTALLS_ROOT_LOCATION }}
           spack-version: ${{ steps.versions.outputs.spack }}
-          deployment-environment: ${{ inputs.deployment-environment }}
+          deployment-environment: ${{ inputs.deployment-target }} ${{ inputs.deployment-type }}
 
       - name: Setup SSH
         id: ssh
@@ -73,13 +100,13 @@ jobs:
             ${{ secrets.HOST_DATA }}
 
       - name: Prerelease spack.yaml Modifications
-        if: inputs.type == 'prerelease'
+        if: inputs.type == 'Prerelease'
         # Modifies the name of the prerelease modulefile to the
         # `pr<number>-<commit>` style. For example, `access-om3/pr12-2`.
         # Also removes the `@git.VERSION` specifier for Prereleases so
         # we don't have to shift tags around.
         run: |
-          yq -i '${{ env.SPACK_YAML_SPEC_YQ }} = (${{ env.SPACK_YAML_SPEC_YQ }} | split("@").[0])' spack.yaml
+          yq -i '${{ env.SPACK_YAML_MODEL_YQ }} = (${{ env.SPACK_YAML_MODEL_YQ }} | split("@").[0])' spack.yaml
           yq -i '${{ env.SPACK_YAML_MODULEFILE_PROJECTION_YQ }} = "{name}/${{ inputs.version }}"' spack.yaml
           echo '::notice::Prerelease accessible as module `${{ inputs.model}}/${{ inputs.version }}`'
 
@@ -107,15 +134,19 @@ jobs:
           done
           EOT
 
-      - name: Deploy to ${{ inputs.deployment-environment }}
+      - name: Deploy to ${{ inputs.deployment-target }} ${{ inputs.deployment-type }}
         # ssh into deployment environment, create and activate the env, install the spack.yaml.
         run: |
           ssh ${{ secrets.USER}}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
           # Check that a suitable deployment location exists
           if [ ! -d "${{ steps.path.outputs.root }}" ]; then
-            echo '::error::A deployment of spack does not exist in `${{ steps.path.outputs.root }}` for `${{ inputs.deployment-environment }}`'
+            echo '::error::A deployment of spack does not exist in `${{ steps.path.outputs.root }}` for `${{ inputs.deployment-target }} ${{ inputs.deployment-type}}`'
             exit 1
           fi
+
+          # Export vars.DEPLOYMENT_TARGET
+          export DEPLOYMENT_TARGET="${{ vars.DEPLOYMENT_TARGET }}"
+          echo "DEPLOYMENT_TARGET exported as $DEPLOYMENT_TARGET"
 
           # Update spack-packages
           git -C ${{ steps.path.outputs.spack-packages }} fetch
@@ -132,11 +163,21 @@ jobs:
           spack module tcl refresh -y
           EOT
 
-      - name: Get metadata from ${{ inputs.deployment-environment }}
+      - name: Export deployment target locations
+        id: location
+        run: |
+          echo "spack=${{ steps.path.outputs.spack }}" >> $GITHUB_OUTPUT
+          echo "modules=${{ vars.DEPLOYED_MODULES_DIR }}" >> $GITHUB_OUTPUT
+
+      - name: Get metadata from ${{ inputs.deployment-target }} ${{ inputs.deployment-type}}
         env:
           SPACK_ENV_PATH: ${{ steps.path.outputs.spack }}/../environments/${{ inputs.env-name }}
         run: |
-          ssh ${{ secrets.USER}}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
+          ssh ${{ secrets.USER }}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
+          # Export vars.DEPLOYMENT_TARGET
+          export DEPLOYMENT_TARGET="${{ vars.DEPLOYMENT_TARGET }}"
+          echo "DEPLOYMENT_TARGET exported as $DEPLOYMENT_TARGET"
+
           . ${{ steps.path.outputs.spack-config }}/spack-enable.bash
           spack env activate ${{ inputs.env-name }}
 
@@ -184,89 +225,17 @@ jobs:
         run: |
           rsync -e 'ssh -i ${{ steps.ssh.outputs.private-key-path }}' \
             '${{ secrets.USER}}@${{ secrets.HOST_DATA }}:${{ env.SPACK_ENV_PATH }}/spack.*' \
-            ./${{ inputs.env-name }}
+            ./${{ env.ARTIFACT_NAME }}
+
+          # Rename the files to include the deployment environment
+          cd ./${{ env.ARTIFACT_NAME }}
+          for file in *; do
+            mv "$file" "${{ inputs.deployment-target }}.$file"
+          done
+          cd -
 
       - name: Upload Metadata Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.env-name }}
-          path: ./${{ inputs.env-name }}/*
-          overwrite: true
-
-  release:
-    name: Create Release
-    if: inputs.type == 'release'
-    needs:
-      - deploy-to-environment
-    runs-on: ubuntu-latest
-    outputs:
-      url: ${{ steps.release.outputs.url }}
-      created-at: ${{ steps.metadata.outputs.created-at }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Download Metadata Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{ inputs.env-name }}
-          path: ${{ env.METADATA_PATH }}
-
-      - name: Create Release
-        id: release
-        uses: softprops/action-gh-release@69320dbe05506a9a39fc8ae11030b214ec2d1f87  # v2.0.5
-        with:
-          tag_name: ${{ inputs.version }}
-          name: ${{ inputs.model}} ${{ inputs.version }}
-          body: |
-            This release of ${{ inputs.model }} ${{ inputs.version }} uses [spack-packages ${{ needs.deploy-to-environment.outputs.packages-version }}](https://github.com/ACCESS-NRI/spack-packages/releases/tag/${{ needs.deploy-to-environment.outputs.packages-version }}) and [spack-config ${{ needs.deploy-to-environment.outputs.config-version }}](https://github.com/ACCESS-NRI/spack-config/releases/tag/${{ needs.deploy-to-environment.outputs.config-version }}).
-          generate_release_notes: true
-          fail_on_unmatched_files: true
-          files: |
-            ${{ env.METADATA_PATH }}/spack.yaml
-            ${{ env.METADATA_PATH }}/spack.lock
-            ${{ env.METADATA_PATH }}/spack.location
-            ${{ env.METADATA_PATH }}/spack.location.json
-
-      - name: Release Metadata
-        id: metadata
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: echo "created-at=$(gh release view --json createdAt --jq '.createdAt')" >> $GITHUB_OUTPUT
-
-  build-db:
-    name: Build DB Metadata Upload
-    if: inputs.type == 'release'
-    needs:
-      - deploy-to-environment
-      - release
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download Metadata Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{ inputs.env-name }}
-          path: ${{ env.METADATA_PATH }}
-
-      - name: Checkout Upload Script
-        uses: actions/checkout@v4
-        with:
-          repository: access-nri/build-cd
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ vars.PYTHON_VERSION }}
-          cache: pip
-
-      - name: Install Build Metadata Script Requirements
-        run: pip install -r tools/release_provenance/requirements.txt
-
-      - name: Upload Build Metadata
-        env:
-          BUILD_DB_CONNECTION_STR: ${{ secrets.BUILD_DB_CONNECTION_STR }}
-          OUTPUT_PATH: ./metadata_output
-        run: |
-          ./scripts/generate-build-metadata.bash ${{ needs.release.outputs.url }} ${{ needs.release.outputs.created-at }} ${{ needs.deploy-to-environment.outputs.packages-version }} ${{ needs.deploy-to-environment.outputs.config-version }} ${{ env.METADATA_PATH }} ${{ env.OUTPUT_PATH }} ${{ inputs.root-sbd }} ${{ vars.BUILD_DB_PACKAGES }}
-
-          echo "Attempting upload of build_metadata.json"
-          python ./tools/release_provenance/save_release.py "${{ env.OUTPUT_PATH }}/build_metadata.json"
+          name: ${{ env.ARTIFACT_NAME }}
+          path: ./${{ env.ARTIFACT_NAME }}/*
