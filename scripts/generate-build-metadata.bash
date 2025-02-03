@@ -26,11 +26,12 @@ packages=( "$@" )
 ### SCRIPT ###
 mkdir -p "$output_dir"
 
+# FIXME: This script is Gadi-specific and will need to be updated for future targets
 spack=$(jq \
   '{
     version: .spack.version,
     commit: .spack.commit
-  }' "$json_dir/spack.lock")
+  }' "$json_dir/Gadi.spack.lock")
 
 model=$(jq \
   --arg model "$model_name" \
@@ -49,7 +50,7 @@ model=$(jq \
       spack_config: $spack_config_version,
       status: "active",
       spack_version: $spack
-  }' "$json_dir/spack.lock"
+  }' "$json_dir/Gadi.spack.lock"
 )
 
 # construction of the initial build_metadata.json
@@ -64,7 +65,7 @@ for pkg in "${packages[@]}"; do
   pkg_hash=$(jq --raw-output \
     --arg pkg "$pkg" \
     '.concrete_specs | to_entries[] | select(.value.name == $pkg) | .key' \
-    "$json_dir/spack.lock"
+    "$json_dir/Gadi.spack.lock"
   )
 
   echo "Hash of $pkg is $pkg_hash"
@@ -72,13 +73,13 @@ for pkg in "${packages[@]}"; do
   install_path=$(jq --raw-output \
     --arg pkg_hash "$pkg_hash" \
     'to_entries[] | select(.key == $pkg_hash) | .value' \
-    "$json_dir/spack.location.json"
+    "$json_dir/Gadi.spack.location.json"
   )
 
   release_url=$(jq --raw-output \
     --arg pkg "$pkg" \
     '.[$pkg]' \
-    "$json_dir/build-db-pkgs.json"
+    "$json_dir/Gadi.build-db-pkgs.json"
   )
 
   component=$(jq \
@@ -91,7 +92,7 @@ for pkg in "${packages[@]}"; do
       spec: (.value.name + "@" + .value.version),
       install_path: $install_path,
       release_url: $release_url
-    }' "$json_dir/spack.lock"
+    }' "$json_dir/Gadi.spack.lock"
   )
 
   # piecewise construction of the entire build_metadata.json for each

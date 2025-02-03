@@ -14,8 +14,31 @@ env:
   CONFIG_SETTINGS_PATH: ./config/settings.json
   CONFIG_SETTINGS_SCHEMA_PATH: ./config/settings.schema.json
 jobs:
+  setup-settings-validation:
+    name: Setup Validate Deployment Settings
+    runs-on: ubuntu-latest
+    outputs:
+      targets: ${{ steps.target.outputs.matrix }}
+    steps:
+      - name: Get deployment settings.json
+        uses: actions/checkout@v4
+        with:
+          repository: access-nri/build-cd
+
+      - name: Generate Deployment Target Matrix
+        id: target
+        run: |
+          targets=$(jq --compact-output '.deployments' config/settings.json)
+          echo "$targets"
+          echo "targets=$targets" >> $GITHUB_OUTPUT
+
   settings-validation:
     name: Validate Deployment Settings
+    needs:
+      - setup-settings-validation
+    strategy:
+      matrix:
+        target: ${{ fromJson(needs.setup-settings-validation.outputs.targets) }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout settings.json
@@ -30,18 +53,17 @@ jobs:
 
       - name: Validate Deployment Settings
         id: validate
-        uses: access-nri/build-cd/.github/actions/validate-deployment-settings@main
+        uses: access-nri/build-cd/.github/actions/validate-deployment-settings@v4
         with:
           settings-path: ${{ env.CONFIG_SETTINGS_PATH }}
-          # TODO: Turn this into a matrix job of targets
-          target: Gadi
+          target: ${{ matrix.target }}
 
       - name: Comment Validation Issues
         if: steps.validate.outputs.failures != '' && github.event_name == 'pull_request'
         uses: access-nri/actions/.github/actions/pr-comment@main
         with:
           comment: |
-            :warning: `${{ env.CONFIG_SETTINGS_PATH }}`: Inconsistencies detected with the configuration. See below. :warning:
+            :warning: `${{ env.CONFIG_SETTINGS_PATH }}`: Inconsistencies detected with the `${{ matrix.target }}` configuration. See below. :warning:
             ${{ steps.validate.outputs.failures }}
 
   setup-settings-update:
@@ -124,7 +146,7 @@ jobs:
         # - deployment-environment: Gadi
         #   type: Prerelease
         # etc ...
-    uses: access-nri/build-cd/.github/workflows/settings-2-deploy.yml@main
+    uses: access-nri/build-cd/.github/workflows/settings-2-deploy.yml@v4
     with:
       deployment-environment: ${{ matrix.update.deployment-environment }}
       spack-type: ${{ matrix.update.type }}

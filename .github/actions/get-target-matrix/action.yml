@@ -1,0 +1,43 @@
+name: Get Deployment Target Matrix
+description: Action that returns a matrix of deployment targets based on the caller's input and the valid targets in the build-cd repository.
+author: Tommy Gatti
+inputs:
+  targets:
+    type: string
+    required: true
+    description: A space-separated list of deployment targets for the model deployment repository.
+outputs:
+  valid-targets:
+    description: A JSON array of valid deployment targets, suitable for use as a matrix.
+    value: ${{ steps.generate.outputs.targets }}
+runs:
+  using: composite
+  steps:
+    - name: Get deployment settings.json
+      uses: actions/checkout@v4
+      with:
+        repository: access-nri/build-cd
+
+    - name: Generate Deployment Target Matrix
+      shell: bash
+      id: generate
+      # These are used in the deploy job to determine the targets to deploy to - irrespective of the type of deployment.
+      # We use the list of valid targets (from build-cd) intersected with targets set in the caller repository to determine the final list.
+      run: |
+        valid_targets=$(jq --raw-output --compact-output \
+          '.deployment | keys' \
+          config/settings.json
+        )
+        repo_targets=$(jq --null-input --raw-output --compact-output \
+          --arg valids "${{ inputs.targets }}" \
+          '$valids | split(" ")'
+        )
+        # This is the intersection between the valid and caller-defined targets
+        targets=$(jq --null-input --raw-output --compact-output\
+          --argjson valid "$valid_targets" \
+          --argjson ours "$repo_targets" \
+          '$valid - ($valid - $ours)'
+        )
+
+        echo "From build-cd's valid targets: $valid_targets, and ${{ github.repository }}s chosen targets: $repo_targets, we will deploy to $targets"
+        echo "targets=$targets" >> $GITHUB_OUTPUT

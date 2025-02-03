@@ -20,7 +20,7 @@ This action checks that the tags specified in a models `config/versions.json` is
 ```yaml
 # ...
 - id: validate
-  uses: access-nri/build-cd/.github/actions/validate-repo-version@main
+  uses: access-nri/build-cd/.github/actions/validate-repo-version@vX
   with:
     repo-to-check: spack-packages
     pr: 12

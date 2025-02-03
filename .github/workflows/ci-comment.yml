@@ -13,7 +13,7 @@ on:
       root-sbd:
         type: string
         required: false
-        # The equivalent default is set in the defaults job below. 
+        # The equivalent default is set in the defaults job below.
         # default: ${{ inputs.model }}
         description: |
           The name of the root Spack Bundle Definition, if it is different from the model name.
@@ -53,7 +53,9 @@ jobs:
       contents: write
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      SPACK_YAML_MODEL_YQ: .spack.specs[0]
+      # This attempts to get the spack.yaml model first via the multi-target
+      # .spack.definitions.root_package method, then the traditional '.spack.specs[0]'.
+      SPACK_YAML_MODEL_YQ: (.spack.definitions[] | select(."ROOT_PACKAGE") | .[][]) // .spack.specs[0]
       SPACK_YAML_MODEL_PROJECTION_YQ: .spack.modules.default.tcl.projections.${{ needs.defaults.outputs.root-sbd }}
     steps:
       - uses: actions/checkout@v4

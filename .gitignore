@@ -1,2 +1,7 @@
 # Files generated during generate-build-metadata tests
 tests/scripts/generate-build-metadata/outputs
+# Python venvs
+venv
+# Testing files
+*.pyc
+__pycache__
