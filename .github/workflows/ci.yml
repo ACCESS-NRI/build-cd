@@ -193,14 +193,14 @@ jobs:
 
       - name: Validate spack-packages version
         id: spack-packages
-        uses: access-nri/build-cd/.github/actions/validate-repo-version@main
+        uses: access-nri/build-cd/.github/actions/validate-repo-version@v3
         with:
           repo-to-check: spack-packages
           pr: ${{ needs.defaults.outputs.head-ref }}
 
       - name: Validate spack version
         id: spack
-        uses: access-nri/build-cd/.github/actions/validate-repo-version@main
+        uses: access-nri/build-cd/.github/actions/validate-repo-version@v3
         with:
           repo-to-check: spack
           pr: ${{ needs.defaults.outputs.head-ref }}
@@ -209,7 +209,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: ACCESS-NRI/build-cd
-          ref: main
           path: cd
 
       - name: Get spack-config version
@@ -225,7 +224,7 @@ jobs:
 
       - name: Validate build-cd config/settings.json
         id: settings
-        uses: access-nri/build-cd/.github/actions/validate-deployment-settings@main
+        uses: access-nri/build-cd/.github/actions/validate-deployment-settings@v3
         with:
           settings-path: ./cd/config/settings.json
           # TODO: Turn this into a matrix job of targets
@@ -356,7 +355,7 @@ jobs:
       - defaults  # so we can access `inputs.root-sbd` that could have defaulted to `inputs.model`
       - check-spack-yaml  # implies all the spack.yaml-related checks have passed, has appropriate version for the prerelease build
       - check-config  # implies all the json-related checks have passed
-    uses: access-nri/build-cd/.github/workflows/deploy-1-setup.yml@main
+    uses: access-nri/build-cd/.github/workflows/deploy-1-setup.yml@v3
     with:
       type: prerelease
       ref: ${{ needs.defaults.outputs.head-ref }}
