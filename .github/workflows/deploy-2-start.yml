@@ -3,10 +3,6 @@ concurrency: ${{ inputs.deployment-target }} ${{ inputs.deployment-type }}
 on:
   workflow_call:
     inputs:
-      type:
-        type: string
-        required: true
-        description: The type of deployment - either 'Release' or 'Prerelease'
       model:
         type: string
         required: true
@@ -27,7 +23,7 @@ on:
         type: string
         required: true
         description: |
-          The GitHub Environment, minus a potential Type.
+          The GitHub Environment, minus a Type.
           Combined with inputs.deployment-type to create the GitHub Environment name.
       deployment-type:
         type: string
@@ -35,7 +31,7 @@ on:
         description: |
           The type of deployment.
           Can be one of: Release, Prerelease.
-          Combined with inputs.deployment-type to create the GitHub Environment name.
+          Combined with inputs.deployment-target to create the GitHub Environment name.
       root-sbd:
         type: string
         required: true
@@ -63,7 +59,7 @@ jobs:
   deploy-to-environment:
     name: Deploy to ${{ inputs.deployment-target }} ${{ inputs.deployment-type }}
     runs-on: ubuntu-latest
-    environment: ${{ inputs.deployment-target }} ${{ inputs.deployment-type != 'Release' && inputs.deployment-type || '' }}
+    environment: ${{ inputs.deployment-target }} ${{ inputs.deployment-type }}
     outputs:
       packages-version: ${{ steps.versions.outputs.packages }}
       config-version: ${{ steps.versions.outputs.config }}
@@ -100,7 +96,7 @@ jobs:
             ${{ secrets.HOST_DATA }}
 
       - name: Prerelease spack.yaml Modifications
-        if: inputs.type == 'Prerelease'
+        if: inputs.deployment-type == 'Prerelease'
         # Modifies the name of the prerelease modulefile to the
         # `pr<number>-<commit>` style. For example, `access-om3/pr12-2`.
         # Also removes the `@git.VERSION` specifier for Prereleases so

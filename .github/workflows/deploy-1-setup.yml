@@ -8,7 +8,7 @@ on:
         required: true
         description: |
           The target machine for the model being deployed.
-          Equivalent to the name of the GitHub Environment, minus a potential Prerelease Type.
+          Equivalent to the name of the GitHub Environment, minus a Release/Prerelease Type.
       deployment-type:
         type: string
         required: true
@@ -282,7 +282,6 @@ jobs:
       - check-spack-yaml  # Verify spack manifest information is correct
     uses: access-nri/build-cd/.github/workflows/deploy-2-start.yml@v4
     with:
-      type: ${{ inputs.deployment-type }}
       model: ${{ inputs.spack-manifest-root-sbd }}
       ref: ${{ inputs.deployment-ref }}
       version: ${{ inputs.deployment-version }}
