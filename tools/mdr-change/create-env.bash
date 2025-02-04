@@ -78,4 +78,5 @@ fi
 
 # Set secrets/vars via env files
 gh secret set --repo "$repo" --env "$environment_name" -f "$secrets_env_file"
+gh secret set SSH_KEY --repo "$repo" --env "$environment_name" < "$ssh_key_file"
 gh variable set --repo "$repo" --env "$environment_name" -f "$vars_env_file"
