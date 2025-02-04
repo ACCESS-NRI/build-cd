@@ -26,11 +26,11 @@ if [ ! -f "$secrets_env_file" ]; then
     exit 1
 fi
 if [ ! -f "$vars_env_file" ]; then
-    echo "Secrets Environment file not found: $vars_env_file"
+    echo "Variable Environment file not found: $vars_env_file"
     exit 1
 fi
 if [ ! -f "$ssh_key_file" ]; then
-    echo "Secrets Environment file not found: $ssh_key_file"
+    echo "SSH Key file not found: $ssh_key_file"
     exit 1
 fi
 

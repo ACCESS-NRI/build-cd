@@ -1,5 +1,5 @@
 #!/bin/bash
-# Script that updates environment variables for a given environment in all deployment repositories
+# Script that updates repo variables for a given environment in all deployment repositories
 
 ### Variables
 
