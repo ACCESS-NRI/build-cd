@@ -163,7 +163,7 @@ jobs:
       pull-requests: write
     outputs:
       # Release version of the deployment. Inferred if not given in inputs.deployment-version
-      release: ${{ steps.yq.outputs.root-spec-ref }}
+      release: ${{ steps.current.outputs.root-spec-ref }}
       # Spack env name in form <model>-<version>
       spack-env-name: ${{ steps.get-env-name.outputs.env-name }}
     steps:
@@ -179,8 +179,26 @@ jobs:
           schema-location: au.org.access-nri/model/spack/environment/deployment
           data-location: ${{ inputs.spack-manifest-path }}
 
-      - name: Get root spec yq
-        id: yq
+      - name: Get current (${{ inputs.deployment-ref }}) root spec version
+        id: current
+        uses: access-nri/build-cd/.github/actions/get-spack-root-spec@v4
+
+      - name: Checkout base (${{ inputs.prerelease-compare-ref }}) spack manifest
+        if: inputs.deployment-type != 'Release'
+        continue-on-error: true
+        id: checkout-base-spack
+        run: |
+          git checkout ${{ inputs.prerelease-compare-ref }}
+
+          if [ ! -f spack.yaml ]; then
+              echo "::notice::There is no previous version of the spack.yaml to check at ${{ inputs.prerelease-compare-ref }}, continuing..."
+              git checkout ${{ inputs.deployment-ref }}
+              exit 1
+          fi
+
+      - name: Get base root spec version
+        id: base
+        if: inputs.deployment-type != 'Release' && steps.checkout-base-spack.outcome != 'failure'
         uses: access-nri/build-cd/.github/actions/get-spack-root-spec@v4
 
       - name: Check Model Version Modified
@@ -189,26 +207,12 @@ jobs:
         # belongs to, is drafted.
         # Yes, github.event.issue.draft refers to the pull request if the comment is made on a pull request!
         if: >-
-          inputs.deployment-type != 'Release' &&
+          inputs.deployment-type != 'Release' && steps.checkout-base-spack.outcome != 'failure' &&
           (github.event_name == 'pull_request' && !github.event.pull_request.draft) ||
           (github.event_name == 'issue_comment' && !github.event.issue.draft)
         id: version-modified
         run: |
-          git checkout ${{ inputs.prerelease-compare-ref }}
-
-          if [ ! -f spack.yaml ]; then
-              echo "::notice::There is no previous version of the spack.yaml to check at ${{ inputs.prerelease-compare-ref }}, continuing..."
-              git checkout ${{ inputs.deployment-ref }}
-              exit 0
-          fi
-
-          base_version=$(yq e '${{ steps.yq.outputs.yq-root-spec }}' spack.yaml)
-
-          git checkout ${{ inputs.deployment-ref }}
-          current_version=$(yq e '${{ steps.yq.outputs.yq-root-spec }}' spack.yaml)
-          echo "current=${current_version}" >> $GITHUB_OUTPUT
-
-          if [[ "${base_version}" == "${current_version}" ]]; then
+          if [[ "${{ steps.base.outputs.root-spec-ref }}" == "${{ steps.current.outputs.root-spec-ref }}" ]]; then
               echo "::warning::The version string hasn't been modified in this PR, but needs to be before merging."
               exit 1
           fi
@@ -241,11 +245,11 @@ jobs:
             if [[ "$DEP" == "${{ inputs.spack-manifest-root-sbd }}" ]]; then
               # The model version is the bit after '@git.', before any later, space-separated, optional variants.
               # For example, in 'MODEL@git.VERSION type=ACCESS ~debug' the version is 'VERSION'.
-              DEP_VER=${{ steps.yq.outputs.root-spec-ref }}
+              DEP_VER=${{ steps.current.outputs.root-spec-ref }}
             else
               # Capture the section after '@git.' or '@' (if it's not a git-attributed version) and before a possible '=' for a given dependency.
               # Ex. '@git.2024.02.11' -> '2024.02.11', '@access-esm1.5' -> 'access-esm1.5', '@git.2024.05.21=access-esm1.5' -> '2024.05.21'
-              DEP_VER=$(yq ".spack.packages.\"$DEP\".require[0] | match(\"^@(?:git.)?([^=]*)\").captures[0].string" ${{ inputs.spack-manifest-path}})
+              DEP_VER=$(yq ".spack.packages.\"$DEP\".require[0] | match(\"^@(?:git.)?([^=]*)\").captures[0].string" spack.yaml)
             fi
 
             # Get the version from the module projection, for comparison with DEP_VER
