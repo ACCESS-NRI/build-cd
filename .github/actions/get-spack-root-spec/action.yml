@@ -1,0 +1,53 @@
+name: Get Spack Manifest Information
+description: Action that returns information about a Spack manifest file
+author: Tommy Gatti
+inputs:
+  spack-manifest-path:
+    type: string
+    required: false
+    default: ./spack.yaml
+    description: The path to the spack manifest file
+outputs:
+  root-spec:
+    description: |
+      The entirety of the root spec in the spack manifest file.
+      For example: 'access-om2@git.2025.01.01=access-om2 ~deterministic'.
+    value: ${{ steps.spec.outputs.full }}
+  root-spec-name:
+    description: |
+      The name of the root spec in the spack manifest file.
+      For example: 'access-om2'.
+    value: ${{ steps.spec.outputs.name }}
+  root-spec-ref:
+    description: |
+      The git ref from the root spec in the spack manifest file.
+      For example: '2025.01.01'.
+    value: ${{ steps.spec.outputs.ref }}
+  yq-root-spec:
+    description: |
+      The yq filter for the root spec of the spack manifest file.
+    value: ${{ steps.yq.outputs.filter }}
+runs:
+  using: composite
+  steps:
+    - name: Set yq filter for root spec
+      id: yq
+      shell: bash
+      # This attempts to get the spack.yaml model first via the multi-target
+      # .spack.definitions.root_package method, then the traditional '.spack.specs[0]'.
+      run: echo "filter=(.spack.definitions[] | select(."ROOT_PACKAGE") | .[][]) // .spack.specs[0]" >> $GITHUB_OUTPUT
+
+    - name: Get spec info from spack manifest
+      id: spec
+      shell: bash
+      run: |
+        full=$(yq '${{ steps.yq.outputs.filter }}' ${{ inputs.spack-manifest-path }})
+        groups=$(yq '${{ steps.yq.outputs.filter }} | capture("(?<name>.+)@git\\.(?<ref>[^= ]+).*")' ${{ inputs.spack-manifest-path }})
+        name=$(yq '.name' <<< "$groups")
+        ref=$(yq '.ref' <<< "$groups")
+
+        echo "Split '$full' into name: '$name' and ref: '$ref'"
+
+        echo "full=$full" >> $GITHUB_OUTPUT
+        echo "name=$name" >> $GITHUB_OUTPUT
+        echo "ref=$ref" >> $GITHUB_OUTPUT
