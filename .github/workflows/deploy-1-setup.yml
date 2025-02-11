@@ -161,13 +161,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
-    env:
-      # This attempts to get the spack.yaml model first via the multi-target
-      # .spack.definitions.root_package method, then the traditional '.spack.specs[0]'.
-      SPACK_YAML_MODEL_YQ: (.spack.definitions[] | select(."ROOT_PACKAGE") | .[][]) // .spack.specs[0]
     outputs:
       # Release version of the deployment. Inferred if not given in inputs.deployment-version
-      release: ${{ steps.version.outputs.release }}
+      release: ${{ steps.yq.outputs.root-spec-ref }}
       # Spack env name in form <model>-<version>
       spack-env-name: ${{ steps.get-env-name.outputs.env-name }}
     steps:
@@ -182,6 +178,10 @@ jobs:
           schema-version: ${{ vars.SPACK_YAML_SCHEMA_VERSION }}
           schema-location: au.org.access-nri/model/spack/environment/deployment
           data-location: ${{ inputs.spack-manifest-path }}
+
+      - name: Get root spec yq
+        id: yq
+        uses: access-nri/build-cd/.github/actions/get-spack-root-spec@v4
 
       - name: Check Model Version Modified
         # We don't want to fire off model deployment version checks if the PR is never going to be merged.
@@ -202,10 +202,10 @@ jobs:
               exit 0
           fi
 
-          base_version=$(yq e '${{ env.SPACK_YAML_MODEL_YQ }}' spack.yaml)
+          base_version=$(yq e '${{ steps.yq.outputs.yq-root-spec }}' spack.yaml)
 
           git checkout ${{ inputs.deployment-ref }}
-          current_version=$(yq e '${{ env.SPACK_YAML_MODEL_YQ }}' spack.yaml)
+          current_version=$(yq e '${{ steps.yq.outputs.yq-root-spec }}' spack.yaml)
           echo "current=${current_version}" >> $GITHUB_OUTPUT
 
           if [[ "${base_version}" == "${current_version}" ]]; then
@@ -241,11 +241,11 @@ jobs:
             if [[ "$DEP" == "${{ inputs.spack-manifest-root-sbd }}" ]]; then
               # The model version is the bit after '@git.', before any later, space-separated, optional variants.
               # For example, in 'MODEL@git.VERSION type=ACCESS ~debug' the version is 'VERSION'.
-              DEP_VER=$(yq '${{ env.SPACK_YAML_MODEL_YQ }} | capture(".+@git\\.(?<version>[^ ]+).*") | .version' spack.yaml)
+              DEP_VER=${{ steps.yq.outputs.root-spec-ref }}
             else
               # Capture the section after '@git.' or '@' (if it's not a git-attributed version) and before a possible '=' for a given dependency.
               # Ex. '@git.2024.02.11' -> '2024.02.11', '@access-esm1.5' -> 'access-esm1.5', '@git.2024.05.21=access-esm1.5' -> '2024.05.21'
-              DEP_VER=$(yq ".spack.packages.\"$DEP\".require[0] | match(\"^@(?:git.)?([^=]*)\").captures[0].string" spack.yaml)
+              DEP_VER=$(yq ".spack.packages.\"$DEP\".require[0] | match(\"^@(?:git.)?([^=]*)\").captures[0].string" ${{ inputs.spack-manifest-path}})
             fi
 
             # Get the version from the module projection, for comparison with DEP_VER
@@ -262,13 +262,6 @@ jobs:
           if [[ "$FAILED" == "true" ]]; then
             exit 1
           fi
-
-      - name: Generate Versions
-        id: version
-        # This step generates the release version number, if it wasn't already given.
-        # The release is a general version number from the spack.yaml, looking the
-        # same as a regular release build, without optional variants. Ex. 'access-om2@git.2024.01.1 ~debug' -> '2024.01.1'
-        run: echo "release=$(yq '${{ env.SPACK_YAML_MODEL_YQ }} | capture("@git\.(?<version>[^ ~+]+)") | .version' spack.yaml)" >> $GITHUB_OUTPUT
 
       - name: Set Spack Env Name String
         id: get-env-name

@@ -27,9 +27,6 @@ on:
   #     - spack.yaml
 
 env:
-  # This attempts to get the spack.yaml model first via the multi-target
-  # .spack.definitions.root_package method, then the traditional '.spack.specs[0]'.
-  SPACK_YAML_MODEL_YQ: (.spack.definitions[] | select(."ROOT_PACKAGE") | .[][]) // .spack.specs[0]
   METADATA_PATH: /opt/metadata
   OUTPUTS_PATH: /opt/outputs
 jobs:
@@ -83,15 +80,13 @@ jobs:
     permissions:
       contents: write
     outputs:
-      name: ${{ steps.tag.outputs.name }}
+      name: ${{ steps.tag.outputs.root-spec-ref }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Generate Tag
+      - name: Get root spec ref
         id: tag
-        # Get the tag name from the `spack.yaml` that was merged into main, which
-        # is of the form `<model>@git.<version>`.
-        run: echo "name=$(yq '${{ env.SPACK_YAML_MODEL_YQ }} | split("@git.") | .[1]' spack.yaml)" >> $GITHUB_OUTPUT
+        uses: access-nri/build-cd/.github/actions/get-spack-root-spec@v4
 
       - name: Import Commit-Signing Key
         uses: crazy-max/ghaction-import-gpg@01dd5d3ca463c7f10f7f4f7b4f177225ac661ee4  # v6.1.0
@@ -107,7 +102,7 @@ jobs:
 
       - name: Push Tag
         env:
-          TAG: ${{ steps.tag.outputs.name }}
+          TAG: ${{ steps.tag.outputs.root-spec-ref }}
         run: |
           git tag ${{ env.TAG }} -m "Deployment of ${{ inputs.model }} ${{ env.TAG }} via build-cd 'cd.yml' workflow"
           git push --tags
