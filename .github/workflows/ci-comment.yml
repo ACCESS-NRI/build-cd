@@ -55,9 +55,14 @@ jobs:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       SPACK_YAML_MODEL_PROJECTION_YQ: .spack.modules.default.tcl.projections.${{ needs.defaults.outputs.root-sbd }}
     steps:
+      - name: Get branch from issue
+        id: issue
+        # We have to do a bit more interrogation of the issue number to get the branch name to check out
+        run: echo "branch=$(gh pr view ${{ github.event.issue.number }} --repo ${{ github.repository }} --json headRefName --jq .headRefName)" >> $GITHUB_OUTPUT
+
       - uses: actions/checkout@v4
         with:
-          ref: refs/pull/${{ github.event.issue.number }}/head
+          ref: ${{ steps.issue.outputs.branch }}
           fetch-depth: 0
           fetch-tags: true
           token: ${{ secrets.GH_COMMIT_CHECK_TOKEN }}
