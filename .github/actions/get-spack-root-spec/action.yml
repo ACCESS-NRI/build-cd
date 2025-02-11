@@ -34,8 +34,8 @@ runs:
       id: yq
       shell: bash
       # This attempts to get the spack.yaml model first via the multi-target
-      # .spack.definitions.root_package method, then the traditional '.spack.specs[0]'.
-      run: echo "filter=(.spack.definitions[] | select(."ROOT_PACKAGE") | .[][]) // .spack.specs[0]" >> $GITHUB_OUTPUT
+      # .spack.definitions.root_package[0] method, then the traditional '.spack.specs[0]'.
+      run: echo "filter=(.spack.definitions[] | select(."ROOT_PACKAGE") | .[][0]) // .spack.specs[0]" >> $GITHUB_OUTPUT
 
     - name: Get spec info from spack manifest
       id: spec
