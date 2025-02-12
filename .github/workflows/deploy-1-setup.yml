@@ -192,7 +192,6 @@ jobs:
 
           if [ ! -f spack.yaml ]; then
               echo "::notice::There is no previous version of the spack.yaml to check at ${{ inputs.prerelease-compare-ref }}, continuing..."
-              git checkout ${{ inputs.deployment-ref }}
               exit 1
           fi
 
@@ -234,8 +233,9 @@ jobs:
         #  modulefile access-om3/2023.12.12 (specifically, the version strings match)
         # TODO: Move this into the `scripts` directory - it's getting unweildly.
         run: |
-          FAILED="false"
+          git checkout ${{ inputs.deployment-ref }}
 
+          FAILED="false"
           # Get all the defined projections (minus 'all') and make them suitable for a bash for loop
           DEPS=$(yq '.spack.modules.default.tcl.projections | del(.all) | keys | join(" ")' spack.yaml)
 
