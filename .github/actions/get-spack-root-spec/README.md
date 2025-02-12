@@ -15,9 +15,10 @@ Action that returns information about a Spack manifest file.
 
 | Name | Type | Description | Example |
 | ---- | ---- | ----------- | ------- |
-| `root-spec` | `string` | The entirety of the root spec in the spack manifest file | `"access-om2@git.2025.01.01=access-om2 ~deterministic"` |
+| `root-spec` | `string` | The entirety of the root spec in the spack manifest file | `"access-om2@git.2025.01.01=release ~deterministic"` |
 | `root-spec-name` | `string` | The name of the root spec in the spack manifest file | `"access-om2"` |
 | `root-spec-ref` | `string` | The git ref from the root spec in the spack manifest file | `"2025.01.01"` |
+| `root-spec-version` | `string` | The spack version from the root spec in the spack manifest file | `"release"` |
 | `root-spec-yq` | `string` (`yq` filter) | The yq filter for the root spec of the spack manifest file | `(.spack.definitions[] \| select(."ROOT_PACKAGE") \| .[][]) // .spack.specs[0]` |
 
 ## Example
