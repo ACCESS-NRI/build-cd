@@ -40,7 +40,21 @@ runs:
       shell: bash
       # This attempts to get the spack.yaml model first via the multi-target
       # .spack.definitions.root_package[0] method, then the traditional '.spack.specs[0]'.
-      run: echo "filter=(.spack.definitions[] | select(."ROOT_PACKAGE") | .[][0]) // .spack.specs[0]" >> $GITHUB_OUTPUT
+      env:
+        MULTI_TARGET_ROOT_SPEC_YQ_FILTER: (.spack.definitions[] | select(."ROOT_PACKAGE") | .[][0])
+        SINGLE_TARGET_ROOT_SPEC_YQ_FILTER: .spack.specs[0]
+      run: |
+        if [[ -n "$(yq '${{ env.MULTI_TARGET_ROOT_SPEC_YQ_FILTER }}' ${{ inputs.spack-manifest-path }})" ]]; then
+          filter="${{ env.MULTI_TARGET_ROOT_SPEC_YQ_FILTER }}"
+        elif [[ -n "$(yq '${{ env.SINGLE_TARGET_ROOT_SPEC_YQ_FILTER }}' ${{ inputs.spack-manifest-path }})" ]]; then
+          filter="${{ env.SINGLE_TARGET_ROOT_SPEC_YQ_FILTER }}"
+        else
+          echo "We can't find the root spec!"
+          exit 1
+        fi
+
+        echo "Based on the root spec, we are using '$filter'"
+        echo "filter=$filter" >> $GITHUB_OUTPUT
 
     - name: Get spec info from spack manifest
       id: spec
@@ -60,7 +74,7 @@ runs:
         ref=$(yq '.ref' <<< "$groups")
         version=$(yq '.version' <<< "$groups")
 
-        echo "Split '$full' into name: '$name', ref: '$ref', version: $version"
+        echo "Split '$full' into name: '$name', ref: '$ref', version: '$version'"
 
         echo "full=$full" >> $GITHUB_OUTPUT
         echo "name=$name" >> $GITHUB_OUTPUT

@@ -19,7 +19,7 @@ Action that returns information about a Spack manifest file.
 | `root-spec-name` | `string` | The name of the root spec in the spack manifest file | `"access-om2"` |
 | `root-spec-ref` | `string` | The git ref from the root spec in the spack manifest file | `"2025.01.01"` |
 | `root-spec-version` | `string` | The spack version from the root spec in the spack manifest file | `"release"` |
-| `root-spec-yq` | `string` (`yq` filter) | The yq filter for the root spec of the spack manifest file | `(.spack.definitions[] \| select(."ROOT_PACKAGE") \| .[][]) // .spack.specs[0]` |
+| `yq-root-spec` | `string` (`yq` filter) | The yq filter for obtaining the root spec for the spack manifest file - may change based on whether the root spec is in multi-target or single-target format | `.spack.specs[0]` |
 
 ## Example
 
