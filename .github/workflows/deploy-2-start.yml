@@ -49,9 +49,6 @@ on:
           General pattern for the artifact that contains the deployment metadata files for this invocation of the job.
           These files are of the form deploy-metadata.{{inputs.deployment-target}}
 env:
-  # This attempts to get the spack.yaml model first via the multi-target
-  # .spack.definitions.root_package method, then the traditional '.spack.specs[0]'.
-  SPACK_YAML_MODEL_YQ: (.spack.definitions[] | select(."ROOT_PACKAGE") | .[][]) // .spack.specs[0]
   SPACK_YAML_MODULEFILE_PROJECTION_YQ: .spack.modules.default.tcl.projections.${{ inputs.root-sbd }}
   METADATA_PATH: /opt/metadata
   ARTIFACT_NAME: deploy-metadata.${{ inputs.deployment-target }}
@@ -86,6 +83,11 @@ jobs:
           spack-version: ${{ steps.versions.outputs.spack }}
           deployment-environment: ${{ inputs.deployment-target }} ${{ inputs.deployment-type }}
 
+      - name: Get yq filters
+        id: yq
+        # FIXME: We should pass through inputs.spack-manifest-path here (and below raw spack.yaml) - see ACCESS-NRI/build-cd#225
+        uses: access-nri/build-cd/.github/actions/get-spack-root-spec@v4
+
       - name: Setup SSH
         id: ssh
         uses: access-nri/actions/.github/actions/setup-ssh@main
@@ -102,7 +104,7 @@ jobs:
         # Also removes the `@git.VERSION` specifier for Prereleases so
         # we don't have to shift tags around.
         run: |
-          yq -i '${{ env.SPACK_YAML_MODEL_YQ }} = (${{ env.SPACK_YAML_MODEL_YQ }} | split("@").[0])' spack.yaml
+          yq -i '${{ steps.yq.outputs.yq-root-spec }} = "${{ inputs.root-sbd }}"' spack.yaml
           yq -i '${{ env.SPACK_YAML_MODULEFILE_PROJECTION_YQ }} = "{name}/${{ inputs.version }}"' spack.yaml
           echo '::notice::Prerelease accessible as module `${{ inputs.model}}/${{ inputs.version }}`'
 

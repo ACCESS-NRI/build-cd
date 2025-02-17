@@ -1,0 +1,82 @@
+name: Get Spack Manifest Information
+description: Action that returns information about a Spack manifest file
+author: Tommy Gatti
+inputs:
+  spack-manifest-path:
+    type: string
+    required: false
+    default: ./spack.yaml
+    description: The path to the spack manifest file
+outputs:
+  root-spec:
+    description: |
+      The entirety of the root spec in the spack manifest file.
+      For example: 'access-om2@git.2025.01.01=access-om2 ~deterministic'.
+    value: ${{ steps.spec.outputs.full }}
+  root-spec-name:
+    description: |
+      The name of the root spec in the spack manifest file.
+      For example: 'access-om2'.
+    value: ${{ steps.spec.outputs.name }}
+  root-spec-ref:
+    description: |
+      The git ref from the root spec in the spack manifest file.
+      For example: '2025.01.01'.
+    value: ${{ steps.spec.outputs.ref }}
+  root-spec-version:
+    description: |
+      The spack version from the root spec in the spack manifest file.
+      For example, 'release'.
+    value: ${{ steps.spec.outputs.version }}
+  yq-root-spec:
+    description: |
+      The yq filter for the root spec of the spack manifest file.
+    value: ${{ steps.yq.outputs.filter }}
+runs:
+  using: composite
+  steps:
+    - name: Set yq filter for root spec
+      id: yq
+      shell: bash
+      # This attempts to get the spack.yaml model first via the multi-target
+      # .spack.definitions.root_package[0] method, then the traditional '.spack.specs[0]'.
+      env:
+        MULTI_TARGET_ROOT_SPEC_YQ_FILTER: (.spack.definitions[] | select(."ROOT_PACKAGE") | .[][0])
+        SINGLE_TARGET_ROOT_SPEC_YQ_FILTER: .spack.specs[0]
+      run: |
+        if [[ -n "$(yq '${{ env.MULTI_TARGET_ROOT_SPEC_YQ_FILTER }}' ${{ inputs.spack-manifest-path }})" ]]; then
+          filter="${{ env.MULTI_TARGET_ROOT_SPEC_YQ_FILTER }}"
+        elif [[ -n "$(yq '${{ env.SINGLE_TARGET_ROOT_SPEC_YQ_FILTER }}' ${{ inputs.spack-manifest-path }})" ]]; then
+          filter="${{ env.SINGLE_TARGET_ROOT_SPEC_YQ_FILTER }}"
+        else
+          echo "We can't find the root spec!"
+          exit 1
+        fi
+
+        echo "Based on the root spec, we are using '$filter'"
+        echo "filter=$filter" >> $GITHUB_OUTPUT
+
+    - name: Get spec info from spack manifest
+      id: spec
+      shell: bash
+      run: |
+        # Example: access-om2@git.2025.01.0=release ~variant
+        full=$(yq '${{ steps.yq.outputs.filter }}' ${{ inputs.spack-manifest-path }})
+
+        # Example of groups from the above:
+        # name: anything before `@git.`. Ex: access-om2
+        # ref: anything after `@git.` but before an `=` (for =VERSION syntax) or before a space, `+` or `~` (for variants). Ex: 2025.01.0
+        # version: anything after a `=`, but before a space, `+` or `~` (for variants). Ex: release
+        groups=$(yq '${{ steps.yq.outputs.filter }} | capture("(?<name>.+)@git\\.(?<ref>[^=+~ ]+)(?:=(?<version>[^~+ ]+))?.*")' ${{ inputs.spack-manifest-path }})
+
+        # Pull values from groups above
+        name=$(yq '.name' <<< "$groups")
+        ref=$(yq '.ref' <<< "$groups")
+        version=$(yq '.version' <<< "$groups")
+
+        echo "Split '$full' into name: '$name', ref: '$ref', version: '$version'"
+
+        echo "full=$full" >> $GITHUB_OUTPUT
+        echo "name=$name" >> $GITHUB_OUTPUT
+        echo "ref=$ref" >> $GITHUB_OUTPUT
+        echo "version=$version" >> $GITHUB_OUTPUT

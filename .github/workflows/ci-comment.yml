@@ -53,30 +53,30 @@ jobs:
       contents: write
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      # This attempts to get the spack.yaml model first via the multi-target
-      # .spack.definitions.root_package method, then the traditional '.spack.specs[0]'.
-      SPACK_YAML_MODEL_YQ: (.spack.definitions[] | select(."ROOT_PACKAGE") | .[][]) // .spack.specs[0]
       SPACK_YAML_MODEL_PROJECTION_YQ: .spack.modules.default.tcl.projections.${{ needs.defaults.outputs.root-sbd }}
     steps:
+      - name: Get branch from issue
+        id: issue
+        # We have to do a bit more interrogation of the issue number to get the branch name to check out
+        run: echo "branch=$(gh pr view ${{ github.event.issue.number }} --repo ${{ github.repository }} --json headRefName --jq .headRefName)" >> $GITHUB_OUTPUT
+
       - uses: actions/checkout@v4
         with:
+          ref: ${{ steps.issue.outputs.branch }}
           fetch-depth: 0
           fetch-tags: true
           token: ${{ secrets.GH_COMMIT_CHECK_TOKEN }}
 
+      - name: Original version
+        id: original
+        uses: access-nri/build-cd/.github/actions/get-spack-root-spec@v4
+
       - name: Setup
         id: setup
         # outputs:
-        #   original-version: The version contained within the spack.yaml
         #   version: The version that will be bumped (could be latest tag instead of original-version)
         #   bump: The bump type (major, minor or current as specified in the bump-version action)
         run: |
-          # Get the version of ${{ needs.defaults.outputs.root-sbd }} from the spack.yaml in the PR the comment was written in
-          gh pr checkout ${{ github.event.issue.number }}
-          original_version=$(yq e '${{ env.SPACK_YAML_MODEL_YQ }} | split("@git.") | .[1]' spack.yaml)
-          echo "original-version=${original_version}" >> $GITHUB_OUTPUT
-
-          # Validate the comment
           if [[ "${{ contains(github.event.comment.body, 'major') }}" == "true" ]]; then
             # Compare the current date (year-month) with the latest git tag (year-month)
             # to determine the next valid tag. We do this because especially feature-rich
@@ -95,11 +95,11 @@ jobs:
               echo "version=${tag_date}" >> $GITHUB_OUTPUT
               echo "bump=major" >> $GITHUB_OUTPUT
             else
-              echo "version=${original_version}" >> $GITHUB_OUTPUT
+              echo "version=${{ steps.original.outputs.root-spec-ref }}" >> $GITHUB_OUTPUT
               echo "bump=current" >> $GITHUB_OUTPUT
             fi
           elif [[ "${{ contains(github.event.comment.body, 'minor')}}" == "true" ]]; then
-            echo "version=${original_version}" >> $GITHUB_OUTPUT
+            echo "version=${{ steps.original.outputs.root-spec-ref }}" >> $GITHUB_OUTPUT
             echo "bump=minor" >> $GITHUB_OUTPUT
           else
             echo "::warning::Usage: `!bump [major|minor]`, got `${{ github.event.comment.body }}`"
@@ -127,18 +127,22 @@ jobs:
           git_tag_gpgsign: true
 
       - name: Update, Commit and Push the Bump
+        env:
+          # If the root spec contained an '=VERSION' segment, we want to add that back to the updated root spec, too
+          OPTIONAL_VERSION: ${{ steps.original.outputs.root-spec-version != '' && format('={0}', steps.original.outputs.root-spec-version) || '' }}
         run: |
-          yq -i '${{ env.SPACK_YAML_MODEL_YQ }} = "${{ needs.defaults.outputs.root-sbd }}@git.${{ steps.bump.outputs.after }}"' spack.yaml
+          updated_spec="${{ needs.defaults.outputs.root-sbd }}@git.${{ steps.bump.outputs.after }}${{ env.OPTIONAL_VERSION }}"
+          yq -i "${{ steps.original.outputs.yq-root-spec }} = \"$updated_spec\"" spack.yaml
           yq -i '${{ env.SPACK_YAML_MODEL_PROJECTION_YQ }} = "{name}/${{ steps.bump.outputs.after }}"' spack.yaml
           git add spack.yaml
-          git commit -m "spack.yaml: Updated ${{ needs.defaults.outputs.root-sbd }} package version from ${{ steps.setup.outputs.original-version }} to ${{ steps.bump.outputs.after }}"
+          git commit -m "spack.yaml: Updated ${{ needs.defaults.outputs.root-sbd }} package version from ${{ steps.original.outputs.root-spec-ref }} to ${{ steps.bump.outputs.after }}"
           git push
 
       - name: Success Notifier
         uses: access-nri/actions/.github/actions/pr-comment@main
         with:
           comment: |
-            :white_check_mark: Version bumped from `${{ steps.setup.outputs.original-version }}` to `${{ steps.bump.outputs.after }}` :white_check_mark:
+            :white_check_mark: Version bumped from `${{ steps.original.outputs.root-spec-ref }}` to `${{ steps.bump.outputs.after }}` :white_check_mark:
 
       - name: Failure Notifier
         if: failure()

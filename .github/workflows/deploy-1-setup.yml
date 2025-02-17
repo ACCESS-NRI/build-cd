@@ -161,13 +161,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
-    env:
-      # This attempts to get the spack.yaml model first via the multi-target
-      # .spack.definitions.root_package method, then the traditional '.spack.specs[0]'.
-      SPACK_YAML_MODEL_YQ: (.spack.definitions[] | select(."ROOT_PACKAGE") | .[][]) // .spack.specs[0]
     outputs:
       # Release version of the deployment. Inferred if not given in inputs.deployment-version
-      release: ${{ steps.version.outputs.release }}
+      release: ${{ steps.current.outputs.root-spec-ref }}
       # Spack env name in form <model>-<version>
       spack-env-name: ${{ steps.get-env-name.outputs.env-name }}
     steps:
@@ -183,32 +179,39 @@ jobs:
           schema-location: au.org.access-nri/model/spack/environment/deployment
           data-location: ${{ inputs.spack-manifest-path }}
 
+      - name: Get current (${{ inputs.deployment-ref }}) root spec version
+        id: current
+        uses: access-nri/build-cd/.github/actions/get-spack-root-spec@v4
+
+      - name: Checkout base (${{ inputs.prerelease-compare-ref }}) spack manifest
+        if: inputs.deployment-type != 'Release'
+        continue-on-error: true
+        id: checkout-base-spack
+        run: |
+          git checkout ${{ inputs.prerelease-compare-ref }}
+
+          if [ ! -f spack.yaml ]; then
+              echo "::notice::There is no previous version of the spack.yaml to check at ${{ inputs.prerelease-compare-ref }}, continuing..."
+              exit 1
+          fi
+
+      - name: Get base root spec version
+        id: base
+        if: inputs.deployment-type != 'Release' && steps.checkout-base-spack.outcome != 'failure'
+        uses: access-nri/build-cd/.github/actions/get-spack-root-spec@v4
+
       - name: Check Model Version Modified
         # We don't want to fire off model deployment version checks if the PR is never going to be merged.
         # We determine this by checking if either the pull request, or the pull request that a comment
         # belongs to, is drafted.
         # Yes, github.event.issue.draft refers to the pull request if the comment is made on a pull request!
         if: >-
-          inputs.deployment-type != 'Release' &&
+          inputs.deployment-type != 'Release' && steps.checkout-base-spack.outcome != 'failure' &&
           (github.event_name == 'pull_request' && !github.event.pull_request.draft) ||
           (github.event_name == 'issue_comment' && !github.event.issue.draft)
         id: version-modified
         run: |
-          git checkout ${{ inputs.prerelease-compare-ref }}
-
-          if [ ! -f spack.yaml ]; then
-              echo "::notice::There is no previous version of the spack.yaml to check at ${{ inputs.prerelease-compare-ref }}, continuing..."
-              git checkout ${{ inputs.deployment-ref }}
-              exit 0
-          fi
-
-          base_version=$(yq e '${{ env.SPACK_YAML_MODEL_YQ }}' spack.yaml)
-
-          git checkout ${{ inputs.deployment-ref }}
-          current_version=$(yq e '${{ env.SPACK_YAML_MODEL_YQ }}' spack.yaml)
-          echo "current=${current_version}" >> $GITHUB_OUTPUT
-
-          if [[ "${base_version}" == "${current_version}" ]]; then
+          if [[ "${{ steps.base.outputs.root-spec-ref }}" == "${{ steps.current.outputs.root-spec-ref }}" ]]; then
               echo "::warning::The version string hasn't been modified in this PR, but needs to be before merging."
               exit 1
           fi
@@ -230,8 +233,9 @@ jobs:
         #  modulefile access-om3/2023.12.12 (specifically, the version strings match)
         # TODO: Move this into the `scripts` directory - it's getting unweildly.
         run: |
-          FAILED="false"
+          git checkout ${{ inputs.deployment-ref }}
 
+          FAILED="false"
           # Get all the defined projections (minus 'all') and make them suitable for a bash for loop
           DEPS=$(yq '.spack.modules.default.tcl.projections | del(.all) | keys | join(" ")' spack.yaml)
 
@@ -241,7 +245,7 @@ jobs:
             if [[ "$DEP" == "${{ inputs.spack-manifest-root-sbd }}" ]]; then
               # The model version is the bit after '@git.', before any later, space-separated, optional variants.
               # For example, in 'MODEL@git.VERSION type=ACCESS ~debug' the version is 'VERSION'.
-              DEP_VER=$(yq '${{ env.SPACK_YAML_MODEL_YQ }} | capture(".+@git\\.(?<version>[^ ]+).*") | .version' spack.yaml)
+              DEP_VER=${{ steps.current.outputs.root-spec-ref }}
             else
               # Capture the section after '@git.' or '@' (if it's not a git-attributed version) and before a possible '=' for a given dependency.
               # Ex. '@git.2024.02.11' -> '2024.02.11', '@access-esm1.5' -> 'access-esm1.5', '@git.2024.05.21=access-esm1.5' -> '2024.05.21'
@@ -262,13 +266,6 @@ jobs:
           if [[ "$FAILED" == "true" ]]; then
             exit 1
           fi
-
-      - name: Generate Versions
-        id: version
-        # This step generates the release version number, if it wasn't already given.
-        # The release is a general version number from the spack.yaml, looking the
-        # same as a regular release build, without optional variants. Ex. 'access-om2@git.2024.01.1 ~debug' -> '2024.01.1'
-        run: echo "release=$(yq '${{ env.SPACK_YAML_MODEL_YQ }} | capture("@git\.(?<version>[^ ~+]+)") | .version' spack.yaml)" >> $GITHUB_OUTPUT
 
       - name: Set Spack Env Name String
         id: get-env-name
