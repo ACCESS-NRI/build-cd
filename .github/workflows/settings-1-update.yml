@@ -18,7 +18,7 @@ jobs:
     name: Setup Validate Deployment Settings
     runs-on: ubuntu-latest
     outputs:
-      targets: ${{ steps.target.outputs.matrix }}
+      targets: ${{ steps.target.outputs.targets }}
     steps:
       - name: Get deployment settings.json
         uses: actions/checkout@v4
