@@ -1,13 +1,13 @@
 name: Config Settings Update
 on:
   push:
-    branches:
-      - main
+    # Below condition is enforced by the `if` condition in 
+    # the `setup-settings-update` job:
+    # branches:
+    #   - $default_branch
     paths:
       - config/settings.*
   pull_request:
-    branches:
-      - main
     paths:
       - config/settings.*
 env:
@@ -68,7 +68,7 @@ jobs:
 
   setup-settings-update:
     name: Setup Update of Deployment Settings
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && github.ref_name == github.event.repository.default_branch
     needs:
       - settings-validation
     runs-on: ubuntu-latest
