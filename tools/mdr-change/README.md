@@ -55,15 +55,16 @@ Pull requests are annoying to create sometimes. But they're even more annoying w
 #### Inputs
 
 ```bash
-# Usage: ./mass-create-prs.bash <version> <body_file> <repos_dir>`
+# Usage: ./mass-create-prs.bash <version> '<pr_title>' <pr_body_file> <repos_dir>`
 # Example:
-./mass-create-prs.bash v5 ./templates/general.pull-request.md ../../..
+./mass-create-prs.bash v5 'Infrastructure Update: v5: New Feature' ./templates/general.pull-request.md ../../..
 ```
 
 Where:
 
 - `version` is the version of the `build-cd` infrastructure will be used in entrypoint workflows to `build-cd` in MDRs.
-- `body-file` is a path to a file containing a PR description suitable for use for all MDRs, based on `templates/general.pull-request.md`.
+- `pr_title` is a string that will be the title for all created PRs.
+- `pr_body_file` is a path to a file containing a PR description suitable for use for all MDRs, based on `templates/general.pull-request.md`.
 - `repos_dir` is a local directory that is the parent of all model deployment repositories referenced in the script. This is so we can make the changes needed for a PR to be opened.
 
 #### Outputs
