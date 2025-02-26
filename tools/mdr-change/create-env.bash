@@ -40,6 +40,7 @@ fi
 # Reviewers are CodeGat and aidanheerdegen
 if [[ "$environment_type" == "Release" ]]; then
   # Set branch protections
+  # https://docs.github.com/en/rest/deployments/environments?apiVersion=2022-11-28#create-or-update-an-environment
   gh api \
     --method PUT \
     -H "Accept: application/vnd.github+json" \
@@ -54,6 +55,7 @@ if [[ "$environment_type" == "Release" ]]; then
     -F "deployment_branch_policy[custom_branch_policies]=true"
 
   # Set custom branch policies
+  # https://docs.github.com/en/rest/deployments/branch-policies?apiVersion=2022-11-28#create-a-deployment-branch-policy
   gh api \
     --method POST \
     -H "Accept: application/vnd.github+json" \
