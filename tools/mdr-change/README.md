@@ -106,8 +106,6 @@ An updated variable/secret in the given environment across all MDRs.
 
 Sometimes repo-level `vars/secrets` (rather than environment-level, see [this section](#mass-createupdate-github-environment-variablessecrets-in-all-mdrs---mass-repo-env-changebash)) needs to be updated across all MDRs. This can be a bit annoying to do too, so there is a script to do it.
 
-Note that this cannot handle multiline values (such as SSH keys).
-
 > [!NOTE]
 > For info on what variables should be set, see [ACCESS-NRI/model-deployment-template](https://github.com/ACCESS-NRI/model-deployment-template).
 
