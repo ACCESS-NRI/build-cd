@@ -48,7 +48,6 @@ Pull requests are annoying to create sometimes. But they're even more annoying w
 
 #### Prerequisites
 
-- You have updated the `--title` arg in the script.
 - Optionally, you have added other changes to files needed in the script.
 - You have updated/created a new PR body based on `templates/general.pull-request.md`.
 
@@ -74,8 +73,6 @@ Draft pull requests in all MDRs.
 ### Mass-Create/Update GitHub Environment Variables/Secrets in ALL MDRs - `mass-repo-env-change.bash`
 
 Sometimes `vars/secrets` needs to be updated in a given environment across all MDRs. This can be a bit annoying to do, so there is a script to do it.
-
-Note that this cannot handle multiline values (such as SSH keys).
 
 > [!NOTE]
 > For info on what variables should be set, see [ACCESS-NRI/model-deployment-template](https://github.com/ACCESS-NRI/model-deployment-template).
