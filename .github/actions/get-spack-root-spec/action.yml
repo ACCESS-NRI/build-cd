@@ -65,9 +65,9 @@ runs:
 
         # Example of groups from the above:
         # name: anything before `@git.`. Ex: access-om2
-        # ref: anything after `@git.` but before an `=` (for =VERSION syntax) or before a space, `+` or `~` (for variants). Ex: 2025.01.0
+        # ref: anything after `@` or `@git.`; but before `=` (for =VERSION syntax) or ` `/`+`/`~` (for variants). Ex: 2025.01.0
         # version: anything after a `=`, but before a space, `+` or `~` (for variants). Ex: release
-        groups=$(yq '${{ steps.yq.outputs.filter }} | capture("(?<name>.+)@git\\.(?<ref>[^=+~ ]+)(?:=(?<version>[^~+ ]+))?.*")' ${{ inputs.spack-manifest-path }})
+        groups=$(yq '${{ steps.yq.outputs.filter }} | capture("(?<name>.+)@(?:git\\.)?(?<ref>[^=+~ ]+)(?:=(?<version>[^~+ ]+))?.*")' ${{ inputs.spack-manifest-path }})
 
         # Pull values from groups above
         name=$(yq '.name' <<< "$groups")
