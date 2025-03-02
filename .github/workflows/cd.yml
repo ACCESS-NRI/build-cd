@@ -104,6 +104,11 @@ jobs:
         env:
           TAG: ${{ steps.tag.outputs.root-spec-ref }}
         run: |
+          if [[ "${{ env.TAG }}" == "latest" ]]; then
+            echo "::error::The version 'latest' is reserved for a spack package that moves often and cannot be used as a release tag. Reset the 'main' or 'backport' branch, reopen the merged PR, and update the version."
+            exit 1
+          fi
+
           git tag ${{ env.TAG }} -m "Deployment of ${{ inputs.model }} ${{ env.TAG }} via build-cd 'cd.yml' workflow"
           git push --tags
 
