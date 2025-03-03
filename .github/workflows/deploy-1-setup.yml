@@ -183,6 +183,16 @@ jobs:
         id: current
         uses: access-nri/build-cd/.github/actions/get-spack-root-spec@v4
 
+      - name: Check '@latest' version usage
+        if: >-
+          (github.event_name == 'pull_request' && !github.event.pull_request.draft) || 
+          (github.event_name == 'issue_comment' && !github.event.issue.draft)
+        run: |
+          if [[ "${{ steps.current.outputs.root-spec-ref }}" == "latest" ]]; then
+              echo "::error::The '@latest' version string is not allowed in non-draft PRs. It is reserved for a spack package that moves often and cannot be used as a future release tag"
+              exit 1
+          fi
+
       - name: Checkout base (${{ inputs.prerelease-compare-ref }}) spack manifest
         if: inputs.deployment-type != 'Release'
         continue-on-error: true
