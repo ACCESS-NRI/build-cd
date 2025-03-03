@@ -68,9 +68,9 @@ runs:
         # ref: anything after `@` or `@git.`; but before `=` (for =VERSION syntax) or ` `/`+`/`~` (for variants). Ex: 2025.01.0
         # version: anything after a `=`, but before ` `/`+`/`~` (for variants). Ex: release
         
-        groups_regex="${{ steps.yq.outputs.filter }} | capture(\"(?<name>.+)@(?:git\\.)?(?<ref>[^=+~ ]+)(?:=(?<version>[^~+ ]+))?.*\")"
+        groups_regex='(?<name>.+)@(?:git\\.)?(?<ref>[^=+~ ]+)(?:=(?<version>[^~+ ]+))?.*'
 
-        groups=$(yq "$groups_regex" ${{ inputs.spack-manifest-path }})
+        groups=$(yq '${{ steps.yq.outputs.filter }} | capture("'"$groups_regex"'")' ${{ inputs.spack-manifest-path }})
 
         # Pull values from groups above
         name=$(yq '.name' <<< "$groups")
