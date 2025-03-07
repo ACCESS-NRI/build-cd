@@ -68,6 +68,11 @@ jobs:
         id: undeploy
         run: |
           ssh ${{ secrets.USER}}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
+
+          # Export vars.DEPLOYMENT_TARGET
+          export DEPLOYMENT_TARGET="${{ vars.DEPLOYMENT_TARGET }}"
+          echo "DEPLOYMENT_TARGET exported as $DEPLOYMENT_TARGET"
+
           . ${{ steps.path.outputs.spack-config }}/spack-enable.bash
           envs=$(find ${{ steps.path.outputs.spack }}/../environments -type d -name '${{ inputs.version-pattern }}' -printf '%f ')
 
