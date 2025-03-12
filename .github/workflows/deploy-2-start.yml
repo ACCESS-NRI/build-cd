@@ -220,9 +220,11 @@ jobs:
         env:
           # TODO: Can we put both envs above in a $GITHUB_ENV file instead?
           SPACK_ENV_PATH: ${{ steps.path.outputs.spack }}/../environments/${{ inputs.env-name }}
+        # Copy both the spack.* files and the build-db-pkgs.json file to the artifact
         run: |
           rsync -e 'ssh -i ${{ steps.ssh.outputs.private-key-path }}' \
-            '${{ secrets.USER}}@${{ secrets.HOST_DATA }}:${{ env.SPACK_ENV_PATH }}/spack.*' \
+            '${{ secrets.USER }}@${{ secrets.HOST_DATA }}:${{ env.SPACK_ENV_PATH }}/spack.*' \
+            '${{ secrets.USER }}@${{ secrets.HOST_DATA }}:${{ env.SPACK_ENV_PATH }}/build-db-pkgs.json' \
             ./${{ env.ARTIFACT_NAME }}
 
           # Rename the files to include the deployment environment
