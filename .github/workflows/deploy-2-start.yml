@@ -98,11 +98,14 @@ jobs:
             ${{ secrets.HOST_DATA }}
 
       - name: Prerelease spack.yaml Modifications
-        if: inputs.deployment-type == 'Prerelease'
         # Modifies the name of the prerelease modulefile to the
         # `pr<number>-<commit>` style. For example, `access-om3/pr12-2`.
         # Also removes the `@git.VERSION` specifier for Prereleases so
         # we don't have to shift tags around.
+        if: inputs.deployment-type == 'Prerelease' && inputs.root-sbd == steps.yq.outputs.root-spec-name
+        # If the expected inputs.root-sbd for the repository is the same as the one in the spack.yaml,
+        # we can safely remove the @git.VERSION specifier. Otherwise it could be because the Prerelease
+        # is being used to test something else.
         run: |
           yq -i '${{ steps.yq.outputs.yq-root-spec }} = "${{ inputs.root-sbd }}"' spack.yaml
           yq -i '${{ env.SPACK_YAML_MODULEFILE_PROJECTION_YQ }} = "{name}/${{ inputs.version }}"' spack.yaml
