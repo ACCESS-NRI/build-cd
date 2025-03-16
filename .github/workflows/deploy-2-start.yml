@@ -49,7 +49,6 @@ on:
           General pattern for the artifact that contains the deployment metadata files for this invocation of the job.
           These files are of the form deploy-metadata.{{inputs.deployment-target}}
 env:
-  SPACK_YAML_MODULEFILE_PROJECTION_YQ: .spack.modules.default.tcl.projections.${{ inputs.root-sbd }}
   METADATA_PATH: /opt/metadata
   ARTIFACT_NAME: deploy-metadata.${{ inputs.deployment-target }}
 jobs:
@@ -102,14 +101,19 @@ jobs:
         # `pr<number>-<commit>` style. For example, `access-om3/pr12-2`.
         # Also removes the `@git.VERSION` specifier for Prereleases so
         # we don't have to shift tags around.
-        if: inputs.deployment-type == 'Prerelease' && inputs.root-sbd == steps.yq.outputs.root-spec-name
+        if: inputs.deployment-type == 'Prerelease'
         # If the expected inputs.root-sbd for the repository is the same as the one in the spack.yaml,
         # we can safely remove the @git.VERSION specifier. Otherwise it could be because the Prerelease
         # is being used to test something else.
+        env:
+          SPACK_YAML_MODULEFILE_PROJECTION_YQ: .spack.modules.default.tcl.projections.${{ steps.yq.outputs.root-spec-name }}
         run: |
-          yq -i '${{ steps.yq.outputs.yq-root-spec }} = "${{ inputs.root-sbd }}"' spack.yaml
+          if [[ "${{ inputs.root-sbd }}" == "${{ steps.yq.outputs.root-spec-name }}" ]]; then
+            yq -i '${{ steps.yq.outputs.yq-root-spec }} = "${{ inputs.root-sbd }}"' spack.yaml
+          fi
+
           yq -i '${{ env.SPACK_YAML_MODULEFILE_PROJECTION_YQ }} = "{name}/${{ inputs.version }}"' spack.yaml
-          echo '::notice::Prerelease accessible as module `${{ inputs.model}}/${{ inputs.version }}`'
+          echo '::notice::Prerelease accessible as module `${{ steps.yq.outputs.root-spec-name }}/${{ inputs.version }}`'
 
       - name: Copy spack.yaml
         run: |
