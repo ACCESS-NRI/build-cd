@@ -3,10 +3,6 @@ concurrency: ${{ inputs.deployment-target }} ${{ inputs.deployment-type }}
 on:
   workflow_call:
     inputs:
-      model:
-        type: string
-        required: true
-        description: The model to deploy
       ref:
         type: string
         required: true
@@ -32,10 +28,12 @@ on:
           The type of deployment.
           Can be one of: Release, Prerelease.
           Combined with inputs.deployment-target to create the GitHub Environment name.
-      root-sbd:
+      expected-root-spec-name:
         type: string
         required: true
-        description: The root SBD that is being used as the modulefile name
+        description: |
+          The expected root spec name that is defined at the repository level.
+          May be different from the actual root spec name in the spack manifest.
     outputs:
       modules-location:
         value: ${{ jobs.deploy-to-environment.outputs.modules-location }}
@@ -82,8 +80,8 @@ jobs:
           spack-version: ${{ steps.versions.outputs.spack }}
           deployment-environment: ${{ inputs.deployment-target }} ${{ inputs.deployment-type }}
 
-      - name: Get yq filters
-        id: yq
+      - name: Get manifest info
+        id: manifest
         # FIXME: We should pass through inputs.spack-manifest-path here (and below raw spack.yaml) - see ACCESS-NRI/build-cd#225
         uses: access-nri/build-cd/.github/actions/get-spack-root-spec@v4
 
@@ -102,24 +100,24 @@ jobs:
         # Also removes the `@git.VERSION` specifier for Prereleases so
         # we don't have to shift tags around.
         if: inputs.deployment-type == 'Prerelease'
-        # If the expected inputs.root-sbd for the repository is the same as the one in the spack.yaml,
+        # If the inputs.expected-root-spec-name for the repository is the same as the one in the spack.yaml,
         # we can safely remove the @git.VERSION specifier. Otherwise it could be because the Prerelease
         # is being used to test something else.
         env:
-          SPACK_YAML_MODULEFILE_PROJECTION_YQ: .spack.modules.default.tcl.projections.${{ steps.yq.outputs.root-spec-name }}
+          SPACK_YAML_MODULEFILE_PROJECTION_YQ: .spack.modules.default.tcl.projections.${{ steps.manifest.outputs.root-spec-name }}
         run: |
-          if [[ "${{ inputs.root-sbd }}" == "${{ steps.yq.outputs.root-spec-name }}" ]]; then
-            yq -i '${{ steps.yq.outputs.yq-root-spec }} = "${{ inputs.root-sbd }}"' spack.yaml
+          if [[ "${{ inputs.expected-root-spec-name }}" == "${{ steps.manifest.outputs.root-spec-name }}" ]]; then
+            yq -i '${{ steps.manifest.outputs.yq-root-spec }} = "${{ inputs.expected-root-spec-name }}"' spack.yaml
           fi
 
           yq -i '${{ env.SPACK_YAML_MODULEFILE_PROJECTION_YQ }} = "{name}/${{ inputs.version }}"' spack.yaml
-          echo '::notice::Prerelease accessible as module `${{ steps.yq.outputs.root-spec-name }}/${{ inputs.version }}`'
+          echo '::notice::Prerelease accessible as module `${{ steps.manifest.outputs.root-spec-name }}/${{ inputs.version }}`'
 
       - name: Copy spack.yaml
         run: |
           rsync -e 'ssh -i ${{ steps.ssh.outputs.private-key-path }}' \
             spack.yaml \
-            ${{ secrets.USER }}@${{ secrets.HOST_DATA }}:${{ vars.SPACK_YAML_LOCATION }}/${{ inputs.model }}.spack.yaml
+            ${{ secrets.USER }}@${{ secrets.HOST_DATA }}:${{ vars.SPACK_YAML_LOCATION }}/${{ inputs.expected-root-spec-name }}.spack.yaml
 
       - name: Fetch git sources for packages to build
         # Workaround for ACCESS-NRI/spack#2.
@@ -162,7 +160,7 @@ jobs:
           . ${{ steps.path.outputs.spack-config }}/spack-enable.bash
 
           # Create environment and build model
-          spack env create ${{ inputs.env-name }} ${{ vars.SPACK_YAML_LOCATION }}/${{ inputs.model }}.spack.yaml
+          spack env create ${{ inputs.env-name }} ${{ vars.SPACK_YAML_LOCATION }}/${{ inputs.expected-root-spec-name }}.spack.yaml
           spack env activate ${{ inputs.env-name }}
           spack --debug install --fresh ${{ vars.SPACK_INSTALL_PARALLEL_JOBS }} || exit $?
           spack module tcl refresh -y
