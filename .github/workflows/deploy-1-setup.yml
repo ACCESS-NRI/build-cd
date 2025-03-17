@@ -40,12 +40,12 @@ on:
         description: |
           Relative path in the Model Deployment Repository that contains the spack manifest file.
           Usually a spack.yaml file.
-      spack-manifest-root-sbd:
+      expected-root-spec-name:
         type: string
         required: true
         description: |
-          Within the spack manifest, the overarching spack bundle that contains all other packages.
-          Usually the first entry in the .spack.specs section of the manifest.
+          The expected overarching spack bundle that contains all other packages, set in the caller repository.
+          Usually .spack.specs[0] or .spack.definitions.ROOT_PACKAGE in the manifest, but draft PRs can override this.
     outputs:
       general-metadata-artifact-glob:
         value: ${{ jobs.deployment.outputs.general-metadata-artifact-glob }}
@@ -186,13 +186,18 @@ jobs:
         id: current
         uses: access-nri/build-cd/.github/actions/get-spack-root-spec@v4
 
-      - name: Check '@latest' version usage
+      - name: Check root spec usage
         if: >-
           (github.event_name == 'pull_request' && !github.event.pull_request.draft) ||
           (github.event_name == 'issue_comment' && !github.event.issue.draft)
         run: |
           if [[ "${{ steps.current.outputs.root-spec-ref }}" == "latest" ]]; then
               echo "::error::The '@latest' version string is not allowed in non-draft PRs. It is reserved for a spack package that moves often and cannot be used as a future release tag"
+              exit 1
+          fi
+
+          if [[ "${{ inputs.expected-root-spec-name }}" != "${{ steps.current.outputs.root-spec-name }}" ]]; then
+              echo "::error::The root spec in the spack manifest (${{ steps.current.outputs.root-spec-name }}) cannot be different from the expected root spec (${{ inputs.expected-root-spec-name }}) in non-Draft PRs."
               exit 1
           fi
 
@@ -290,7 +295,7 @@ jobs:
       - name: Set Spack Env Name String
         id: get-env-name
         # replace occurences of '.' with '_' in environment name as spack doesn't support '.'. Ex: 'access-om2-v1.0.0' -> 'access-om2-v1_0_0'.
-        run: echo "env-name=$(echo '${{ inputs.spack-manifest-root-sbd }}-${{ inputs.deployment-version }}' | tr '.' '_')" >> $GITHUB_OUTPUT
+        run: echo "env-name=$(echo '${{ inputs.expected-root-spec-name }}-${{ inputs.deployment-version }}' | tr '.' '_')" >> $GITHUB_OUTPUT
 
   deployment:
     name: ${{ inputs.deployment-target }}
@@ -299,13 +304,12 @@ jobs:
       - check-spack-yaml  # Verify spack manifest information is correct
     uses: access-nri/build-cd/.github/workflows/deploy-2-start.yml@v4
     with:
-      model: ${{ inputs.spack-manifest-root-sbd }}
       ref: ${{ inputs.deployment-ref }}
       version: ${{ inputs.deployment-version }}
       env-name: ${{ needs.check-spack-yaml.outputs.spack-env-name }}
       deployment-target: ${{ inputs.deployment-target }}
       deployment-type: ${{ inputs.deployment-type }}
-      root-sbd: ${{ inputs.spack-manifest-root-sbd }}
+      expected-root-spec-name: ${{ inputs.expected-root-spec-name }}
     secrets: inherit
 
   outputs-upload:

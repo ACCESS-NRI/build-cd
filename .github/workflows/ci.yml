@@ -200,7 +200,7 @@ jobs:
       deployment-version: ${{ needs.defaults.outputs.prerelease-version }}
       prerelease-compare-ref: ${{ needs.defaults.outputs.base-ref }}
       spack-manifest-path: ./spack.yaml
-      spack-manifest-root-sbd: ${{ needs.defaults.outputs.root-sbd }}
+      expected-root-spec-name: ${{ needs.defaults.outputs.root-sbd }}
     secrets: inherit
 
   redeploy-post:
