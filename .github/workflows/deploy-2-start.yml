@@ -116,7 +116,7 @@ jobs:
         run: |
           rsync -e 'ssh -i ${{ steps.ssh.outputs.private-key-path }}' \
             spack.yaml \
-            ${{ secrets.USER }}@${{ secrets.HOST_DATA }}:${{ vars.SPACK_YAML_LOCATION }}/${{ inputs.expected-root-spec-name }}.spack.yaml
+            ${{ secrets.USER }}@${{ secrets.HOST_DATA }}:${{ vars.SPACK_YAML_LOCATION }}/${{ inputs.expected-root-spec-name }}-${{ github.run_id }}.spack.yaml
 
       - name: Fetch git sources for packages to build
         # Workaround for ACCESS-NRI/spack#2.
@@ -159,7 +159,7 @@ jobs:
           . ${{ steps.path.outputs.spack-config }}/spack-enable.bash
 
           # Create environment and build model
-          spack env create ${{ inputs.env-name }} ${{ vars.SPACK_YAML_LOCATION }}/${{ inputs.expected-root-spec-name }}.spack.yaml
+          spack env create ${{ inputs.env-name }} ${{ vars.SPACK_YAML_LOCATION }}/${{ inputs.expected-root-spec-name }}-${{ github.run_id }}.spack.yaml
           spack env activate ${{ inputs.env-name }}
           spack --debug install --fresh ${{ vars.SPACK_INSTALL_PARALLEL_JOBS }} || exit $?
           spack module tcl refresh -y
