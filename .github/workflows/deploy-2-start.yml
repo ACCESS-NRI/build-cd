@@ -1,5 +1,4 @@
 name: Deploy Start
-concurrency: ${{ inputs.deployment-target }} ${{ inputs.deployment-type }}
 on:
   workflow_call:
     inputs:
