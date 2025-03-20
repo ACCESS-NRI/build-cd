@@ -99,6 +99,7 @@ jobs:
         # `pr<number>-<commit>` style. For example, `access-om3/pr12-2`.
         # Also removes the `@git.VERSION` specifier for Prereleases so
         # we don't have to shift tags around.
+        # Also adds a repos section that points to the PRs specific spack-packages repo.
         if: inputs.deployment-type == 'Prerelease'
         # If the inputs.expected-root-spec-name for the repository is the same as the one in the spack.yaml,
         # we can safely remove the @git.VERSION specifier. Otherwise it could be because the Prerelease
@@ -111,6 +112,13 @@ jobs:
           fi
 
           yq -i '${{ env.SPACK_YAML_MODULEFILE_PROJECTION_YQ }} = "{name}/${{ inputs.version }}"' spack.yaml
+
+          # Add the specific prerelease spack-packages repo to the environment
+          # We can't use yq as we are using a non-standard spack-specific '::' construct to ignore higher config scopes
+          echo '  repos::' >> spack.yaml
+          echo '  - ${{ steps.path.outputs.spack-packages }}' >> spack.yaml
+          echo '  - $spack/var/spack/repos/builtin' >> spack.yaml
+
           echo '::notice::Prerelease accessible as module `${{ steps.manifest.outputs.root-spec-name }}/${{ inputs.version }}`'
 
       - name: Copy spack.yaml
