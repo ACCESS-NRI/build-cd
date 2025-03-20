@@ -16,8 +16,13 @@ inputs:
   deployment-environment:
     type: string
     required: true
-    # Used for logging, essentially
     description: Name of the GitHub deployment target environment
+  spack-environment:
+    type: string
+    required: true
+    description: |
+      Spack environment name that is used for this deployment.
+      Used to construct Prerelease spack-packages path, which is demarcated by the environment name.
 outputs:
   root:
     description: |
@@ -30,23 +35,50 @@ outputs:
   spack-config:
     description: Path to the ACCESS-NRI/spack-config repository associated with the install of spack.
     value: ${{ steps.path.outputs.spack-config }}
+  spack-packages-root:
+    description: |
+      Path to the folder containing all ACCESS-NRI/spack-packages repositories used in the install of spack.
+      For Release inputs.deployment-environment, this is the repository itself.
+      For Prerelease inputs.deployment-environment, this is the folder containing multiple spack-packages repositories.
+    value: ${{ steps.path.outputs.spack-packages-root }}
   spack-packages:
-    description: Path to the ACCESS-NRI/spack-packages repository associated with the install of spack.
+    description: Path to the ACCESS-NRI/spack-packages repository associated with the environment created in the install of spack.
     value: ${{ steps.path.outputs.spack-packages }}
 runs:
   using: composite
   steps:
-    - name: Get ${{ inputs.deployment-environment }} Remote Paths
-      id: path
+    - name: Validate Inputs
+      id: valid
       shell: bash
+      env:
+        ACCEPTABLE_DEPLOYMENT_ENVIRONMENT_TARGETS: Release Prerelease
       run: |
+        # Check that the inputs.spack-installs-root-path exists - it's usually a var
         if [ -z "${{ inputs.spack-installs-root-path }}" ]; then
           echo '::error::`spack-installs-root-path` does not exist in `${{ github.repository }}`s `${{ inputs.deployment-environment }}` environment. Check Environment vars.'
           exit 1
         fi
 
+        # We want the type of deployment environment, which is the last word in the string.
+        type=$(echo "${{ inputs.deployment-environment }}" | rev | cut -d ' ' -f 1 | rev)
+        if [[ ! "${{ env.ACCEPTABLE_DEPLOYMENT_ENVIRONMENT_TARGETS}}" =~ "$type" ]]; then
+          echo "::error::inputs.deployment-environment must be one of ${{ env.ACCEPTABLE_ENVIRONMENT_TARGETS }}."
+          exit 1
+        fi
+        echo "type=$type" >> $GITHUB_OUTPUT
+
+    - name: Get ${{ inputs.deployment-environment }} Remote Paths
+      id: path
+      shell: bash
+      run: |
         root=${{ inputs.spack-installs-root-path }}/${{ inputs.spack-version }}
         echo "root=$root" >> $GITHUB_OUTPUT
         echo "spack=$root/spack" >> $GITHUB_OUTPUT
         echo "spack-config=$root/spack-config" >> $GITHUB_OUTPUT
-        echo "spack-packages=$root/spack-packages" >> $GITHUB_OUTPUT
+        echo "spack-packages-root=$root/spack-packages" >> $GITHUB_OUTPUT
+
+        if [[ "${{ steps.valid.outputs.type }}" == "Release" ]]; then
+          echo "spack-packages=$root/spack-packages" >> $GITHUB_OUTPUT
+        elif [[ "${{ steps.valid.outputs.type }}" == "Prerelease" ]]; then
+          echo "spack-packages=$root/spack-packages/${{ inputs.spack-environment }}/spack-packages" >> $GITHUB_OUTPUT
+        fi
