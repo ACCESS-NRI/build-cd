@@ -175,7 +175,8 @@ jobs:
       - name: Validate ACCESS-NRI spack.yaml Restrictions
         if: >-
           (github.event_name == 'pull_request' && !github.event.pull_request.draft) ||
-          (github.event_name == 'issue_comment' && !github.event.issue.draft)
+          (github.event_name == 'issue_comment' && !github.event.issue.draft_) ||
+          (github.event_name == 'push')
         uses: access-nri/schema/.github/actions/validate-with-schema@main
         with:
           schema-version: ${{ vars.SPACK_YAML_SCHEMA_VERSION }}
@@ -189,7 +190,8 @@ jobs:
       - name: Check root spec usage
         if: >-
           (github.event_name == 'pull_request' && !github.event.pull_request.draft) ||
-          (github.event_name == 'issue_comment' && !github.event.issue.draft)
+          (github.event_name == 'issue_comment' && !github.event.issue.draft) ||
+          (github.event_name == 'push')
         run: |
           if [[ "${{ steps.current.outputs.root-spec-ref }}" == "latest" ]]; then
               echo "::error::The '@latest' version string is not allowed in non-draft PRs. It is reserved for a spack package that moves often and cannot be used as a future release tag"
@@ -268,9 +270,9 @@ jobs:
         id: projection-check-packages
         continue-on-error: true
         if: >-
-          (github.event_name == 'push') ||
           (github.event_name == 'pull_request' && !github.event.pull_request.draft) ||
-          (github.event_name == 'issue_comment' && !github.event.issue.draft)
+          (github.event_name == 'issue_comment' && !github.event.issue.draft) ||
+          (github.event_name == 'push')
         run: |
           FAILED="false"
           # Get all the defined projections (minus 'all' and the root spec) and make them suitable for a bash for loop
