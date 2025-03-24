@@ -53,6 +53,7 @@ jobs:
           spack-installs-root-path: ${{ vars.SPACK_INSTALLS_ROOT_LOCATION }}
           spack-version: ${{ steps.versions.outputs.spack }}
           deployment-environment: ${{ inputs.target }} ${{ inputs.type }}
+          spack-environment: ${{ inputs.version-pattern }}
 
       - name: Setup SSH
         id: ssh
@@ -63,9 +64,18 @@ jobs:
             ${{ secrets.HOST }}
             ${{ secrets.HOST_DATA }}
 
-      - name: Undeploy
+      - name: Undeploy spack-packages
+        # ssh into deployment environment, remove all the unneeded spack-packages installations
+        run: |
+          ssh ${{ secrets.USER}}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
+          find "${{ steps.path.outputs.spack-packages-root }}" \
+            -mindepth 1 -maxdepth 1 \
+            -type d -name "${{ inputs.version-pattern }}" \
+            -exec rm -rfv {} +
+          EOT
+
+      - name: Undeploy Environment
         # ssh into deployment environment, create and activate the env, remove all the unneeded environments
-        id: undeploy
         run: |
           ssh ${{ secrets.USER}}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
 
@@ -86,10 +96,5 @@ jobs:
           EOT
 
       - name: Undeploy Status Notifier
-        if: always()
-        run: |
-          if [[ "${{ steps.undeploy.outcome }}" == "success" ]]; then
-            echo "::notice::Deployment ${{ inputs.version-pattern }} was successfully removed from ${{ inputs.target }} ${{ inputs.type }}, found at ${{ steps.path.outputs.spack }}"
-          else
-            echo "::error::Deployment ${{ inputs.version-pattern }} couldn't be removed from ${{ inputs.target }} ${{ inputs.type }}, found at ${{ steps.path.outputs.spack }}. Please check manually."
-          fi
+        if: failure()
+        run: echo '::error::Deployment ${{ inputs.version-pattern }} could not be removed from ${{ inputs.target }} ${{ inputs.type }}, found at ${{ steps.path.outputs.spack }}. Please check manually.'

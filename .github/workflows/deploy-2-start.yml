@@ -78,6 +78,7 @@ jobs:
           spack-installs-root-path: ${{ vars.SPACK_INSTALLS_ROOT_LOCATION }}
           spack-version: ${{ steps.versions.outputs.spack }}
           deployment-environment: ${{ inputs.deployment-target }} ${{ inputs.deployment-type }}
+          spack-environment: ${{ inputs.env-name }}
 
       - name: Get manifest info
         id: manifest
@@ -98,6 +99,7 @@ jobs:
         # `pr<number>-<commit>` style. For example, `access-om3/pr12-2`.
         # Also removes the `@git.VERSION` specifier for Prereleases so
         # we don't have to shift tags around.
+        # Also adds a repos section that points to the PRs specific spack-packages repo.
         if: inputs.deployment-type == 'Prerelease'
         # If the inputs.expected-root-spec-name for the repository is the same as the one in the spack.yaml,
         # we can safely remove the @git.VERSION specifier. Otherwise it could be because the Prerelease
@@ -110,7 +112,16 @@ jobs:
           fi
 
           yq -i '${{ env.SPACK_YAML_MODULEFILE_PROJECTION_YQ }} = "{name}/${{ inputs.version }}"' spack.yaml
-          echo '::notice::Prerelease accessible as module `${{ steps.manifest.outputs.root-spec-name }}/${{ inputs.version }}`'
+
+          # Add the specific prerelease spack-packages repo to the environment
+          # We can't use yq as we are using a non-standard spack-specific '::' construct to ignore higher config scopes
+          cat << 'EOF' >> spack.yaml
+            repos::
+                - ${{ steps.path.outputs.spack-packages }}
+                - $spack/var/spack/repos/builtin
+          EOF
+
+          echo '::notice::Prerelease accessible as module ${{ steps.manifest.outputs.root-spec-name }}/${{ inputs.version }}'
 
       - name: Copy spack.yaml
         run: |
@@ -136,24 +147,48 @@ jobs:
           done
           EOT
 
+      - name: Update spack-packages repository
+        run: |
+          ssh ${{ secrets.USER}}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
+          # Check that a suitable spack-packages location exists
+          if [ ! -d '${{ steps.path.outputs.spack-packages-root }}' ]; then
+            echo '::error::spack-packages does not exist in ${{ steps.path.outputs.root }} for ${{ inputs.deployment-target }} ${{ inputs.deployment-type}}'
+            exit 1
+          fi
+
+          # In the case of a Prerelease, we need to create a new instance of spack-packages per commit, so there is no concurrent access problems.
+          if [ ! -d '${{ steps.path.outputs.spack-packages }}' ]; then
+            echo 'Creating spack-packages instance for ${{ inputs.env-name }} under ${{ steps.path.outputs.spack-packages }}'
+            mkdir -p ${{ steps.path.outputs.spack-packages }}
+            git clone https://github.com/ACCESS-NRI/spack-packages.git '${{ steps.path.outputs.spack-packages }}'
+          fi
+
+          cd ${{ steps.path.outputs.spack-packages }} || exit 1
+
+          git fetch --all --tags
+
+          if git ls-remote --exit-code --heads origin ${{ steps.versions.outputs.packages }}; then  # If the ref is a branch
+            echo "Checking out the branch at the latest commit"
+            git checkout -B ${{ steps.versions.outputs.packages }} origin/${{ steps.versions.outputs.packages }}
+          else  # checkout the tag/commit
+            echo "Checking out the tag/commit"
+            git checkout ${{ steps.versions.outputs.packages }}
+          fi
+          EOT
+
       - name: Deploy to ${{ inputs.deployment-target }} ${{ inputs.deployment-type }}
         # ssh into deployment environment, create and activate the env, install the spack.yaml.
         run: |
           ssh ${{ secrets.USER}}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
           # Check that a suitable deployment location exists
           if [ ! -d "${{ steps.path.outputs.root }}" ]; then
-            echo '::error::A deployment of spack does not exist in `${{ steps.path.outputs.root }}` for `${{ inputs.deployment-target }} ${{ inputs.deployment-type}}`'
+            echo '::error::A deployment of spack does not exist in ${{ steps.path.outputs.root }} for ${{ inputs.deployment-target }} ${{ inputs.deployment-type}}'
             exit 1
           fi
 
           # Export vars.DEPLOYMENT_TARGET
           export DEPLOYMENT_TARGET="${{ vars.DEPLOYMENT_TARGET }}"
           echo "DEPLOYMENT_TARGET exported as $DEPLOYMENT_TARGET"
-
-          # Update spack-packages
-          git -C ${{ steps.path.outputs.spack-packages }} fetch
-          git -C ${{ steps.path.outputs.spack-packages }} checkout --force ${{ steps.versions.outputs.packages }}
-          git -C ${{ steps.path.outputs.spack-packages }} reset --hard origin/${{ steps.versions.outputs.packages }}
 
           # Enable spack
           . ${{ steps.path.outputs.spack-config }}/spack-enable.bash
