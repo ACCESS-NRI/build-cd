@@ -121,7 +121,7 @@ jobs:
                 - $spack/var/spack/repos/builtin
           EOF
 
-          echo '::notice::Prerelease accessible as module `${{ steps.manifest.outputs.root-spec-name }}/${{ inputs.version }}`'
+          echo '::notice::Prerelease accessible as module ${{ steps.manifest.outputs.root-spec-name }}/${{ inputs.version }}'
 
       - name: Copy spack.yaml
         run: |
@@ -152,7 +152,7 @@ jobs:
           ssh ${{ secrets.USER}}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
           # Check that a suitable spack-packages location exists
           if [ ! -d '${{ steps.path.outputs.spack-packages-root }}' ]; then
-            echo '::error::spack-packages does not exist in `${{ steps.path.outputs.root }}` for `${{ inputs.deployment-target }} ${{ inputs.deployment-type}}`'
+            echo '::error::spack-packages does not exist in ${{ steps.path.outputs.root }} for ${{ inputs.deployment-target }} ${{ inputs.deployment-type}}'
             exit 1
           fi
 
@@ -182,7 +182,7 @@ jobs:
           ssh ${{ secrets.USER}}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
           # Check that a suitable deployment location exists
           if [ ! -d "${{ steps.path.outputs.root }}" ]; then
-            echo '::error::A deployment of spack does not exist in `${{ steps.path.outputs.root }}` for `${{ inputs.deployment-target }} ${{ inputs.deployment-type}}`'
+            echo '::error::A deployment of spack does not exist in ${{ steps.path.outputs.root }} for ${{ inputs.deployment-target }} ${{ inputs.deployment-type}}'
             exit 1
           fi
 
