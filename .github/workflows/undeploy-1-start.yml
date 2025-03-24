@@ -97,4 +97,4 @@ jobs:
 
       - name: Undeploy Status Notifier
         if: failure()
-        run: echo "::error::Deployment ${{ inputs.version-pattern }} couldn't be removed from ${{ inputs.target }} ${{ inputs.type }}, found at ${{ steps.path.outputs.spack }}. Please check manually."
+        run: echo '::error::Deployment ${{ inputs.version-pattern }} could not be removed from ${{ inputs.target }} ${{ inputs.type }}, found at ${{ steps.path.outputs.spack }}. Please check manually.'
