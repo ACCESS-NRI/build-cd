@@ -115,9 +115,11 @@ jobs:
 
           # Add the specific prerelease spack-packages repo to the environment
           # We can't use yq as we are using a non-standard spack-specific '::' construct to ignore higher config scopes
-          echo '  repos::' >> spack.yaml
-          echo '  - ${{ steps.path.outputs.spack-packages }}' >> spack.yaml
-          echo '  - $spack/var/spack/repos/builtin' >> spack.yaml
+          cat << 'EOF' >> spack.yaml
+            repos::
+                - ${{ steps.path.outputs.spack-packages }}
+                - $spack/var/spack/repos/builtin
+          EOF
 
           echo '::notice::Prerelease accessible as module `${{ steps.manifest.outputs.root-spec-name }}/${{ inputs.version }}`'
 
