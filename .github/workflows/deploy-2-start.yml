@@ -161,12 +161,15 @@ jobs:
             git clone https://github.com/ACCESS-NRI/spack-packages.git "${{ steps.path.outputs.spack-packages }}"
           fi
 
-          git -C ${{ steps.path.outputs.spack-packages }} fetch --all --tags
+          cd ${{ steps.path.outputs.spack-packages }} || exit 1
+
+          git fetch --all --tags
 
           if git ls-remote --exit-code --heads origin ${{ steps.versions.outputs.packages }}; then  # If the ref is a branch
-            # Checkout the branch at the latest commit
+            echo "Checking out the branch at the latest commit"
             git checkout -B ${{ steps.versions.outputs.packages }} origin/${{ steps.versions.outputs.packages }}
           else  # checkout the tag/commit
+            echo "Checking out the tag/commit"
             git checkout ${{ steps.versions.outputs.packages }}
           fi
           EOT
