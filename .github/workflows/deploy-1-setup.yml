@@ -263,7 +263,7 @@ jobs:
         #  modulefile mom5/2023.12.12 (specifically, the version strings match)
         id: projection-check-packages
         continue-on-error: true
-        if: env.IS_NOT_DRAFT == 'true '|| inputs.deployment-type == 'Release'
+        if: env.IS_NOT_DRAFT == 'true' || inputs.deployment-type == 'Release'
         run: |
           FAILED="false"
           # Get all the defined projections (minus 'all' and the root spec) and make them suitable for a bash for loop
