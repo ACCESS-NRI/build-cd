@@ -54,15 +54,15 @@ runs:
         ACCEPTABLE_DEPLOYMENT_ENVIRONMENT_TARGETS: Release Prerelease
       run: |
         # Check that the inputs.spack-installs-root-path exists - it's usually a var
-        if [ -z "${{ inputs.spack-installs-root-path }}" ]; then
+        if [ -z '${{ inputs.spack-installs-root-path }}' ]; then
           echo '::error::`spack-installs-root-path` does not exist in `${{ github.repository }}`s `${{ inputs.deployment-environment }}` environment. Check Environment vars.'
           exit 1
         fi
 
         # We want the type of deployment environment, which is the last word in the string.
-        type=$(echo "${{ inputs.deployment-environment }}" | rev | cut -d ' ' -f 1 | rev)
-        if [[ ! "${{ env.ACCEPTABLE_DEPLOYMENT_ENVIRONMENT_TARGETS}}" =~ "$type" ]]; then
-          echo "::error::inputs.deployment-environment must be one of ${{ env.ACCEPTABLE_ENVIRONMENT_TARGETS }}."
+        type=$(echo '${{ inputs.deployment-environment }}' | rev | cut -d ' ' -f 1 | rev)
+        if [[ ! '${{ env.ACCEPTABLE_DEPLOYMENT_ENVIRONMENT_TARGETS}}' =~ "$type" ]]; then
+          echo '::error::inputs.deployment-environment must be one of ${{ env.ACCEPTABLE_ENVIRONMENT_TARGETS }}.'
           exit 1
         fi
         echo "type=$type" >> $GITHUB_OUTPUT
@@ -77,8 +77,8 @@ runs:
         echo "spack-config=$root/spack-config" >> $GITHUB_OUTPUT
         echo "spack-packages-root=$root/spack-packages" >> $GITHUB_OUTPUT
 
-        if [[ "${{ steps.valid.outputs.type }}" == "Release" ]]; then
+        if [[ '${{ steps.valid.outputs.type }}' == Release ]]; then
           echo "spack-packages=$root/spack-packages" >> $GITHUB_OUTPUT
-        elif [[ "${{ steps.valid.outputs.type }}" == "Prerelease" ]]; then
+        elif [[ '${{ steps.valid.outputs.type }}' == Prerelease ]]; then
           echo "spack-packages=$root/spack-packages/${{ inputs.spack-environment }}/spack-packages" >> $GITHUB_OUTPUT
         fi

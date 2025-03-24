@@ -67,7 +67,7 @@ jobs:
       - name: Undeploy spack-packages
         # ssh into deployment environment, remove all the unneeded spack-packages installations
         run: |
-          ssh ${{ secrets.USER}}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<EOT
+          ssh ${{ secrets.USER}}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
           find "${{ steps.path.outputs.spack-packages-root }}" \
             -mindepth 1 -maxdepth 1 \
             -type d -name "${{ inputs.version-pattern }}" \

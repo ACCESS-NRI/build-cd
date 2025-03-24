@@ -149,16 +149,16 @@ jobs:
         run: |
           ssh ${{ secrets.USER}}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
           # Check that a suitable spack-packages location exists
-          if [ ! -d "${{ steps.path.outputs.spack-packages-root }}" ]; then
+          if [ ! -d '${{ steps.path.outputs.spack-packages-root }}' ]; then
             echo '::error::spack-packages does not exist in `${{ steps.path.outputs.root }}` for `${{ inputs.deployment-target }} ${{ inputs.deployment-type}}`'
             exit 1
           fi
 
           # In the case of a Prerelease, we need to create a new instance of spack-packages per commit, so there is no concurrent access problems.
-          if [ ! -d "${{ steps.path.outputs.spack-packages }}" ]; then
-            echo "Creating spack-packages instance for ${{ inputs.env-name }} under ${{ steps.path.outputs.spack-packages }}"
+          if [ ! -d '${{ steps.path.outputs.spack-packages }}' ]; then
+            echo 'Creating spack-packages instance for ${{ inputs.env-name }} under ${{ steps.path.outputs.spack-packages }}'
             mkdir -p ${{ steps.path.outputs.spack-packages }}
-            git clone https://github.com/ACCESS-NRI/spack-packages.git "${{ steps.path.outputs.spack-packages }}"
+            git clone https://github.com/ACCESS-NRI/spack-packages.git '${{ steps.path.outputs.spack-packages }}'
           fi
 
           cd ${{ steps.path.outputs.spack-packages }} || exit 1
