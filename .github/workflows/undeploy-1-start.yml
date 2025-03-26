@@ -64,16 +64,6 @@ jobs:
             ${{ secrets.HOST }}
             ${{ secrets.HOST_DATA }}
 
-      - name: Undeploy spack-packages
-        # ssh into deployment environment, remove all the unneeded spack-packages installations
-        run: |
-          ssh ${{ secrets.USER}}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
-          find "${{ steps.path.outputs.spack-packages-root }}" \
-            -mindepth 1 -maxdepth 1 \
-            -type d -name "${{ inputs.version-pattern }}" \
-            -exec rm -rfv {} +
-          EOT
-
       - name: Undeploy Environment
         # ssh into deployment environment, create and activate the env, remove all the unneeded environments
         run: |
@@ -93,6 +83,16 @@ jobs:
             spack env rm $env --yes-to-all
           done
           spack gc --yes-to-all
+          EOT
+
+      - name: Undeploy spack-packages
+        # ssh into deployment environment, remove all the unneeded spack-packages installations
+        run: |
+          ssh ${{ secrets.USER}}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
+          find "${{ steps.path.outputs.spack-packages-root }}" \
+            -mindepth 1 -maxdepth 1 \
+            -type d -name "${{ inputs.version-pattern }}" \
+            -exec rm -rfv {} +
           EOT
 
       - name: Undeploy Status Notifier
