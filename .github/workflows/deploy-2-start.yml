@@ -106,9 +106,10 @@ jobs:
         # is being used to test something else.
         env:
           SPACK_YAML_MODULEFILE_PROJECTION_YQ: .spack.modules.default.tcl.projections.${{ steps.manifest.outputs.root-spec-name }}
+          OPTIONAL_VARIANTS: ${{ steps.manifest.outputs.root-spec-variants != 'null' && steps.manifest.outputs.root-spec-variants || '' }}
         run: |
           if [[ "${{ inputs.expected-root-spec-name }}" == "${{ steps.manifest.outputs.root-spec-name }}" ]]; then
-            yq -i '${{ steps.manifest.outputs.yq-root-spec }} = "${{ inputs.expected-root-spec-name }} ${{ steps.manifest.outputs.root-spec-variants }}"' spack.yaml
+            yq -i '${{ steps.manifest.outputs.yq-root-spec }} = "${{ inputs.expected-root-spec-name }} ${{ env.OPTIONAL_VARIANTS }}"' spack.yaml
           fi
 
           yq -i '${{ env.SPACK_YAML_MODULEFILE_PROJECTION_YQ }} = "{name}/${{ inputs.version }}"' spack.yaml
