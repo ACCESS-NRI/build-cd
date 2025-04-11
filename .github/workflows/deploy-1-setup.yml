@@ -213,6 +213,13 @@ jobs:
               exit 1
           fi
 
+          # If the first commit in the repository is the template, there won't be anything defined in the speclist
+          # So we should skip checking the version!
+          if ! yq --exit-status '.spack.specs' spack.yaml; then
+            echo "::notice::The spack.yaml at ${{ inputs.prerelease-compare-ref }} is a template, continuing..."
+            exit 1
+          fi
+
       - name: Get base root spec version
         id: base
         if: inputs.deployment-type != 'Release' && steps.checkout-base-spack.outcome != 'failure'
