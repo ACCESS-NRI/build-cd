@@ -78,7 +78,7 @@ jobs:
 
           for env in $envs; do
             spack env activate $env
-            spack uninstall --remove --dependents --yes-to-all --all
+            spack uninstall --dependents --yes-to-all --all
             spack env deactivate
             spack env rm $env --yes-to-all
           done
