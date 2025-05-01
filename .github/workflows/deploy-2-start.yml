@@ -77,7 +77,7 @@ jobs:
 
       - name: Get ${{ inputs.deployment-target }} ${{ inputs.deployment-type }} Remote Paths
         id: path
-        uses: access-nri/build-cd/.github/actions/get-deploy-paths@v4
+        uses: access-nri/build-cd/.github/actions/get-deploy-paths@v5
         with:
           spack-installs-root-path: ${{ vars.SPACK_INSTALLS_ROOT_LOCATION }}
           spack-version: ${{ steps.versions.outputs.spack }}
@@ -87,7 +87,7 @@ jobs:
       - name: Get manifest info
         id: manifest
         # FIXME: We should pass through inputs.spack-manifest-path here (and below raw spack.yaml) - see ACCESS-NRI/build-cd#225
-        uses: access-nri/build-cd/.github/actions/get-spack-root-spec@v4
+        uses: access-nri/build-cd/.github/actions/get-spack-root-spec@v5
 
       - name: Setup SSH
         id: ssh

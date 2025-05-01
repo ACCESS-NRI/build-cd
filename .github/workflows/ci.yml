@@ -125,7 +125,7 @@ jobs:
 
       - name: Generate Deployment Target Matrix
         id: target
-        uses: access-nri/build-cd/.github/actions/get-target-matrix@v4
+        uses: access-nri/build-cd/.github/actions/get-target-matrix@v5
         with:
           targets: ${{ vars.PRERELEASE_DEPLOYMENT_TARGETS }}
 
@@ -189,7 +189,7 @@ jobs:
       matrix:
         # Example: ['Gadi', 'Setonix', ...]
         target: ${{ fromJson(needs.defaults.outputs.targets) }}
-    uses: access-nri/build-cd/.github/workflows/deploy-1-setup.yml@v4
+    uses: access-nri/build-cd/.github/workflows/deploy-1-setup.yml@v5
     with:
       deployment-target: ${{ matrix.target }}
       deployment-ref: ${{ needs.defaults.outputs.head-ref }}
