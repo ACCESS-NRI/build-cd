@@ -2,17 +2,18 @@ name: Validate Repo Version
 description: Action that validates that a version in `config/versions.json` matches the version in the repository
 inputs:
   repo-to-check:
-    type: string
     required: true
     description: ACCESS-NRI repository to validate associated version in `config/versions.json`
   pr:
-    type: number
     required: true
     description: The pull request number that contains the config/versions.json
 outputs:
   version:
     value: ${{ steps.jq.outputs.version }}
     description: Version of `inputs.repo-to-check` from the `config/versions.json`
+  git-hash:
+    value: ${{ steps.get-git-hash.outputs.git-hash }}
+    description: The git hash of the `inputs.repo-to-check` at the specified version
 runs:
   using: composite
   steps:
@@ -46,6 +47,11 @@ runs:
         # 'releases/v' to the ref name, obtained in the previous step
         ref: ${{ inputs.repo-to-check == 'spack' && steps.jq.outputs.spack-branch-version || steps.jq.outputs.version }}
         path: repo
+
+    - name: Get Git Hash
+      id: get-git-hash
+      shell: bash
+      run: echo "git-hash=$(git -C repo rev-parse HEAD)" >> $GITHUB_OUTPUT
 
     - name: Version Check Failure Notifier
       if: failure() && steps.check.outcome == 'failure'

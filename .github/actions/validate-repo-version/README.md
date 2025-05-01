@@ -14,6 +14,7 @@ This action checks that the tags specified in a models `config/versions.json` is
 | Name | Type | Description | Example |
 | ---- | ---- | ----------- | ------- |
 | `version` | `string` | Version of the repo from the `config/versions.json` | `"2024.03.12"` |
+| `git-hash` | `string` (hash) | Git hash of the version of the repo from the `config/versions.json` |  `"rn34rj2e8ue2928rhwjfehiwfu2yrfhwieuhriwh"` |
 
 ## Example
 
@@ -25,7 +26,7 @@ This action checks that the tags specified in a models `config/versions.json` is
     repo-to-check: spack-packages
     pr: 12
 
-- run: echo "spack-packages has valid version ${{ steps.validate.outputs.version }} in PR#12's `config/versions.json`"
+- run: echo "spack-packages has valid version ${{ steps.validate.outputs.version }} (${{ steps.validate.outputs.git-hash }}) in PR#12's `config/versions.json`"
 
 - if: failure() && steps.validate.outcome == 'failure'
   run: echo "The version in spack-packages is not valid."
