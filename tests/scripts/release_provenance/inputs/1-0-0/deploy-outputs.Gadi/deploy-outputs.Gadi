@@ -1,0 +1,17 @@
+{
+  "model_name": "ACCESS-OM3",
+  "model_deployment_repository": "https://github.com/ACCESS-NRI/ACCESS-OM3",
+  "spack_version": "0.22",
+  "spack_git_hash": "qwerty",
+  "spack_config_version": "2025.02.2",
+  "spack_config_git_hash": "asdfg",
+  "spack_packages_version": "2025.03.002",
+  "spack_packages_git_hash": "zxcvb",
+  "ci_configuration_check_failure": false,
+  "release_deployment_version": "2025.01.2",
+  "spack_environment_name": "access-esm1p6-dev_2025_03_4",
+  "deployment_result": "success",
+  "root_spec_pkg_hash": "3jdoekn73de234jdh38dzojhdjfriksndpqj84903",
+  "deployment_modules_location": "/g/data/vk83/modules",
+  "deployment_spack_location": "/g/data/vk83/apps/spack/0.22/spack"
+}
