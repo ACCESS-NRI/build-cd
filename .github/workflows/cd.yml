@@ -49,7 +49,7 @@ jobs:
 
       - name: Generate Deployment Target Matrix
         id: target
-        uses: access-nri/build-cd/.github/actions/get-target-matrix@v4
+        uses: access-nri/build-cd/.github/actions/get-target-matrix@v5
         with:
           targets: ${{ vars.RELEASE_DEPLOYMENT_TARGETS }}
 
@@ -66,7 +66,7 @@ jobs:
         with:
           repository: access-nri/build-cd
 
-      - uses: access-nri/build-cd/.github/actions/validate-deployment-settings@v4
+      - uses: access-nri/build-cd/.github/actions/validate-deployment-settings@v5
         with:
           settings-path: ./config/settings.json
           target: ${{ matrix.target }}
@@ -86,7 +86,7 @@ jobs:
 
       - name: Get root spec ref
         id: tag
-        uses: access-nri/build-cd/.github/actions/get-spack-root-spec@v4
+        uses: access-nri/build-cd/.github/actions/get-spack-root-spec@v5
 
       - name: Import Commit-Signing Key
         uses: crazy-max/ghaction-import-gpg@01dd5d3ca463c7f10f7f4f7b4f177225ac661ee4  # v6.1.0
@@ -120,7 +120,7 @@ jobs:
     strategy:
       matrix:
         target: ${{ fromJson(needs.defaults.outputs.targets) }}
-    uses: access-nri/build-cd/.github/workflows/deploy-1-setup.yml@v4
+    uses: access-nri/build-cd/.github/workflows/deploy-1-setup.yml@v5
     with:
       deployment-target: ${{ matrix.target }}
       deployment-ref: ${{ github.ref_name }}
@@ -144,9 +144,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       TEMPLATED_RELEASE_BODY_PATH: /opt/release-body.md
-    outputs:
-      url: ${{ steps.release.outputs.url }}
-      created-at: ${{ steps.metadata.outputs.created-at }}
     steps:
       - name: Checkout build-cd
         uses: actions/checkout@v4
@@ -191,7 +188,6 @@ jobs:
             --output ${{ env.TEMPLATED_RELEASE_BODY_PATH }}
 
       - name: Create Release
-        id: release
         uses: softprops/action-gh-release@69320dbe05506a9a39fc8ae11030b214ec2d1f87  # v2.0.5
         with:
           tag_name: ${{ needs.push-tag.outputs.name }}
@@ -203,15 +199,7 @@ jobs:
             ${{ env.METADATA_PATH }}/*.spack.yaml
             ${{ env.METADATA_PATH }}/*.spack.lock
             ${{ env.METADATA_PATH }}/*.spack.location
-            ${{ env.METADATA_PATH }}/*.spack.location.json
 
-      - name: Release Metadata
-        id: metadata
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: echo "created-at=$(gh release view --json createdAt --jq '.createdAt' --repo ${{ github.repository }})" >> $GITHUB_OUTPUT
-
-  # TODO: This will only upload data related to the Gadi deployment
   build-db:
     name: Build DB Metadata Upload
     needs:
@@ -234,35 +222,30 @@ jobs:
           path: ${{ env.OUTPUTS_PATH }}
           merge-multiple: true
 
-      - name: 'Get Gadi spack-* Repo Versions'
-        id: spack-versions
-        run: |
-          echo "packages-version=$(jq --raw-output --compact-output '.spack_packages_version' ${{ env.OUTPUTS_PATH }}/deploy-outputs.Gadi)" >> $GITHUB_OUTPUT
-          echo "config-version=$(jq --raw-output --compact-output '.spack_config_version' ${{ env.OUTPUTS_PATH }}/deploy-outputs.Gadi)" >> $GITHUB_OUTPUT
-
-      - name: Checkout Upload Script
-        uses: actions/checkout@v4
-        with:
-          repository: access-nri/build-cd
-
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ vars.PYTHON_VERSION }}
           cache: pip
 
-      - name: Install Build Metadata Script Requirements
-        run: pip install -r tools/release_provenance/requirements.txt
+      - name: Checkout Upload Script
+        uses: actions/checkout@v4
+        with:
+          repository: access-nri/build-cd
 
-      - name: Upload Build Metadata
-        env:
-          BUILD_DB_CONNECTION_STR: ${{ secrets.BUILD_DB_CONNECTION_STR }}
+      - name: Install Dependencies
         run: |
-          ./scripts/generate-build-metadata.bash \
-            ${{ needs.release.outputs.url }} ${{ needs.release.outputs.created-at }} \
-            ${{ steps.spack-versions.outputs.packages-version }} ${{ steps.spack-versions.outputs.config-version }} \
-            ${{ env.METADATA_PATH }} ${{ env.OUTPUTS_PATH }} \
-            ${{ needs.defaults.outputs.root-sbd }} ${{ vars.BUILD_DB_PACKAGES }}
+          python -m pip install --upgrade pip
+          pip install -r scripts/release_provenance/requirements.txt
 
-          echo "Attempting upload of build_metadata.json"
-          python ./tools/release_provenance/save_release.py "${{ env.OUTPUTS_PATH }}/build_metadata.json"
+      - name: Run Upload Script
+        env:
+          TRACKING_SERVICES_POST_URL: ${{ vars.TRACKING_SERVICES_POST_URL }}
+          TRACKING_SERVICES_POST_TOKEN: ${{ secrets.TRACKING_SERVICES_POST_TOKEN }}
+        run: |
+          python -m scripts.release_provenance.tracking_services_data \
+            --repository ${{ github.repository }} \
+            --root-spec ${{ needs.defaults.outputs.root-sbd }} \
+            --deployment-outputs ${{ env.OUTPUTS_PATH }} \
+            --metadata-outputs ${{ env.METADATA_PATH }} \
+            --upload

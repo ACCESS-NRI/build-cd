@@ -69,7 +69,7 @@ jobs:
 
       - name: Original version
         id: original
-        uses: access-nri/build-cd/.github/actions/get-spack-root-spec@v4
+        uses: access-nri/build-cd/.github/actions/get-spack-root-spec@v5
 
       - name: Setup
         id: setup

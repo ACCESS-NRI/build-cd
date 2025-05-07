@@ -59,19 +59,39 @@ on:
           Output files are of the form deploy-outputs.{{inputs.deployment-target}}
     # TODO: This is a workaround for matrixed dynamic job outputs. See https://github.com/orgs/community/discussions/17245
     # The outputs in the file are below:
+    #   model-name:
+    #     value: ${{ github.event.repository.name }}
+    #     description: |
+    #       Name of the model being deployed.
+    #   model-deployment-repository:
+    #     value: ${{ github.repositoryUrl }}
+    #     description: |
+    #       URL of the repository that contains the model being deployed.
     #   spack-version:
     #     value: ${{ jobs.check-config.outputs.spack-version }}
     #     description: |
     #       Branch of 'access-nri/spack' that is used to deploy the model.
     #       The VERSION part of the 'releases/VERSION' branch.
+    #   spack-git-hash:
+    #     values: ${{ jobs.check-config.outputs.spack-git-hash }}
+    #     description: |
+    #       Git hash of the 'access-nri/spack' repository at the specified version.
     #   spack-config-version:
     #     value: ${{ jobs.check-config.outputs.spack-config-version }}
     #     description: |
     #       Git ref of 'access-nri/spack-config' that is used to configure spack.
+    #   spack-config-git-hash:
+    #     value: ${{ jobs.check-config.outputs.spack-config-git-hash }}
+    #     description: |
+    #       Git hash of the 'access-nri/spack-config' repository at the specified version.
     #   spack-packages-version:
     #     value: ${{ jobs.check-config.outputs.spack-packages-version }}
     #     description: |
     #       Git ref of 'access-nri/spack-packages' that is used to reference custom packages in spack.
+    #   spack-packages-git-hash:
+    #     value: ${{ jobs.check-config.outputs.spack-packages-git-hash }}
+    #     description: |
+    #       Git hash of the 'access-nri/spack-packages' repository at the specified version.
     #   release-deployment-version:
     #     value: ${{ jobs.check-spack-yaml.outputs.release }}
     #     description: |
@@ -84,6 +104,10 @@ on:
     #     value: ${{ jobs.check-spack-yaml.outputs.spack-env-name }}
     #     description: |
     #       Name for the spack environment that contains the deployed model
+    #   root-spec-pkg-hash:
+    #     value: ${{ jobs.deployment.outputs.root-spec-pkg-hash }}
+    #     description: |
+    #       The spack hash of the root spec package that was deployed.
     #   deployment-result:
     #    value: ${{ jobs.deployment.result }}
     #    description: |
@@ -102,8 +126,11 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       spack-version: ${{ steps.spack.outputs.version }}
+      spack-git-hash: ${{ steps.spack.outputs.git-hash }}
       spack-packages-version: ${{ steps.spack-packages.outputs.version }}
+      spack-packages-git-hash: ${{ steps.spack-packages.outputs.git-hash }}
       spack-config-version:  ${{ steps.spack-config.outputs.version }}
+      spack-config-git-hash: ${{ steps.spack-config.outputs.git-hash }}
       config-settings-failures: ${{ steps.settings.outputs.failures }}
     steps:
       - name: Checkout ${{ github.repository }} Config
@@ -121,14 +148,14 @@ jobs:
 
       - name: Validate spack-packages version
         id: spack-packages
-        uses: access-nri/build-cd/.github/actions/validate-repo-version@v4
+        uses: access-nri/build-cd/.github/actions/validate-repo-version@v5
         with:
           repo-to-check: spack-packages
           pr: ${{ inputs.deployment-ref }}
 
       - name: Validate spack version
         id: spack
-        uses: access-nri/build-cd/.github/actions/validate-repo-version@v4
+        uses: access-nri/build-cd/.github/actions/validate-repo-version@v5
         with:
           repo-to-check: spack
           pr: ${{ inputs.deployment-ref }}
@@ -141,6 +168,8 @@ jobs:
 
       - name: Get spack-config version
         id: spack-config
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           version=$(jq --compact-output --raw-output \
               --arg spack_version "${{ steps.spack.outputs.version }}" \
@@ -149,9 +178,15 @@ jobs:
           echo $version
           echo "version=$version" >> $GITHUB_OUTPUT
 
+          git_hash=$(gh api /repos/access-nri/spack-config/tags \
+            | jq --compact-output --raw-output --arg v "$version" '.[] | select(.name == $v) | .commit.sha'
+          )
+          echo $git_hash
+          echo "git-hash=$git_hash" >> $GITHUB_OUTPUT
+
       - name: Validate build-cd config/settings.json
         id: settings
-        uses: access-nri/build-cd/.github/actions/validate-deployment-settings@v4
+        uses: access-nri/build-cd/.github/actions/validate-deployment-settings@v5
         with:
           settings-path: ./cd/config/settings.json
           target: ${{ inputs.deployment-target }}
@@ -186,7 +221,7 @@ jobs:
 
       - name: Get current (${{ inputs.deployment-ref }}) root spec version
         id: current
-        uses: access-nri/build-cd/.github/actions/get-spack-root-spec@v4
+        uses: access-nri/build-cd/.github/actions/get-spack-root-spec@v5
 
       - name: Check root spec usage
         if: env.IS_NOT_DRAFT == 'true' || inputs.deployment-type == 'Release'
@@ -223,7 +258,7 @@ jobs:
       - name: Get base root spec version
         id: base
         if: inputs.deployment-type != 'Release' && steps.checkout-base-spack.outcome != 'failure'
-        uses: access-nri/build-cd/.github/actions/get-spack-root-spec@v4
+        uses: access-nri/build-cd/.github/actions/get-spack-root-spec@v5
 
       - name: Check Model Version Modified
         # We don't want to fire off model deployment version checks if the PR is never going to be merged.
@@ -314,7 +349,7 @@ jobs:
     needs:
       - check-config  # Verify configuration information is correct
       - check-spack-yaml  # Verify spack manifest information is correct
-    uses: access-nri/build-cd/.github/workflows/deploy-2-start.yml@v4
+    uses: access-nri/build-cd/.github/workflows/deploy-2-start.yml@v5
     with:
       ref: ${{ inputs.deployment-ref }}
       version: ${{ inputs.deployment-version }}
@@ -345,12 +380,18 @@ jobs:
         # See the on.workflow_call.outputs section for details on the info created.
         run: |
           jq --null-input '{
+            model_name: "${{ github.event.repository.name }}",
+            model_deployment_repository: "${{ github.event.repository.html_url }}",
             spack_version: "${{ needs.check-config.outputs.spack-version }}",
+            spack_git_hash: "${{ needs.check-config.outputs.spack-git-hash }}",
             spack_config_version: "${{ needs.check-config.outputs.spack-config-version }}",
+            spack_config_git_hash: "${{ needs.check-config.outputs.spack-config-git-hash }}",
             spack_packages_version: "${{ needs.check-config.outputs.spack-packages-version }}",
+            spack_packages_git_hash: "${{ needs.check-config.outputs.spack-packages-git-hash }}",
             ci_configuration_check_failure: ${{ needs.check-config.outputs.config-settings-failures != '' }},
             release_deployment_version: "${{ needs.check-spack-yaml.outputs.release }}",
             spack_environment_name: "${{ needs.check-spack-yaml.outputs.spack-env-name }}",
+            root_spec_pkg_hash: "${{ needs.deployment.outputs.root-spec-pkg-hash }}",
             deployment_result: "${{ needs.deployment.result }}",
             deployment_modules_location: "${{ needs.deployment.outputs.modules-location }}",
             deployment_spack_location: "${{ needs.deployment.outputs.spack-location }}"
