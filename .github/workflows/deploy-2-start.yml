@@ -201,7 +201,7 @@ jobs:
           # Create environment and build model
           spack env create ${{ inputs.env-name }} ${{ vars.SPACK_YAML_LOCATION }}/${{ inputs.expected-root-spec-name }}-${{ github.run_id }}.spack.yaml
           spack env activate ${{ inputs.env-name }}
-          spack --debug install --fail-fast --fresh ${{ vars.SPACK_INSTALL_PARALLEL_JOBS }} || exit $?
+          spack --debug install --fail-fast --fresh ${{ vars.SPACK_INSTALL_ADDITIONAL_ARGS }} || exit $?
           spack module tcl refresh -y
           EOT
 
