@@ -67,6 +67,7 @@ jobs:
           git -C ${{ env.ROOT_VERSION_LOCATION }} clone https://github.com/ACCESS-NRI/spack-config.git --branch ${{ inputs.spack-config-version }}
           ln -s -r -v ${{ env.ROOT_VERSION_LOCATION }}/spack-config/v${{ steps.strip.outputs.version-dir }}/${{ vars.DEPLOYMENT_TARGET }}/* ${{ env.ROOT_VERSION_LOCATION }}/spack/etc/spack/
           mkdir ${{ env.ROOT_VERSION_LOCATION }}/release
+          mkdir ${{ env.ROOT_VERSION_LOCATION }}/logs
 
           # Create restricted folders
           mkdir -p ${{ env.ROOT_VERSION_LOCATION }}/restricted/ukmo/release
