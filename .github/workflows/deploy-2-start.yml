@@ -203,6 +203,9 @@ jobs:
           spack env activate ${{ inputs.env-name }}
           spack --debug install --fail-fast --fresh ${{ vars.SPACK_INSTALL_ADDITIONAL_ARGS }} || exit $?
           spack module tcl refresh -y
+
+          # Move spack debug logs to $SPACK_ROOT/logs
+          mv ~/spack-cc-* ${{ steps.path.outputs.root }}/logs
           EOT
 
       - name: Export deployment target locations
