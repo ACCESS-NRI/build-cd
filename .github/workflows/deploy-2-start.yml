@@ -205,7 +205,7 @@ jobs:
           spack module tcl refresh -y
 
           # Move spack debug logs to $SPACK_ROOT/logs
-          mv ~/spack-cc-* ${{ steps.path.outputs.root }}/logs
+          find . -maxdepth 1 -regex './spack-cc-.+' -exec mv {} ${{ steps.path.outputs.root }}/logs \;
           EOT
 
       - name: Export deployment target locations
