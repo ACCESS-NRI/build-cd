@@ -33,6 +33,10 @@ on:
         description: |
           The expected root spec name that is defined at the repository level.
           May be different from the actual root spec name in the spack manifest.
+      spack-manifest-path:
+        type: string
+        required: true
+        description: The path to the spack manifest file, relative to the model deployment repository.
     outputs:
       root-spec-pkg-hash:
         value: ${{ jobs.deploy-to-environment.outputs.root-spec-pkg-hash }}
@@ -86,8 +90,9 @@ jobs:
 
       - name: Get manifest info
         id: manifest
-        # FIXME: We should pass through inputs.spack-manifest-path here (and below raw spack.yaml) - see ACCESS-NRI/build-cd#225
         uses: access-nri/build-cd/.github/actions/get-spack-root-spec@v5
+        with:
+          spack-manifest-path: ${{ inputs.spack-manifest-path }}
 
       - name: Setup SSH
         id: ssh
@@ -113,14 +118,14 @@ jobs:
           OPTIONAL_VARIANTS: ${{ steps.manifest.outputs.root-spec-variants != 'null' && steps.manifest.outputs.root-spec-variants || '' }}
         run: |
           if [[ "${{ inputs.expected-root-spec-name }}" == "${{ steps.manifest.outputs.root-spec-name }}" ]]; then
-            yq -i '${{ steps.manifest.outputs.yq-root-spec }} = "${{ inputs.expected-root-spec-name }} ${{ env.OPTIONAL_VARIANTS }}"' spack.yaml
+            yq -i '${{ steps.manifest.outputs.yq-root-spec }} = "${{ inputs.expected-root-spec-name }} ${{ env.OPTIONAL_VARIANTS }}"' ${{ inputs.spack-manifest-path }}
           fi
 
-          yq -i '${{ env.SPACK_YAML_MODULEFILE_PROJECTION_YQ }} = "{name}/${{ inputs.version }}"' spack.yaml
+          yq -i '${{ env.SPACK_YAML_MODULEFILE_PROJECTION_YQ }} = "{name}/${{ inputs.version }}"' ${{ inputs.spack-manifest-path }}
 
           # Add the specific prerelease spack-packages repo to the environment
           # We can't use yq as we are using a non-standard spack-specific '::' construct to ignore higher config scopes
-          cat << 'EOF' >> spack.yaml
+          cat << 'EOF' >> ${{ inputs.spack-manifest-path }}
             repos::
                 - ${{ steps.path.outputs.spack-packages }}
                 - $spack/var/spack/repos/builtin
@@ -128,10 +133,10 @@ jobs:
 
           echo '::notice::Prerelease accessible as module ${{ steps.manifest.outputs.root-spec-name }}/${{ inputs.version }}'
 
-      - name: Copy spack.yaml
+      - name: Copy ${{ inputs.spack-manifest-path }}
         run: |
           rsync -e 'ssh -i ${{ steps.ssh.outputs.private-key-path }}' \
-            spack.yaml \
+            ${{ inputs.spack-manifest-path }} \
             ${{ secrets.USER }}@${{ secrets.HOST_DATA }}:${{ vars.SPACK_YAML_LOCATION }}/${{ inputs.expected-root-spec-name }}-${{ github.run_id }}.spack.yaml
 
       - name: Fetch git sources for packages to build
