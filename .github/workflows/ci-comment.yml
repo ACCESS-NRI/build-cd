@@ -1,8 +1,12 @@
 name: Comment Command
 run-name: ${{ inputs.model }} Comment Command
+
 # NOTE: This workflow requires:
 # permissions.contents:write
 # permissions.pull-requests:write
+
+# FIXME: We don't support any !bump from a spack manifest that is not in the default ./spack.yaml location.
+
 on:
   workflow_call:
     inputs:
