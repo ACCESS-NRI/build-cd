@@ -17,6 +17,27 @@ on:
         description: |
           The name of the root Spack Bundle Definition, if it is different from the model name.
           This is often a package named similarly in ACCESS-NRI/spack-packages.
+      spack-manifest-path:
+        type: string
+        required: false
+        default: ./spack.yaml
+        description: |
+          The Spack manifest path relative to the caller repository that will be used for the deployment.
+          This is usually `./spack.yaml`, but can be overridden if needed.
+      tag-deployment:
+        type: boolean
+        required: false
+        default: true
+        description: |
+          Whether to tag the deployment with the root spec ref.
+          NOTE: Setting this to false is not recommended for model deployments.
+      upload-to-build-db:
+        type: boolean
+        required: false
+        default: true
+        description: |
+          Whether to upload the deployment information to the build database.
+          NOTE: Setting this to false is not recommended for model deployments.
   # Callers usually have the trigger:
   # push:
   #   branches:
@@ -74,6 +95,7 @@ jobs:
 
   push-tag:
     name: Tag Deployment
+    if: inputs.tag-deployment
     runs-on: ubuntu-latest
     needs:
       - verify-settings
@@ -87,6 +109,8 @@ jobs:
       - name: Get root spec ref
         id: tag
         uses: access-nri/build-cd/.github/actions/get-spack-root-spec@v5
+        with:
+          spack-manifest-path: ${{ inputs.spack-manifest-path }}
 
       - name: Import Commit-Signing Key
         uses: crazy-max/ghaction-import-gpg@01dd5d3ca463c7f10f7f4f7b4f177225ac661ee4  # v6.1.0
@@ -126,7 +150,7 @@ jobs:
       deployment-ref: ${{ github.ref_name }}
       deployment-type: Release
       deployment-version: ${{ needs.push-tag.outputs.name }}
-      spack-manifest-path: ./spack.yaml
+      spack-manifest-path: ${{ inputs.spack-manifest-path }}
       expected-root-spec-name: ${{ needs.defaults.outputs.root-sbd }}
     secrets: inherit
     permissions:
@@ -137,6 +161,7 @@ jobs:
 
   release:
     name: Create Release
+    if: inputs.tag-deployment
     needs:
       - defaults
       - push-tag
@@ -202,6 +227,7 @@ jobs:
 
   build-db:
     name: Build DB Metadata Upload
+    if: inputs.upload-to-build-db
     needs:
       - defaults
       - deploy-release
