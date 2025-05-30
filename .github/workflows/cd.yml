@@ -95,7 +95,6 @@ jobs:
 
   push-tag:
     name: Tag Deployment
-    if: inputs.tag-deployment
     runs-on: ubuntu-latest
     needs:
       - verify-settings
@@ -113,6 +112,7 @@ jobs:
           spack-manifest-path: ${{ inputs.spack-manifest-path }}
 
       - name: Import Commit-Signing Key
+        if: inputs.tag-deployment
         uses: crazy-max/ghaction-import-gpg@01dd5d3ca463c7f10f7f4f7b4f177225ac661ee4  # v6.1.0
         with:
           gpg_private_key: ${{ secrets.GH_ACTIONS_BOT_GPG_PRIVATE_KEY }}
@@ -125,6 +125,7 @@ jobs:
           git_tag_gpgsign: true
 
       - name: Push Tag
+        if: inputs.tag-deployment
         env:
           TAG: ${{ steps.tag.outputs.root-spec-ref }}
         run: |
@@ -227,7 +228,7 @@ jobs:
 
   build-db:
     name: Build DB Metadata Upload
-    if: inputs.upload-to-build-db
+    if: inputs.tag-deployment && inputs.upload-to-build-db
     needs:
       - defaults
       - deploy-release
