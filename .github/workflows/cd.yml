@@ -149,6 +149,13 @@ jobs:
     needs:
       - defaults
       - get-root-spec-ref
+      - push-tag
+    # Pushing tags is optional if we are doing a non-model deployment
+    if: >-
+      always() &&
+      needs.defaults.result == 'success' &&
+      needs.get-root-spec-ref.result == 'success' &&
+      (needs.push-tag.result == 'success' || needs.push-tag.result == 'skipped')
     strategy:
       matrix:
         target: ${{ fromJson(needs.defaults.outputs.targets) }}
