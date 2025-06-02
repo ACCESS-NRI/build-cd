@@ -29,14 +29,14 @@ on:
         required: false
         default: true
         description: |
-          Whether to tag the deployment with the root spec ref.
+          Whether to tag the deployment with the root spec ref and create a release.
           NOTE: Setting this to false is not recommended for model deployments.
       upload-to-build-db:
         type: boolean
         required: false
         default: true
         description: |
-          Whether to upload the deployment information to the build database.
+          Whether to upload the deployment information to the build database (requires tag-deployment to also be true).
           NOTE: Setting this to false is not recommended for model deployments.
   # Callers usually have the trigger:
   # push:

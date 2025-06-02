@@ -295,7 +295,7 @@ jobs:
 
 
       - name: Check Projections - Specs
-        # This step checks that the root spec has an appropriate projection in the spack.yaml file.
+        # This step checks that the root spec has an appropriate projection in the manifest file.
         id: projection-check-spec
         continue-on-error: true
         run: |
