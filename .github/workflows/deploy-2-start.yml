@@ -5,7 +5,7 @@ on:
       ref:
         type: string
         required: true
-        description: The git commit-ish ref where the `spack.yaml` is located
+        description: The git commit-ish ref where the spack manifest is located
       version:
         type: string
         required: true
@@ -103,14 +103,14 @@ jobs:
             ${{ secrets.HOST }}
             ${{ secrets.HOST_DATA }}
 
-      - name: Prerelease spack.yaml Modifications
+      - name: Prerelease spack manifest modifications
         # Modifies the name of the prerelease modulefile to the
         # `pr<number>-<commit>` style. For example, `access-om3/pr12-2`.
         # Also removes the `@git.VERSION` specifier for Prereleases so
         # we don't have to shift tags around.
         # Also adds a repos section that points to the PRs specific spack-packages repo.
         if: inputs.deployment-type == 'Prerelease'
-        # If the inputs.expected-root-spec-name for the repository is the same as the one in the spack.yaml,
+        # If the inputs.expected-root-spec-name for the repository is the same as the one in the spack manifest,
         # we can safely remove the @git.VERSION specifier. Otherwise it could be because the Prerelease
         # is being used to test something else.
         env:
@@ -187,7 +187,7 @@ jobs:
           EOT
 
       - name: Deploy to ${{ inputs.deployment-target }} ${{ inputs.deployment-type }}
-        # ssh into deployment environment, create and activate the env, install the spack.yaml.
+        # ssh into deployment environment, create and activate the env, install the spack manifest.
         run: |
           ssh ${{ secrets.USER}}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
           # Check that a suitable deployment location exists

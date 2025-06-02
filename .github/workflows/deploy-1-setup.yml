@@ -213,7 +213,7 @@ jobs:
           fetch-depth: 0
           ref: ${{ inputs.deployment-ref }}
 
-      - name: Validate ACCESS-NRI spack.yaml Restrictions
+      - name: Validate ACCESS-NRI spack manifest restrictions
         if: env.IS_NOT_DRAFT == 'true' || inputs.deployment-type == 'Release'
         uses: access-nri/schema/.github/actions/validate-with-schema@main
         with:
