@@ -36,10 +36,8 @@ on:
       spack-manifest-path:
         type: string
         required: true
-        default: spack.yaml
         description: |
-          Relative path in the Model Deployment Repository that contains the spack manifest file.
-          Usually a spack.yaml file.
+          The Spack manifest path relative to the caller repository that will be used for the deployment.
       expected-root-spec-name:
         type: string
         required: true
@@ -64,9 +62,13 @@ on:
     #     description: |
     #       Name of the model being deployed.
     #   model-deployment-repository:
-    #     value: ${{ github.repositoryUrl }}
+    #     value: ${{ github.event.repository.html_url }}
     #     description: |
     #       URL of the repository that contains the model being deployed.
+    #   model-deployment-repository-spack-manifest-path:
+    #     value: ${{ inputs.spack-manifest-path }}
+    #     description: |
+    #       Path to the spack manifest file in the model deployment repository.
     #   spack-version:
     #     value: ${{ jobs.check-config.outputs.spack-version }}
     #     description: |
@@ -211,7 +213,7 @@ jobs:
           fetch-depth: 0
           ref: ${{ inputs.deployment-ref }}
 
-      - name: Validate ACCESS-NRI spack.yaml Restrictions
+      - name: Validate ACCESS-NRI spack manifest restrictions
         if: env.IS_NOT_DRAFT == 'true' || inputs.deployment-type == 'Release'
         uses: access-nri/schema/.github/actions/validate-with-schema@main
         with:
@@ -222,6 +224,8 @@ jobs:
       - name: Get current (${{ inputs.deployment-ref }}) root spec version
         id: current
         uses: access-nri/build-cd/.github/actions/get-spack-root-spec@v5
+        with:
+          spack-manifest-path: ${{ inputs.spack-manifest-path }}
 
       - name: Check root spec usage
         if: env.IS_NOT_DRAFT == 'true' || inputs.deployment-type == 'Release'
@@ -243,15 +247,15 @@ jobs:
         run: |
           git checkout ${{ inputs.prerelease-compare-ref }}
 
-          if [ ! -f spack.yaml ]; then
-              echo "::notice::There is no previous version of the spack.yaml to check at ${{ inputs.prerelease-compare-ref }}, continuing..."
+          if [ ! -f ${{ inputs.spack-manifest-path }} ]; then
+              echo "::notice::There is no previous version of ${{ inputs.spack-manifest-path }} to check at ${{ inputs.prerelease-compare-ref }}, continuing..."
               exit 1
           fi
 
           # If the first commit in the repository is the template, there won't be anything defined in the speclist
           # So we should skip checking the version!
-          if ! yq --exit-status '.spack.specs' spack.yaml; then
-            echo "::notice::The spack.yaml at ${{ inputs.prerelease-compare-ref }} is a template, continuing..."
+          if ! yq --exit-status '.spack.specs' ${{ inputs.spack-manifest-path }}; then
+            echo "::notice::${{ inputs.spack-manifest-path }} at ${{ inputs.prerelease-compare-ref }} is a template, continuing..."
             exit 1
           fi
 
@@ -259,6 +263,8 @@ jobs:
         id: base
         if: inputs.deployment-type != 'Release' && steps.checkout-base-spack.outcome != 'failure'
         uses: access-nri/build-cd/.github/actions/get-spack-root-spec@v5
+        with:
+          spack-manifest-path: ${{ inputs.spack-manifest-path }}
 
       - name: Check Model Version Modified
         # We don't want to fire off model deployment version checks if the PR is never going to be merged.
@@ -268,22 +274,28 @@ jobs:
         id: version-modified
         run: |
           if [[ "${{ steps.base.outputs.root-spec-ref }}" == "${{ steps.current.outputs.root-spec-ref }}" ]]; then
-              echo "::warning::The version string hasn't been modified in this PR, but needs to be before merging."
+              echo "::warning::The version string in ${{ inputs.spack-manifest-path }} hasn't been modified in this PR, but needs to be before merging."
               exit 1
           fi
 
       - name: Same Model Version Failure Notifier
         if: failure() && steps.version-modified.outcome == 'failure'
+        # TODO: We don't yet support bumping files outside of ./spack.yaml, so this is a temporary solution.
+        env:
+          BUMP_COMMENT_BODY: |-
+            Alternatively, comment the following to have it updated and committed automatically:
+              * `!bump major` for feature releases
+              * `!bump minor` for bugfixes
         uses: access-nri/actions/.github/actions/pr-comment@main
         with:
           comment: |
               The model version in the `${{ inputs.spack-manifest-path }}` has not been updated.
-              Either update it manually, or comment the following to have it updated and committed automatically:
-              * `!bump major` for feature releases
-              * `!bump minor` for bugfixes
+              You can update it manually.
+              ${{ inputs.spack-manifest-path != './spack.yaml' && env.BUMP_COMMENT_BODY || '' }}
+
 
       - name: Check Projections - Specs
-        # This step checks that the root spec has an appropriate projection in the spack.yaml file.
+        # This step checks that the root spec has an appropriate projection in the manifest file.
         id: projection-check-spec
         continue-on-error: true
         run: |
@@ -293,9 +305,9 @@ jobs:
           expected_projection_prefix='{name}/${{ steps.current.outputs.root-spec-ref }}'
 
           if [[ "$current_projection" == "$expected_projection_prefix"* ]]; then
-              echo "Current root spec projection ($current_projection) and expected projection prefix ($expected_projection_prefix) match."
+              echo "${{ inputs.spack-manifest-path }}: Current root spec projection ($current_projection) and expected projection prefix ($expected_projection_prefix) match."
           else
-              echo "::error::Current root spec projection ($current_projection) and expected projection prefix ($expected_projection_prefix) don't match."
+              echo "::error::${{ inputs.spack-manifest-path }}: Current root spec projection ($current_projection) and expected projection prefix ($expected_projection_prefix) don't match."
               exit 1
           fi
 
@@ -309,22 +321,22 @@ jobs:
         run: |
           FAILED="false"
           # Get all the defined projections (minus 'all' and the root spec) and make them suitable for a bash for loop
-          DEPS=$(yq '.spack.modules.default.tcl.projections | del(.all) | del(.${{ steps.current.outputs.root-spec-name }}) | keys | join(" ")' spack.yaml)
+          DEPS=$(yq '.spack.modules.default.tcl.projections | del(.all) | del(.${{ steps.current.outputs.root-spec-name }}) | keys | join(" ")' ${{ inputs.spack-manifest-path }})
 
           # for each of the module names
           for DEP in $DEPS; do
             # Capture the section after '@git.' or '@' (if it's not a git-attributed version) and before a possible '=' for a given dependency.
             # Ex. '@git.2024.02.11' -> '2024.02.11', '@access-esm1.5' -> 'access-esm1.5', '@git.2024.05.21=access-esm1.5' -> '2024.05.21'
-            package_ver=$(yq ".spack.packages.\"$DEP\".require[0] | match(\"^@(?:git.)?([^=]*)\").captures[0].string" spack.yaml)
+            package_ver=$(yq ".spack.packages.\"$DEP\".require[0] | match(\"^@(?:git.)?([^=]*)\").captures[0].string" ${{ inputs.spack-manifest-path }})
             expected_projection_prefix="{name}/$package_ver"
 
             # Projections must start with '{name}/VERSION'. For example, '{name}/2024.11.11', or '{name}/2024.11.11-{hash:7}'
-            current_projection=$(yq ".spack.modules.default.tcl.projections.\"$DEP\"" spack.yaml)
+            current_projection=$(yq ".spack.modules.default.tcl.projections.\"$DEP\"" ${{ inputs.spack-manifest-path }})
 
             if [[ "$current_projection" == "$expected_projection_prefix"* ]]; then
-              echo "$DEP: Current projection ($current_projection) and expected projection prefix ($expected_projection_prefix) match."
+              echo "$DEP in ${{ inputs.spack-manifest-path }}: Current projection ($current_projection) and expected projection prefix ($expected_projection_prefix) match."
             else
-              echo "::error::$DEP: Current projection ($current_projection) and expected projection prefix ($expected_projection_prefix) don't match."
+              echo "::error::$DEP in ${{ inputs.spack-manifest-path }}: Current projection ($current_projection) and expected projection prefix ($expected_projection_prefix) don't match."
               FAILED='true'
             fi
           done
@@ -336,7 +348,7 @@ jobs:
         # If either of the Check Projection steps failed earlier, exit here
         if: steps.projection-check-spec.outcome == 'failure' || steps.projection-check-packages.outcome == 'failure'
         run: |
-          echo "::error::Some projections in the spack manifest don't match."
+          echo "::error::Some projections in ${{ inputs.spack-manifest-path }} don't match."
           exit 1
 
       - name: Set Spack Env Name String
@@ -357,6 +369,7 @@ jobs:
       deployment-target: ${{ inputs.deployment-target }}
       deployment-type: ${{ inputs.deployment-type }}
       expected-root-spec-name: ${{ inputs.expected-root-spec-name }}
+      spack-manifest-path: ${{ inputs.spack-manifest-path }}
     secrets: inherit
 
   outputs-upload:
@@ -382,6 +395,7 @@ jobs:
           jq --null-input '{
             model_name: "${{ github.event.repository.name }}",
             model_deployment_repository: "${{ github.event.repository.html_url }}",
+            model_deployment_repository_spack_manifest_path: "${{ inputs.spack-manifest-path }}",
             spack_version: "${{ needs.check-config.outputs.spack-version }}",
             spack_git_hash: "${{ needs.check-config.outputs.spack-git-hash }}",
             spack_config_version: "${{ needs.check-config.outputs.spack-config-version }}",

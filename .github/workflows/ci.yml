@@ -26,6 +26,13 @@ on:
         type: string
         required: true
         description: The pull request number that will be deployed as a prerelease
+      spack-manifest-path:
+        type: string
+        required: false
+        default: ./spack.yaml
+        description: |
+          The Spack manifest path relative to the caller repository that will be used for the deployment.
+          This is usually `./spack.yaml`, but can be overridden if needed.
   # Callers usually have the trigger:
   # pull_request:
   #   branches:
@@ -199,7 +206,7 @@ jobs:
       # Note that for multi-target prereleases, they share the same deployment number.
       deployment-version: ${{ needs.defaults.outputs.prerelease-version }}
       prerelease-compare-ref: ${{ needs.defaults.outputs.base-ref }}
-      spack-manifest-path: ./spack.yaml
+      spack-manifest-path: ${{ inputs.spack-manifest-path }}
       expected-root-spec-name: ${{ needs.defaults.outputs.root-sbd }}
     secrets: inherit
 
@@ -293,6 +300,7 @@ jobs:
           J2_CONFIG_ERRORS: ${{ steps.config-rollup.outputs.errors }}
           J2_HEAD_SHA: ${{ needs.defaults.outputs.head-sha }}
           J2_RUN_URL: ${{ env.RUN_URL }}
+          J2_SPACK_MANIFEST_PATH: ${{ inputs.spack-manifest-path }}
         run: |
           python -m scripts.jinja_template.render_deployment_info \
             --template scripts/jinja_template/templates/deployment-comment-body.md.j2 \

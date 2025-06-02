@@ -3,7 +3,6 @@ description: Action that returns information about a Spack manifest file
 author: Tommy Gatti
 inputs:
   spack-manifest-path:
-    type: string
     required: false
     default: ./spack.yaml
     description: The path to the spack manifest file
