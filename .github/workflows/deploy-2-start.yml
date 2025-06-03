@@ -54,7 +54,7 @@ on:
           These files are of the form deploy-metadata.{{inputs.deployment-target}}
 env:
   METADATA_PATH: /opt/metadata
-  ARTIFACT_NAME: deploy-metadata.${{ inputs.deployment-target }}
+  ARTIFACT_NAME: deploy-${{ inputs.expected-root-spec-name }}-metadata.${{ inputs.deployment-target }}
 jobs:
   deploy-to-environment:
     name: Deploy to ${{ inputs.deployment-target }} ${{ inputs.deployment-type }}
