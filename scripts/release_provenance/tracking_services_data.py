@@ -109,7 +109,7 @@ def _format_telemetry_of_deployment_target(
     metadata_folder_path: Path,
 ) -> dict[str, Any]:
     with open(
-        deployment_folder_path / f"deploy-outputs.{deployment_target}", "r"
+        deployment_folder_path / f"deploy-{root_spec}-outputs.{deployment_target}", "r"
     ) as outputs_file:
         # Load relevant json files
         outputs = json.load(outputs_file)
@@ -363,13 +363,13 @@ def parse_args():
         "--deployment-outputs",
         type=str,
         required=True,
-        help="Path to folder containing deploy-outputs.* files",
+        help="Path to folder containing deploy-*-outputs.* files",
     )
     parser.add_argument(
         "--metadata-outputs",
         type=str,
         required=True,
-        help="Path to folder containing metadata-outputs.* files",
+        help="Path to folder containing metadata-*-outputs.* files",
     )
 
     ## Args dealing with optional outputs or uploads
