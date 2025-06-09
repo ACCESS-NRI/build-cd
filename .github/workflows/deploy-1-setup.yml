@@ -385,7 +385,7 @@ jobs:
       - deployment
     runs-on: ubuntu-latest
     env:
-      UPLOAD_FILE_NAME: deploy-outputs.${{ inputs.deployment-target }}
+      UPLOAD_FILE_NAME: deploy-${{ inputs.expected-root-spec-name }}-outputs.${{ inputs.deployment-target }}
     outputs:
       general-artifact-name: deploy-outputs.*
     steps:

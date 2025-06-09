@@ -135,7 +135,7 @@ class TestFormatTelemetryOfModel():
             "html_url": "https://github.com/ACCESS-NRI/ACCESS-OM3/releases/tag/2025.01.2",
         }
 
-        actual_telemetry = _format_telemetry_of_model("ACCESS-NRI/ACCESS-OM3", Path("tests/scripts/release_provenance/inputs/1-0-0/deploy-outputs.Gadi"))
+        actual_telemetry = _format_telemetry_of_model("ACCESS-NRI/ACCESS-OM3", Path("tests/scripts/release_provenance/inputs/1-0-0/deploy-access-om3-outputs.Gadi"))
 
         assert actual_telemetry == expected_telemetry, f"Expected {expected_telemetry}, but got {actual_telemetry}"
 
@@ -146,7 +146,7 @@ class TestFormatTelemetryOfModel():
         requests_mock.return_value = Mock(status_code=404)
 
         with pytest.raises(ValueError):
-            _format_telemetry_of_model("invalid-repo", Path("tests/scripts/release_provenance/inputs/1-0-0/deploy-outputs.Gadi"))
+            _format_telemetry_of_model("invalid-repo", Path("tests/scripts/release_provenance/inputs/1-0-0/deploy-access-om3-outputs.Gadi"))
 
     def test__format_telemetry_of_model_1_0_0__invalid_file(self):
         with pytest.raises(FileNotFoundError):
@@ -170,7 +170,7 @@ class TestFormatTelemetryOfDeploymentTarget():
             "spack_model.module_load_command": "access-om3/2025.01.2",
         }
 
-        actual_telemetry = _format_telemetry_of_deployment_target("access-om3", "Gadi", Path("tests/scripts/release_provenance/inputs/1-0-0/deploy-outputs.Gadi"), Path("tests/scripts/release_provenance/inputs/1-0-0/deploy-metadata.Gadi"))
+        actual_telemetry = _format_telemetry_of_deployment_target("access-om3", "Gadi", Path("tests/scripts/release_provenance/inputs/1-0-0/deploy-access-om3-outputs.Gadi"), Path("tests/scripts/release_provenance/inputs/1-0-0/deploy-access-test-metadata.Gadi"))
         actual_telemetry_without_components = {k: v for k, v in actual_telemetry.items() if k not in ["spack_model_components"]}
 
         assert actual_telemetry_without_components == expected_telemetry_without_components, f"Without components, expected {expected_telemetry_without_components}, but got {actual_telemetry_without_components}"
@@ -187,7 +187,7 @@ class TestFormatTelemetryOfModelComponents():
             },
         ]
 
-        actual_telemetry = _format_telemetry_of_model_components("Gadi", Path("tests/scripts/release_provenance/inputs/1-0-0/deploy-metadata.Gadi"))
+        actual_telemetry = _format_telemetry_of_model_components("Gadi", Path("tests/scripts/release_provenance/inputs/1-0-0/deploy-access-test-metadata.Gadi"))
 
         assert actual_telemetry == expected_telemetry, f"Expected {expected_telemetry}, but got {actual_telemetry}"
 
