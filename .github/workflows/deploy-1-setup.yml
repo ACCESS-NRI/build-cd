@@ -387,7 +387,7 @@ jobs:
     env:
       UPLOAD_FILE_NAME: deploy-${{ inputs.expected-root-spec-name }}-outputs.${{ inputs.deployment-target }}
     outputs:
-      general-artifact-name: deploy-outputs.*
+      general-artifact-name: deploy-${{ inputs.expected-root-spec-name }}-outputs.*
     steps:
       - name: Create outputs file
         # See the on.workflow_call.outputs section for details on the info created.
