@@ -77,12 +77,9 @@ jobs:
           envs=$(find ${{ steps.path.outputs.spack }}/../environments -type d -name '${{ inputs.version-pattern }}' -printf '%f ')
 
           for env in $envs; do
-            spack env activate $env
-            spack uninstall --dependents --yes-to-all --all
-            spack env deactivate
             spack env rm $env --yes-to-all
           done
-          spack gc --yes-to-all
+          spack gc --except-any-environment --yes-to-all
           EOT
 
       - name: Undeploy spack-packages
