@@ -9,7 +9,7 @@
         },
         "0.22": {
           "spack": "f32c2593340d854b69494afe32cbef0b764933fe",
-          "spack-config": "2025.02.2"
+          "spack-config": "2025.06.001"
         }
       },
       "Prerelease": {
