@@ -1,6 +1,7 @@
 #%Module
 
-set module_directories [glob -type d /g/data/vk83/apps/spack/*/release/modules/linux-rocky8-x86_64/ ]
+# Create virtual modules for all top level module files: mostly access models
+set module_directories [glob -type d /g/data/vk83/apps/spack/*/release/modules/linux-rocky8-*/ ]
 
 # Loop over all release module directories
 foreach module_directory $module_directories {
@@ -12,6 +13,27 @@ foreach module_directory $module_directories {
     foreach modfile $modfiles {
         set pathElements [file split $modfile]
         set module_version [file join {*}[lrange $pathElements end-1 end]]
+        # puts stderr "module-virtual $module_version $modfile"
+        module-virtual $module_version $modfile
+    }
+}
+
+
+# Create virtual modules for all model-tools modules. Should be possible to add other
+# paths to this and logic below will work fine
+set module_directories [glob -type d /g/data/vk83/apps/spack/0.22/release/modules/linux-rocky8-*/model-tools ]
+
+# Loop over all model-tools module directories
+foreach module_directory $module_directories {
+
+    # Find all the module files
+    set modfiles [split [exec find $module_directory -type f -not -name ".*"] \n]
+    
+    # Create a virtual module for each one
+    foreach modfile $modfiles {
+        set pathElements [file split $modfile]
+	# Note that this use the final 3 paths as there is a top level tools dir
+        set module_version [file join {*}[lrange $pathElements end-2 end]]
         # puts stderr "module-virtual $module_version $modfile"
         module-virtual $module_version $modfile
     }
