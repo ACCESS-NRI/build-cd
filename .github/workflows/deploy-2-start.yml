@@ -187,6 +187,7 @@ jobs:
           EOT
 
       - name: Deploy to ${{ inputs.deployment-target }} ${{ inputs.deployment-type }}
+        id: deploy
         # ssh into deployment environment, create and activate the env, install the spack manifest.
         run: |
           ssh ${{ secrets.USER}}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
@@ -209,7 +210,10 @@ jobs:
           spack --debug install --fail-fast --fresh ${{ vars.SPACK_INSTALL_ADDITIONAL_ARGS }} || exit $?
           spack module tcl refresh -y
 
-          # Move spack debug logs to $SPACK_ROOT/logs
+      - name: Move spack logs
+        if: always() && (steps.deploy.outcome == 'success' || steps.deploy.outcome == 'failure')
+        run: |
+          ssh ${{ secrets.USER}}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
           find . -maxdepth 1 -regex './spack-cc-.+' -exec mv {} ${{ steps.path.outputs.root }}/logs \;
           EOT
 
