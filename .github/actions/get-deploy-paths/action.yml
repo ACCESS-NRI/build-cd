@@ -3,22 +3,18 @@ description: Action that returns important paths for a spack install on a deploy
 author: Tommy Gatti
 inputs:
   spack-installs-root-path:
-    type: string
     required: true
     # For example, `some/apps/spack` is the root, `some/apps/spack/0.21/` is a specific spack deployment, `some/apps/spack/0.21/spack` is a specific spack install.
     description: Path to a directory within which all versions of spack are installed
   spack-version:
-    type: string
     required: true
     description: |
       Version of spack deployed.
       Used to construct a specific spack installation path, in conjunction with `spack-installs-root-path`.
   deployment-environment:
-    type: string
     required: true
     description: Name of the GitHub deployment target environment
   spack-environment:
-    type: string
     required: true
     description: |
       Spack environment name that is used for this deployment.
@@ -44,6 +40,9 @@ outputs:
   spack-packages:
     description: Path to the ACCESS-NRI/spack-packages repository associated with the environment created in the install of spack.
     value: ${{ steps.path.outputs.spack-packages }}
+  spack-environment:
+    description: Path to the spack environment folder for the given inputs.spack-environment.
+    value: ${{ steps.path.outputs.spack-environment }}
 runs:
   using: composite
   steps:
@@ -82,3 +81,5 @@ runs:
         elif [[ '${{ steps.validate.outputs.type }}' == Prerelease ]]; then
           echo "spack-packages=$root/spack-packages/${{ inputs.spack-environment }}/spack-packages" >> $GITHUB_OUTPUT
         fi
+
+        echo "spack-environment=$root/environments/${{ inputs.spack-environment }}" >> $GITHUB_OUTPUT
