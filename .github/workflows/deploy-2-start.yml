@@ -276,6 +276,15 @@ jobs:
           echo "$(cat ./root-spec-pkg-hash.${{ github.run_id }})" >> $GITHUB_OUTPUT
           rm ./root-spec-pkg-hash.${{ github.run_id }}
 
+      - name: Tar spack environment metadata
+        if: inputs.deployment-type == 'Prerelease'
+        env:
+          SPACK_ENV_PATH: ${{ steps.path.outputs.spack }}/../environments/${{ inputs.env-name }}
+        run: |
+          ssh ${{ secrets.USER }}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
+          tar --remove-files --create --file ${{ env.SPACK_ENV_PATH }}.spack-env.tar ${{ env.SPACK_ENV_PATH }}/.spack-env
+          EOT
+
       # Release
       - name: Get Release Metadata
         env:
