@@ -226,8 +226,6 @@ jobs:
       - name: Get metadata from ${{ inputs.deployment-target }} ${{ inputs.deployment-type}}
         id: metadata
         # Get the metadata from the spack environment regarding build database packages
-        env:
-          SPACK_ENV_PATH: ${{ steps.path.outputs.spack }}/../environments/${{ inputs.env-name }}
         run: |
           ssh ${{ secrets.USER }}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
           # Export vars.DEPLOYMENT_TARGET
@@ -237,13 +235,13 @@ jobs:
           . ${{ steps.path.outputs.spack-config }}/spack-enable.bash
           spack env activate ${{ inputs.env-name }}
 
-          spack find --paths > ${{ env.SPACK_ENV_PATH }}/spack.location
+          spack find --paths > ${{ steps.path.outputs.spack-environment }}/spack.location
 
           # output the root-spec-pkg-hash into a file that is accessible outside the ssh session
-          echo "root-spec-pkg-hash=$(spack find --format '{hash}' ${{ inputs.expected-root-spec-name }})" > ${{ env.SPACK_ENV_PATH }}/root-spec-pkg-hash.${{ github.run_id }}
+          echo "root-spec-pkg-hash=$(spack find --format '{hash}' ${{ inputs.expected-root-spec-name }})" > ${{ steps.path.outputs.spack-environment }}/root-spec-pkg-hash.${{ github.run_id }}
 
           # Get the information associated with the packages for the build database
-          jq -n '[]' > ${{ env.SPACK_ENV_PATH }}/build-db-pkgs.json
+          jq -n '[]' > ${{ steps.path.outputs.spack-environment }}/build-db-pkgs.json
 
           for pkg in ${{ vars.BUILD_DB_PACKAGES }}; do
             hash=$(spack find --format '{hash}' $pkg)
@@ -259,9 +257,9 @@ jobs:
               --arg l "$location" \
               --arg r "$pkg_repo_url" \
               '. += [{"name": $p, "version": $v, "hash": $h, "location": $l, "url": $r}]' \
-              ${{ env.SPACK_ENV_PATH }}/build-db-pkgs.json > ${{ env.SPACK_ENV_PATH }}/build-db-pkgs.json.tmp
+              ${{ steps.path.outputs.spack-environment }}/build-db-pkgs.json > ${{ steps.path.outputs.spack-environment }}/build-db-pkgs.json.tmp
 
-            mv -f ${{ env.SPACK_ENV_PATH }}/build-db-pkgs.json.tmp ${{ env.SPACK_ENV_PATH }}/build-db-pkgs.json
+            mv -f ${{ steps.path.outputs.spack-environment }}/build-db-pkgs.json.tmp ${{ steps.path.outputs.spack-environment }}/build-db-pkgs.json
           done
 
           spack env deactivate
@@ -270,7 +268,7 @@ jobs:
           # Output root spec package hash from ssh session
           rsync -e 'ssh -i ${{ steps.ssh.outputs.private-key-path }}' \
             --remove-source-files \
-            ${{ secrets.USER }}@${{ secrets.HOST }}:${{ env.SPACK_ENV_PATH }}/root-spec-pkg-hash.${{ github.run_id }} \
+            ${{ secrets.USER }}@${{ secrets.HOST }}:${{ steps.path.outputs.spack-environment }}/root-spec-pkg-hash.${{ github.run_id }} \
             ./root-spec-pkg-hash.${{ github.run_id }}
 
           echo "$(cat ./root-spec-pkg-hash.${{ github.run_id }})" >> $GITHUB_OUTPUT
@@ -278,23 +276,18 @@ jobs:
 
       - name: Tar spack environment metadata
         if: inputs.deployment-type == 'Prerelease'
-        env:
-          SPACK_ENV_PATH: ${{ steps.path.outputs.spack }}/../environments/${{ inputs.env-name }}
         run: |
           ssh ${{ secrets.USER }}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
-          tar --remove-files --create --file ${{ env.SPACK_ENV_PATH }}.spack-env.tar ${{ env.SPACK_ENV_PATH }}/.spack-env
+          tar --remove-files --create --file ${{ steps.path.outputs.spack-environment }}.spack-env.tar ${{ steps.path.outputs.spack-environment }}/.spack-env
           EOT
 
       # Release
       - name: Get Release Metadata
-        env:
-          # TODO: Can we put both envs above in a $GITHUB_ENV file instead?
-          SPACK_ENV_PATH: ${{ steps.path.outputs.spack }}/../environments/${{ inputs.env-name }}
         # Copy both the spack.* files and the build-db-pkgs.json file to the artifact
         run: |
           rsync -e 'ssh -i ${{ steps.ssh.outputs.private-key-path }}' \
-            '${{ secrets.USER }}@${{ secrets.HOST_DATA }}:${{ env.SPACK_ENV_PATH }}/spack.*' \
-            '${{ secrets.USER }}@${{ secrets.HOST_DATA }}:${{ env.SPACK_ENV_PATH }}/build-db-pkgs.json' \
+            '${{ secrets.USER }}@${{ secrets.HOST_DATA }}:${{ steps.path.outputs.spack-environment }}/spack.*' \
+            '${{ secrets.USER }}@${{ secrets.HOST_DATA }}:${{ steps.path.outputs.spack-environment }}/build-db-pkgs.json' \
             ./${{ env.ARTIFACT_NAME }}
 
           # Rename the files to include the deployment environment
