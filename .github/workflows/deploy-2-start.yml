@@ -117,9 +117,10 @@ jobs:
           SPACK_YAML_MODULEFILE_PROJECTION_YQ: .spack.modules.default.tcl.projections.${{ steps.manifest.outputs.root-spec-name }}
           OPTIONAL_VARIANTS: ${{ steps.manifest.outputs.root-spec-variants != 'null' && steps.manifest.outputs.root-spec-variants || '' }}
         run: |
-          if [[ "${{ inputs.expected-root-spec-name }}" == "${{ steps.manifest.outputs.root-spec-name }}" ]]; then
-            yq -i '${{ steps.manifest.outputs.yq-root-spec }} = "${{ inputs.expected-root-spec-name }} ${{ env.OPTIONAL_VARIANTS }}"' ${{ inputs.spack-manifest-path }}
-          fi
+          # FIXME: When we integrate MDRs and SDRs into the same branch, we will need to figure out how to handle this
+          # if [[ "${{ inputs.expected-root-spec-name }}" == "${{ steps.manifest.outputs.root-spec-name }}" ]]; then
+          #   yq -i '${{ steps.manifest.outputs.yq-root-spec }} = "${{ inputs.expected-root-spec-name }} ${{ env.OPTIONAL_VARIANTS }}"' ${{ inputs.spack-manifest-path }}
+          # fi
 
           yq -i '${{ env.SPACK_YAML_MODULEFILE_PROJECTION_YQ }} = "{name}/${{ inputs.version }}"' ${{ inputs.spack-manifest-path }}
 
