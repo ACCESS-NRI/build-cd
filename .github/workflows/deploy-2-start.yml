@@ -278,7 +278,11 @@ jobs:
         if: inputs.deployment-type == 'Prerelease'
         run: |
           ssh ${{ secrets.USER }}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
-          tar --remove-files --create --file ${{ steps.path.outputs.spack-environment }}.spack-env.tar ${{ steps.path.outputs.spack-environment }}/.spack-env
+          if [ -d "${{ steps.path.outputs.spack-environment }}/.spack-env" ]; then
+            tar --remove-files --create --file ${{ steps.path.outputs.spack-environment }}.spack-env.tar ${{ steps.path.outputs.spack-environment }}/.spack-env
+          else
+            echo "::warning::No .spack-env directory found in ${{ steps.path.outputs.spack-environment }}, not tarring. There may be an issue with the environment."
+          fi
           EOT
 
       # Release
