@@ -20,6 +20,7 @@ This action constructs paths relevant to a deployment of `spack`.
 | `spack-config` | `string` | Path to the ACCESS-NRI/spack-config repository associated with the install of spack. | `"/some/dir/apps/spack/0.21/spack-config"` |
 | `spack-packages-root` | `string` | Path to the folder containing all ACCESS-NRI/spack-packages repositories used in the install of spack | `"/some/dir/apps/spack/0.21/spack-packages"` |
 | `spack-packages` | `string` | Path to the ACCESS-NRI/spack-packages repository associated with the environment created in the install of spack. | For Release: `"/some/dir/apps/spack/0.21/spack-packages"`, for Prerelease: `"/some/dir/apps/spack/0.21/spack-packages/access-om2-pr12-12/spack-packages"` |
+| `spack-environment` | `string` | Path to the spack environment folder for the given `inputs.spack-environment` | `"/some/dir/apps/spack/0.21/environments/access-om2-pr12-12"` |
 
 ## Example
 

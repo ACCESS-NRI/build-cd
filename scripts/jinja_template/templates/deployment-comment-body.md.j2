@@ -23,6 +23,7 @@ module load {{ root_sbd }}/{{ prerelease_version}}
 When using the above modules, the binaries shall be on your `$PATH`.
 
 For advanced users, this Prerelease is also accessible on `{{ deployment.name }}` via `{{ deployment.spack_location }}` in the `{{ root_sbd }}-{{ prerelease_version }}` environment.
+Due to inode-saving measures, one will have to manually untar the environment metadata before environment activation with `tar -xf .spack-env .spack-env.tar`. It will require one to have write privileges.
 
 </details>
 
