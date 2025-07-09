@@ -19,9 +19,9 @@ foreach module_directory $module_directories {
 }
 
 
-# Create virtual modules for all model-tools modules. Should be possible to add other
+# Create virtual modules for all system-tools and model-tools modules. Should be possible to add other
 # paths to this and logic below will work fine
-set module_directories [glob -type d /g/data/vk83/apps/spack/0.22/release/modules/linux-rocky8-*/model-tools ]
+set module_directories [glob -type d /g/data/vk83/apps/spack/0.22/release/modules/linux-rocky8-*/*-tools ]
 
 # Loop over all model-tools module directories
 foreach module_directory $module_directories {
