@@ -129,11 +129,11 @@ def main():
         args.manifest, args.root_spec, args.root_spec_version, args.spack_packages_path
     )
 
+    print(injected_manifest)
+
     if args.output:
         with open(args.output, "w") as output_file:
             output_file.write(injected_manifest)
-    else:
-        print(injected_manifest)
 
 
 if __name__ == "__main__":

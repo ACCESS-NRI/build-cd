@@ -214,6 +214,14 @@ def main():
         manifest_path=args.manifest, root_spec=args.root_spec, packages=packages
     )
 
+    print(
+        yaml.dump(
+            injected_manifest,
+            default_flow_style=False,
+            sort_keys=False,
+        )
+    )
+
     if args.output:
         with open(args.output, "w") as output_file:
             yaml.dump(
@@ -222,14 +230,6 @@ def main():
                 default_flow_style=False,
                 sort_keys=False,
             )
-    else:
-        print(
-            yaml.dump(
-                injected_manifest,
-                default_flow_style=False,
-                sort_keys=False,
-            )
-        )
 
 
 if __name__ == "__main__":
