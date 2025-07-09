@@ -219,6 +219,7 @@ jobs:
           spack env activate ${{ inputs.env-name }}
           spack --debug install --fail-fast --fresh ${{ vars.SPACK_INSTALL_ADDITIONAL_ARGS }} || exit $?
           spack module tcl refresh -y
+          EOT
 
       - name: Move spack logs
         if: always() && (steps.deploy.outcome == 'success' || steps.deploy.outcome == 'failure')
