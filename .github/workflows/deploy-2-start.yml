@@ -68,10 +68,14 @@ jobs:
       root-spec-pkg-hash: ${{ steps.metadata.outputs.root-spec-pkg-hash }}
       metadata-artifact-name: ${{ env.ARTIFACT_NAME }}
     steps:
-      # Deployment
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.ref }}
+
+      - uses: actions/checkout@v4
+        with:
+          repository: access-nri/build-cd
+          path: cd
 
       - name: Get Versions From config/versions.json
         id: versions
@@ -103,35 +107,34 @@ jobs:
             ${{ secrets.HOST }}
             ${{ secrets.HOST_DATA }}
 
-      - name: Prerelease spack manifest modifications
-        # Modifies the name of the prerelease modulefile to the
-        # `pr<number>-<commit>` style. For example, `access-om3/pr12-2`.
-        # Also removes the `@git.VERSION` specifier for Prereleases so
-        # we don't have to shift tags around.
-        # Also adds a repos section that points to the PRs specific spack-packages repo.
-        if: inputs.deployment-type == 'Prerelease'
-        # If the inputs.expected-root-spec-name for the repository is the same as the one in the spack manifest,
-        # we can safely remove the @git.VERSION specifier. Otherwise it could be because the Prerelease
-        # is being used to test something else.
-        env:
-          SPACK_YAML_MODULEFILE_PROJECTION_YQ: .spack.modules.default.tcl.projections.${{ steps.manifest.outputs.root-spec-name }}
-          OPTIONAL_VARIANTS: ${{ steps.manifest.outputs.root-spec-variants != 'null' && steps.manifest.outputs.root-spec-variants || '' }}
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Spack Manifest - Projection Injection
+        working-directory: cd
+        # Injects relevant projections into the spack manifest so users don't have to.
         run: |
-          if [[ "${{ inputs.expected-root-spec-name }}" == "${{ steps.manifest.outputs.root-spec-name }}" ]]; then
-            yq -i '${{ steps.manifest.outputs.yq-root-spec }} = "${{ inputs.expected-root-spec-name }} ${{ env.OPTIONAL_VARIANTS }}"' ${{ inputs.spack-manifest-path }}
-          fi
+          python -m scripts.spack_manifest.injection.projections \
+            --manifest ${{ inputs.spack-manifest-path }} \
+            --root-spec ${{ steps.manifest.outputs.root-spec-name }} \
+            --packages "${{ vars.BUILD_DB_PACKAGES }}" \
+            --output ${{ inputs.spack-manifest-path }}
 
-          yq -i '${{ env.SPACK_YAML_MODULEFILE_PROJECTION_YQ }} = "{name}/${{ inputs.version }}"' ${{ inputs.spack-manifest-path }}
-
-          # Add the specific prerelease spack-packages repo to the environment
-          # We can't use yq as we are using a non-standard spack-specific '::' construct to ignore higher config scopes
-          cat << 'EOF' >> ${{ inputs.spack-manifest-path }}
-            repos::
-                - ${{ steps.path.outputs.spack-packages }}
-                - $spack/var/spack/repos/builtin
-          EOF
-
-          echo '::notice::Prerelease accessible as module ${{ steps.manifest.outputs.root-spec-name }}/${{ inputs.version }}'
+      - name: Spack Manifest - Prerelease Injection
+        if: inputs.deployment-type == 'Prerelease'
+        working-directory: cd
+        # Modifies the name of the prerelease modulefile to the pr<number>-<deployment number>` style.
+        # Also removes the `@git.VERSION` specifier for Prereleases as it is a tag that doesn't yet exist.
+        # Also adds a repos section that points to the prereleases specific spack-packages repo.
+        run: |
+          python -m scripts.spack_manifest.injection.prerelease \
+            --manifest ${{ inputs.spack-manifest-path }} \
+            --root-spec ${{ steps.manifest.outputs.root-spec-name }} \
+            --spack-packages-path ${{ steps.path.outputs.spack-packages }} \
+            --output ${{ inputs.spack-manifest-path }}
 
       - name: Copy ${{ inputs.spack-manifest-path }}
         run: |
