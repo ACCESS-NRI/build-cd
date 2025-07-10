@@ -5,6 +5,7 @@ from scripts.spack_manifest.injection.prerelease import (
     add_prerelease_repos_section,
     remove_potential_root_spec_git_version,
     update_root_spec_projection_version,
+    add_namespace_to_other_projection_versions,
 )
 
 class TestUpdateRootSpecProjectionVersion:
@@ -168,3 +169,71 @@ class TestInjectPrereleaseInformation:
             expected_manifest_str = f.read()
 
         assert updated_manifest_str.strip() == expected_manifest_str.strip()
+
+class TestAddNamespaceToOtherProjectionVersions:
+    def test_add_namespace_to_other_projection_versions__valid(self):
+        root_spec_name = "access-om2"
+        version = "pr12-2"
+
+        manifest = {
+            "spack": {
+                "modules": {
+                    "default": {
+                        "tcl": {
+                            "projections": {
+                                "access-om2": f"{{name}}/{version}",
+                                "dependency1": "{name}/2.0.0",
+                                "dependency2": "{name}/3.0.0-{hash:7}",
+                                "dependency3": "{name}/special/4.0.0-{hash:7}"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+
+        updated_manifest = add_namespace_to_other_projection_versions(manifest, root_spec_name, version)
+
+        assert updated_manifest["spack"]["modules"]["default"]["tcl"]["projections"]["access-om2"] == f"{{name}}/{version}"
+        assert updated_manifest["spack"]["modules"]["default"]["tcl"]["projections"]["dependency1"] == f"{{name}}/{version}/2.0.0"
+        assert updated_manifest["spack"]["modules"]["default"]["tcl"]["projections"]["dependency2"] == f"{{name}}/{version}/3.0.0-{{hash:7}}"
+        assert updated_manifest["spack"]["modules"]["default"]["tcl"]["projections"]["dependency3"] == f"{{name}}/{version}/special/4.0.0-{{hash:7}}"
+
+    def test_add_namespace_to_other_projection_versions__no_projections_except_for_root(self):
+        root_spec_name = "access-om2"
+        version = "pr12-2"
+        manifest = {
+            "spack": {
+                "modules": {
+                    "default": {
+                        "tcl": {
+                            "projections": {
+                                "access-om2": f"{{name}}/{version}"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        updated_manifest = add_namespace_to_other_projection_versions(manifest, root_spec_name, version)
+
+        assert updated_manifest["spack"]["modules"]["default"]["tcl"]["projections"] == {"access-om2": f"{{name}}/{version}"}
+
+    def test_add_namespace_to_other_projection_versions__no_projections(self):
+        root_spec_name = "access-om2"
+        version = "pr12-2"
+        manifest = {
+            "spack": {
+                "modules": {
+                    "default": {
+                        "tcl": {}
+                    }
+                }
+            }
+        }
+
+        updated_manifest = add_namespace_to_other_projection_versions(manifest, root_spec_name, version)
+
+        assert updated_manifest["spack"]["modules"]["default"]["tcl"] == {}
