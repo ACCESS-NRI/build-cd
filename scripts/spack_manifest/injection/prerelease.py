@@ -1,6 +1,7 @@
 import argparse
 import yaml
 import re
+import sys
 
 from typing import Any
 from copy import deepcopy
@@ -104,7 +105,7 @@ def add_prerelease_repos_section(
 
         return manifest_str
 
-def parse_args():
+def parse_args(args: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Script for injecting prerelease information into spack manifest files."
     )
@@ -138,6 +139,7 @@ def parse_args():
         help="Local path to a spack-packages repository that is added to the manifests repos section",
     )
 
+    # Args dealing with outputs
     parser.add_argument(
         "--output",
         type=str,
@@ -145,11 +147,11 @@ def parse_args():
         help="Path to the output file where the modified manifest will be saved",
     )
 
-    return parser.parse_args()
+    return parser.parse_args(args)
 
 
 def main():
-    args = parse_args()
+    args = parse_args(sys.argv[1:])
 
     injected_manifest: str = inject_prerelease_information(
         args.manifest, args.root_spec, args.version, args.spack_packages_path

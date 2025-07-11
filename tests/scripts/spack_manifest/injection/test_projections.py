@@ -7,6 +7,7 @@ from scripts.spack_manifest.injection.projections import (
     _generate_projection_version_from_spec_or_raise,
     generate_projections,
     inject_projections,
+    parse_args
 )
 
 
@@ -469,3 +470,59 @@ class TestInjectProjections:
         assert (
             output == expected_output
         ), "Injected projections should match the expected output."
+
+class TestParseArgs:
+    def test_parse_args__valid_no_optionals_one_package(self):
+        args = [
+            "--manifest",
+            "tests/scripts/spack_manifest/injection/inputs/spack.yaml",
+            "--root-spec",
+            "access-om2",
+            "--packages",
+            "mom5",
+        ]
+
+        parsed_args = parse_args(args)
+
+        assert parsed_args.manifest == "tests/scripts/spack_manifest/injection/inputs/spack.yaml"
+        assert parsed_args.root_spec == "access-om2"
+        assert parsed_args.packages == "mom5"
+        assert parsed_args.output is None, "Output should be None when not specified."
+
+
+    def test_parse_args__valid_no_optionals_multiple_packages(self):
+        args = [
+            "--manifest",
+            "tests/scripts/spack_manifest/injection/inputs/spack.yaml",
+            "--root-spec",
+            "access-om2",
+            "--packages",
+            "mom5 cice5 libaccessom2"
+        ]
+
+        parsed_args = parse_args(args)
+
+        assert parsed_args.manifest == "tests/scripts/spack_manifest/injection/inputs/spack.yaml"
+        assert parsed_args.root_spec == "access-om2"
+        assert parsed_args.packages == "mom5 cice5 libaccessom2"
+        assert parsed_args.output is None, "Output should be None when not specified."
+
+
+    def test_parse_args__valid_with_optionals_multiple_packages(self):
+        args = [
+            "--manifest",
+            "tests/scripts/spack_manifest/injection/inputs/spack.yaml",
+            "--root-spec",
+            "access-om2",
+            "--output",
+            "output.yaml",
+            "--packages",
+            "mom5 cice5 libaccessom2"
+        ]
+
+        parsed_args = parse_args(args)
+
+        assert parsed_args.manifest == "tests/scripts/spack_manifest/injection/inputs/spack.yaml"
+        assert parsed_args.root_spec == "access-om2"
+        assert parsed_args.output == "output.yaml"
+        assert parsed_args.packages == "mom5 cice5 libaccessom2"

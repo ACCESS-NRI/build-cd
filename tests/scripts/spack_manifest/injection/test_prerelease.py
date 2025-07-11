@@ -6,6 +6,7 @@ from scripts.spack_manifest.injection.prerelease import (
     remove_potential_root_spec_git_version,
     update_root_spec_projection_version,
     add_namespace_to_other_projection_versions,
+    parse_args
 )
 
 class TestUpdateRootSpecProjectionVersion:
@@ -237,3 +238,36 @@ class TestAddNamespaceToOtherProjectionVersions:
         updated_manifest = add_namespace_to_other_projection_versions(manifest, root_spec_name, version)
 
         assert updated_manifest["spack"]["modules"]["default"]["tcl"] == {}
+
+class TestParseArgs:
+    def test_parse_args__valid_no_optionals(self):
+        args = [
+            "--manifest", "path/to/manifest.yaml",
+            "--root-spec", "access-om2",
+            "--version", "pr12-2",
+        ]
+
+        parsed_args = parse_args(args)
+
+        assert parsed_args.manifest == "path/to/manifest.yaml"
+        assert parsed_args.root_spec == "access-om2"
+        assert parsed_args.version == "pr12-2"
+        assert parsed_args.spack_packages_path is None
+        assert parsed_args.output is None
+
+    def test_parse_args__valid_with_optionals(self):
+        args = [
+            "--manifest", "path/to/manifest.yaml",
+            "--root-spec", "access-om2",
+            "--version", "pr12-2",
+            "--spack-packages-path", "/some/spack/packages",
+            "--output", "output.yaml"
+        ]
+
+        parsed_args = parse_args(args)
+
+        assert parsed_args.manifest == "path/to/manifest.yaml"
+        assert parsed_args.root_spec == "access-om2"
+        assert parsed_args.version == "pr12-2"
+        assert parsed_args.spack_packages_path == "/some/spack/packages"
+        assert parsed_args.output == "output.yaml"

@@ -1,6 +1,7 @@
 import argparse
 import yaml
 import re
+import sys
 
 from typing import Any
 
@@ -168,7 +169,7 @@ def inject_projections(
     return injected_manifest
 
 
-def parse_args():
+def parse_args(args: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Script for injecting projection information into spack manifest files."
     )
@@ -202,11 +203,11 @@ def parse_args():
         help="Path to the output file where the modified manifest will be saved",
     )
 
-    return parser.parse_args()
+    return parser.parse_args(args)
 
 
 def main():
-    args = parse_args()
+    args = parse_args(sys.argv[1:])
 
     packages: set[str] = set(args.packages.split())
 
