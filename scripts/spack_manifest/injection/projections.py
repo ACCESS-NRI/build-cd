@@ -35,47 +35,102 @@ def _get_packages_with_versions_defined(manifest: dict[str, Any]) -> set[str]:
 
     return packages_with_versions_defined
 
+def inject_projections(
+    manifest_path: str, root_spec: str, packages: set[str]
+) -> dict[str, Any]:
 
-def generate_projections(
-    manifest: dict[str, Any],
-    root_spec_name: str,
-    existing_projections: dict[str, str],
-    projections_to_generate: set[str],
-) -> dict[str, str]:
-    projections: dict[str, str] = existing_projections
+    with open(manifest_path, "r") as file:
+        manifest: dict[str, Any] = yaml.safe_load(file)
+
+    # Get projections that are already defined in the manifest - we don't want to redefine these
+    defined_projections: dict[str, str] = _get_defined_projections(manifest)
+    defined_projections_set: set[str] = set(defined_projections.keys())
+    # Get packages that have versions defined in the manifest - we can only generate projections for things with an explicit version
+    packages_with_versions_defined: set[str] = _get_packages_with_versions_defined(
+        manifest
+    )
+
+    # Essentially...we want to generate projections for all packages that don't already have them, provided they have a version defined
+    projections_to_generate: set[str] = (packages & packages_with_versions_defined) - defined_projections_set
+
+    # To start with, add the projections that are already defined in the manifest
+    new_projections: dict[str, str] = dict(defined_projections)
+
+    if root_spec not in defined_projections_set:
+        new_projections.update(generate_projection_for_root_spec_or_raise(manifest, root_spec))
 
     for projection in projections_to_generate:
-        if projection == root_spec_name:
-            projection_version: str = _generate_projection_version_from_spec_or_raise(
-                manifest, projection
-            )
-            if projection_version:
-                # We don't add a hash to the root spec projection, as it is a unique deployment
-                projections[projection] = f"{{name}}/{projection_version}"
-        else:
-            projection_version: str = _generate_projection_version_from_package(
-                manifest, projection
-            )
-            if projection_version:
-                # This is not the case for the other projections, so we add the spack hash to them
-                projections[projection] = f"{{name}}/{projection_version}-{{hash:7}}"
+        new_projections.update(
+            generate_projection_for_package_or_raise(manifest, projection)
+        )
 
-    # Sort the projections by name to ensure a consistent order
-    ordered_projections = dict(sorted(projections.items()))
+    # Sort the projections by name to ensure a consistent order...
+    ordered_new_projections = dict(sorted(new_projections.items()))
 
     # But, we want to ensure that the root spec projection is always first in the list because it's special
-    if projections[root_spec_name] is not None:
-        root_spec_version = ordered_projections.pop(root_spec_name)
-        ordered_projections = {root_spec_name: root_spec_version, **ordered_projections}
+    root_spec_version = ordered_new_projections.pop(root_spec)
+    ordered_new_projections = {root_spec: root_spec_version, **ordered_new_projections}
 
-    return ordered_projections
+    # Finally, add the new projections to the manifest
+    injected_manifest: dict[str, Any] = dict(manifest)
+    injected_manifest.setdefault("spack", {}).setdefault("modules", {}).setdefault("default", {}).setdefault("tcl", {})["projections"] = ordered_new_projections
 
+    return injected_manifest
 
-def _generate_projection_version_from_package(
-    manifest: dict[str, Any], projection: str
-) -> str:
+def generate_projection_for_root_spec_or_raise(
+    manifest: dict[str, Any], root_spec_name: str
+) -> dict[str, str]:
+    root_spec_definition: str | None = None
+
+    # First check if the spec is defined in the multi-target format
+    for spec_definition in manifest.get("spack", {}).get("definitions", []):
+        if "ROOT_PACKAGE" in spec_definition and len(spec_definition["ROOT_PACKAGE"]) > 0:
+            root_spec_definition = spec_definition["ROOT_PACKAGE"][0]
+            break
+
+    # Then check if the spec if defined in the traditional, single-target format
+    if not root_spec_definition and len(manifest.get("spack", {}).get("specs", [])) > 0:
+        root_spec_definition = manifest.get("spack", {}).get("specs", [])[0]
+
+    # If it isn't in either of those places, we don't know where it is
+    if not root_spec_definition:
+        raise ValueError(
+            f"Could not find root spec definition for root spec {root_spec_name} in the manifest. The spack.yaml is invalid"
+        )
+
+    # Now we can extract the actual version from the root spec definition
+    version_regex = re.compile(r"([^@]+)@(?:git.)?([^+~= ]+).*")
+    match = re.match(version_regex, root_spec_definition)
+
+    if not match:
+        raise ValueError(
+            f"Could not extract name or version from root spec definition {root_spec_definition} for projection {root_spec_name}. The root spec needs a name and version defined properly."
+        )
+
+    root_spec_name_from_definition, version = match.group(1, 2)
+
+    if root_spec_name_from_definition != root_spec_name:
+        raise ValueError(
+            f"Expected root spec name '{root_spec_name}' does not match the name in the root spec definition '{root_spec_name_from_definition}'. The --root-spec needs to be defined the same as the actual root spec."
+        )
+
+    print(
+        f"Extracted version '{version}' from root spec definition '{root_spec_definition}'"
+    )
+
+    # We don't add a hash to the root spec projection, as it is a unique deployment
+    return {root_spec_name: f"{{name}}/{version}"}
+
+def generate_projection_for_package_or_raise(
+    manifest: dict[str, Any], package_name: str
+) -> dict[str, str]:
     # We require the package to have a version defined first in the spack.packages.PACKAGE section.
-    full_package_version: str = manifest["spack"]["packages"][projection]["require"][0]
+    if len(manifest.get("spack", {}).get("packages", {}).get(package_name, {}).get("require", [])) == 0:
+        raise ValueError(
+            f"Package '{package_name}' does not have a version defined in the manifests 'spack.packages.{package_name}.require[0]' section. Projections can only be generated for packages with an explicit version."
+        )
+
+    full_package_version: str = manifest["spack"]["packages"][package_name]["require"][0]
 
     version_regex = re.compile(r"@(?:git.)?([^+~= ]+).*")
 
@@ -87,87 +142,11 @@ def _generate_projection_version_from_package(
         return
 
     print(
-        f"Extracted version {version} from package {projection}{full_package_version}"
+        f"Extracted version '{version}' from package '{package_name}' using '{full_package_version}'"
     )
 
-    return version
-
-
-def _generate_projection_version_from_spec_or_raise(
-    manifest: dict[str, Any], projection: str
-) -> str:
-    root_spec_definition: str | None = None
-
-    # First check if the spec is defined in the multi-target format
-    for spec_definition in manifest.get("spack", {}).get("definitions", []):
-        if "ROOT_PACKAGE" in spec_definition:
-            root_spec_definition = spec_definition["ROOT_PACKAGE"][0]
-            break
-
-    # Then check if the spec if defined in the traditional, single-target format
-    if not root_spec_definition:
-        root_spec_definition = manifest.get("spack", {}).get("specs", [])[0]
-
-    # If it isn't in either of those places, we don't know where it is
-    if not root_spec_definition:
-        raise ValueError(
-            f"Could not find root spec definition for projection {projection} in the manifest. The spack.yaml is invalid"
-        )
-
-    # Now we can extract the version from the root spec definition
-    version_regex = re.compile(rf"{projection}@(?:git.)?([^+~= ]+).*")
-    match = re.match(version_regex, root_spec_definition)
-
-    if not match:
-        raise ValueError(
-            f"Could not extract version from root spec definition {root_spec_definition} for projection {projection}. The root spec needs a version defined."
-        )
-
-    version = match.group(1)
-
-    print(
-        f"Extracted version {version} from root spec definition {root_spec_definition}"
-    )
-
-    return version
-
-
-def inject_projections(
-    manifest_path: str, root_spec: str, packages: set[str]
-) -> dict[str, Any]:
-
-    with open(manifest_path, "r") as file:
-        manifest: dict[str, Any] = yaml.safe_load(file)
-
-    # We should try and inject projections for the root spec as well, so we create a set with just it
-    root_spec_set: set[str] = {root_spec}
-
-    # Get projections that are already defined in the manifest - we don't want to redefine these
-    defined_projections: dict[str, str] = _get_defined_projections(manifest)
-    defined_projections_set: set[str] = set(defined_projections.keys())
-    # Get packages that have versions defined in the manifest - we can only generate projections for things with an explicit version
-    packages_with_versions_defined: set[str] = _get_packages_with_versions_defined(
-        manifest
-    )
-
-    # Essentially...we want to generate projections for all packages that don't already have them, provided they have a version defined, or they are the root spec.
-    projections_to_generate: set[str] = (
-        root_spec_set | (packages & packages_with_versions_defined)
-    ) - defined_projections_set
-
-    # Generate the new projections based on the manifest content
-    new_projections: dict[str, str] = generate_projections(
-        manifest, root_spec, defined_projections, projections_to_generate
-    )
-
-    # Inject the new projections into the manifest content, and sort them
-    injected_manifest: dict[str, Any] = manifest
-    injected_manifest["spack"]["modules"]["default"]["tcl"][
-        "projections"
-    ] = new_projections
-
-    return injected_manifest
-
+    # Projections for packages need to be delimited by hash
+    return {package_name: f"{{name}}/{version}-{{hash:7}}"}
 
 def parse_args(args: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -203,8 +182,15 @@ def parse_args(args: list[str]) -> argparse.Namespace:
         help="Path to the output file where the modified manifest will be saved",
     )
 
-    return parser.parse_args(args)
+    parsed_args = parser.parse_args(args)
 
+    # Verifying that --packages are space-separated, which is a bit different from the usual comma-separated lists
+    if ',' in parsed_args.packages:
+        raise ValueError(
+            "The --packages argument must be a space-separated list of package names."
+        )
+
+    return parsed_args
 
 def main():
     args = parse_args(sys.argv[1:])
