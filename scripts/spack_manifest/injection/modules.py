@@ -5,54 +5,43 @@ import sys
 
 from typing import Any
 
+##################
+# Main functions #
+##################
 
-def _get_defined_projections(manifest: dict[str, Any]) -> dict[str, str]:
-    # These are the projections that are already defined in the manifest
-    projections: dict[str, Any] = (
-        manifest.get("spack", {})
-        .get("modules", {})
-        .get("default", {})
-        .get("tcl", {})
-        .get("projections", {})
+def main():
+    # Get inputs
+    args = parse_args(sys.argv[1:])
+
+    packages: set[str] = set(args.packages.split())
+
+    with open(args.manifest, "r") as file:
+        manifest: dict[str, Any] = yaml.safe_load(file)
+
+    # Inject manifeest with projections and includes
+    manifest_with_projections: dict[str, Any] = inject_projections(
+        manifest=manifest, root_spec=args.root_spec, packages=packages
     )
 
-    return projections
+    manifest_with_projections_and_includes: dict[str, Any] = inject_includes(manifest=manifest_with_projections, root_spec=args.root_spec, packages=packages)
 
-def _get_includes(manifest: dict[str, Any]) -> set[str]:
-    # Interrogating manifests of the form:
-    # spack:
-    #   modules:
-    #     default:
-    #       tcl:
-    #         includes:
-    #           - ROOT_PACKAGE
-    #           - PACKAGE1
-    #           - ...
-    includes: list[str] = (
-        manifest.get("spack", {})
-        .get("modules", {})
-        .get("default", {})
-        .get("tcl", {})
-        .get("includes", [])
+    # Output the modified manifest
+    print(
+        yaml.dump(
+            manifest_with_projections_and_includes,
+            default_flow_style=False,
+            sort_keys=False,
+        )
     )
 
-    return set(includes)
-
-def _get_packages_with_versions_defined(manifest: dict[str, Any]) -> set[str]:
-    # Interrogating manifests of the form:
-    # spack:
-    #   packages:
-    #     package1:
-    #       require:
-    #         - "@git.1.0.0"
-    packages: dict[str, Any] = manifest.get("spack", {}).get("packages", {})
-    packages_with_versions_defined: set[str] = set()
-
-    for package_name, package_spec in packages.items():
-        if package_spec["require"][0].startswith("@"):
-            packages_with_versions_defined.add(package_name)
-
-    return packages_with_versions_defined
+    if args.output:
+        with open(args.output, "w") as output_file:
+            yaml.dump(
+                manifest_with_projections_and_includes,
+                output_file,
+                default_flow_style=False,
+                sort_keys=False,
+            )
 
 def inject_projections(
     manifest: str, root_spec: str, packages: set[str]
@@ -92,6 +81,80 @@ def inject_projections(
     injected_manifest.setdefault("spack", {}).setdefault("modules", {}).setdefault("default", {}).setdefault("tcl", {})["projections"] = ordered_new_projections
 
     return injected_manifest
+
+def inject_includes(
+    manifest: dict[str, Any], root_spec: str, packages: set[str]
+) -> dict[str, Any]:
+    # We want to inject the includes for the root spec, all packages defined in --packages, and existing includes in the manifest.
+    existing_includes: set[str] = _get_defined_includes(manifest)
+
+    # Includes are the union of packages, and existing includes - we add the root spec later
+    includes: set[str] = packages | existing_includes
+
+    # To sort, we want to ensure that the root spec is always first in the list, and the rest are sorted alphabetically
+    sorted_include: list[str] = [root_spec] + sorted(includes)
+
+    # Finally, we inject the includes into and updated manifest, which we return
+    injected_manifest: dict[str, Any] = dict(manifest)
+    injected_manifest.setdefault("spack", {}).setdefault("modules", {}).setdefault("default", {}).setdefault("tcl", {})["includes"] = sorted_include
+
+    return injected_manifest
+
+###############################################
+# Functions to get sections from the manifest #
+###############################################
+
+def _get_defined_projections(manifest: dict[str, Any]) -> dict[str, str]:
+    # These are the projections that are already defined in the manifest
+    projections: dict[str, Any] = (
+        manifest.get("spack", {})
+        .get("modules", {})
+        .get("default", {})
+        .get("tcl", {})
+        .get("projections", {})
+    )
+
+    return projections
+
+def _get_defined_includes(manifest: dict[str, Any]) -> set[str]:
+    # Interrogating manifests of the form:
+    # spack:
+    #   modules:
+    #     default:
+    #       tcl:
+    #         includes:
+    #           - ROOT_PACKAGE
+    #           - PACKAGE1
+    #           - ...
+    includes: list[str] = (
+        manifest.get("spack", {})
+        .get("modules", {})
+        .get("default", {})
+        .get("tcl", {})
+        .get("includes", [])
+    )
+
+    return set(includes)
+
+def _get_packages_with_versions_defined(manifest: dict[str, Any]) -> set[str]:
+    # Interrogating manifests of the form:
+    # spack:
+    #   packages:
+    #     package1:
+    #       require:
+    #         - "@git.1.0.0"
+    packages: dict[str, Any] = manifest.get("spack", {}).get("packages", {})
+    packages_with_versions_defined: set[str] = set()
+
+    for package_name, package_spec in packages.items():
+        if package_spec["require"][0].startswith("@"):
+            packages_with_versions_defined.add(package_name)
+
+    return packages_with_versions_defined
+
+#######################################################
+# Lower-level functions to generate manifest sections #
+#######################################################
 
 def generate_projection_for_root_spec_or_raise(
     manifest: dict[str, Any], root_spec_name: str
@@ -164,23 +227,9 @@ def generate_projection_for_package_or_raise(
     # Projections for packages need to be delimited by hash
     return {package_name: f"{{name}}/{version}-{{hash:7}}"}
 
-def inject_includes(
-    manifest: dict[str, Any], root_spec: str, packages: set[str]
-) -> dict[str, Any]:
-    # We want to inject the includes for the root spec, all packages defined in --packages, and existing includes in the manifest.
-    existing_includes: set[str] = _get_includes(manifest)
-
-    # Includes are the union of packages, and existing includes - we add the root spec later
-    includes: set[str] = packages | existing_includes
-
-    # To sort, we want to ensure that the root spec is always first in the list, and the rest are sorted alphabetically
-    sorted_include: list[str] = [root_spec] + sorted(includes)
-
-    # Finally, we inject the includes into and updated manifest, which we return
-    injected_manifest: dict[str, Any] = dict(manifest)
-    injected_manifest.setdefault("spack", {}).setdefault("modules", {}).setdefault("default", {}).setdefault("tcl", {})["includes"] = sorted_include
-
-    return injected_manifest
+#########################################
+# Invoked module parsing and validation #
+#########################################
 
 def parse_args(args: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -225,41 +274,6 @@ def parse_args(args: list[str]) -> argparse.Namespace:
         )
 
     return parsed_args
-
-def main():
-    # Get inputs
-    args = parse_args(sys.argv[1:])
-
-    packages: set[str] = set(args.packages.split())
-
-    with open(args.manifest, "r") as file:
-        manifest: dict[str, Any] = yaml.safe_load(file)
-
-    # Inject manifeest with projections and includes
-    manifest_with_projections: dict[str, Any] = inject_projections(
-        manifest=manifest, root_spec=args.root_spec, packages=packages
-    )
-
-    manifest_with_projections_and_includes: dict[str, Any] = inject_includes(manifest=manifest_with_projections, root_spec=args.root_spec, packages=packages)
-
-    # Output the modified manifest
-    print(
-        yaml.dump(
-            manifest_with_projections_and_includes,
-            default_flow_style=False,
-            sort_keys=False,
-        )
-    )
-
-    if args.output:
-        with open(args.output, "w") as output_file:
-            yaml.dump(
-                manifest_with_projections_and_includes,
-                output_file,
-                default_flow_style=False,
-                sort_keys=False,
-            )
-
 
 if __name__ == "__main__":
     main()
