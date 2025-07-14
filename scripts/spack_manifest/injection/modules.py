@@ -96,7 +96,7 @@ def inject_includes(
 
     # Finally, we inject the includes into and updated manifest, which we return
     injected_manifest: dict[str, Any] = dict(manifest)
-    injected_manifest.setdefault("spack", {}).setdefault("modules", {}).setdefault("default", {}).setdefault("tcl", {})["includes"] = sorted_include
+    injected_manifest.setdefault("spack", {}).setdefault("modules", {}).setdefault("default", {}).setdefault("tcl", {})["include"] = sorted_include
 
     return injected_manifest
 
@@ -122,7 +122,7 @@ def _get_defined_includes(manifest: dict[str, Any]) -> set[str]:
     #   modules:
     #     default:
     #       tcl:
-    #         includes:
+    #         include:
     #           - ROOT_PACKAGE
     #           - PACKAGE1
     #           - ...
@@ -131,7 +131,7 @@ def _get_defined_includes(manifest: dict[str, Any]) -> set[str]:
         .get("modules", {})
         .get("default", {})
         .get("tcl", {})
-        .get("includes", [])
+        .get("include", [])
     )
 
     return set(includes)
