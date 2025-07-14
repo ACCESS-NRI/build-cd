@@ -1,6 +1,6 @@
 import pytest
 
-from scripts.spack_manifest.injection.projections import (
+from scripts.spack_manifest.injection.modules import (
     _get_defined_projections,
     _get_packages_with_versions_defined,
     _generate_projection_version_from_package,
