@@ -18,6 +18,25 @@ def _get_defined_projections(manifest: dict[str, Any]) -> dict[str, str]:
 
     return projections
 
+def _get_includes(manifest: dict[str, Any]) -> set[str]:
+    # Interrogating manifests of the form:
+    # spack:
+    #   modules:
+    #     default:
+    #       tcl:
+    #         includes:
+    #           - ROOT_PACKAGE
+    #           - PACKAGE1
+    #           - ...
+    includes: list[str] = (
+        manifest.get("spack", {})
+        .get("modules", {})
+        .get("default", {})
+        .get("tcl", {})
+        .get("includes", [])
+    )
+
+    return set(includes)
 
 def _get_packages_with_versions_defined(manifest: dict[str, Any]) -> set[str]:
     # Interrogating manifests of the form:
@@ -36,11 +55,8 @@ def _get_packages_with_versions_defined(manifest: dict[str, Any]) -> set[str]:
     return packages_with_versions_defined
 
 def inject_projections(
-    manifest_path: str, root_spec: str, packages: set[str]
+    manifest: str, root_spec: str, packages: set[str]
 ) -> dict[str, Any]:
-
-    with open(manifest_path, "r") as file:
-        manifest: dict[str, Any] = yaml.safe_load(file)
 
     # Get projections that are already defined in the manifest - we don't want to redefine these
     defined_projections: dict[str, str] = _get_defined_projections(manifest)
@@ -148,9 +164,27 @@ def generate_projection_for_package_or_raise(
     # Projections for packages need to be delimited by hash
     return {package_name: f"{{name}}/{version}-{{hash:7}}"}
 
+def inject_includes(
+    manifest: dict[str, Any], root_spec: str, packages: set[str]
+) -> dict[str, Any]:
+    # We want to inject the includes for the root spec, all packages defined in --packages, and existing includes in the manifest.
+    existing_includes: set[str] = _get_includes(manifest)
+
+    # Includes are the union of packages, and existing includes - we add the root spec later
+    includes: set[str] = packages | existing_includes
+
+    # To sort, we want to ensure that the root spec is always first in the list, and the rest are sorted alphabetically
+    sorted_include: list[str] = [root_spec] + sorted(includes)
+
+    # Finally, we inject the includes into and updated manifest, which we return
+    injected_manifest: dict[str, Any] = dict(manifest)
+    injected_manifest.setdefault("spack", {}).setdefault("modules", {}).setdefault("default", {}).setdefault("tcl", {})["includes"] = sorted_include
+
+    return injected_manifest
+
 def parse_args(args: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Script for injecting projection information into spack manifest files."
+        description="Script for injecting module information into spack manifest files."
     )
 
     ## Args dealing with inputs
@@ -193,17 +227,25 @@ def parse_args(args: list[str]) -> argparse.Namespace:
     return parsed_args
 
 def main():
+    # Get inputs
     args = parse_args(sys.argv[1:])
 
     packages: set[str] = set(args.packages.split())
 
-    injected_manifest: dict[str, Any] = inject_projections(
-        manifest_path=args.manifest, root_spec=args.root_spec, packages=packages
+    with open(args.manifest, "r") as file:
+        manifest: dict[str, Any] = yaml.safe_load(file)
+
+    # Inject manifeest with projections and includes
+    manifest_with_projections: dict[str, Any] = inject_projections(
+        manifest=manifest, root_spec=args.root_spec, packages=packages
     )
 
+    manifest_with_projections_and_includes: dict[str, Any] = inject_includes(manifest=manifest_with_projections, root_spec=args.root_spec, packages=packages)
+
+    # Output the modified manifest
     print(
         yaml.dump(
-            injected_manifest,
+            manifest_with_projections_and_includes,
             default_flow_style=False,
             sort_keys=False,
         )
@@ -212,7 +254,7 @@ def main():
     if args.output:
         with open(args.output, "w") as output_file:
             yaml.dump(
-                injected_manifest,
+                manifest_with_projections_and_includes,
                 output_file,
                 default_flow_style=False,
                 sort_keys=False,
