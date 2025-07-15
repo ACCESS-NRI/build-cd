@@ -26,22 +26,17 @@ def main():
     manifest_with_projections_and_includes: dict[str, Any] = inject_includes(manifest=manifest_with_projections, root_spec=args.root_spec, packages=packages)
 
     # Output the modified manifest
-    print(
-        yaml.dump(
-            manifest_with_projections_and_includes,
-            default_flow_style=False,
-            sort_keys=False,
-        )
+    dumped_manifest: str = yaml.dump(
+        manifest_with_projections_and_includes,
+        default_flow_style=False,
+        sort_keys=False,
     )
+
+    print(dumped_manifest)
 
     if args.output:
         with open(args.output, "w") as output_file:
-            yaml.dump(
-                manifest_with_projections_and_includes,
-                output_file,
-                default_flow_style=False,
-                sort_keys=False,
-            )
+            output_file.write(dumped_manifest)
 
 def inject_projections(
     manifest: str, root_spec: str, packages: set[str]
