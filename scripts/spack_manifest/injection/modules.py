@@ -18,7 +18,7 @@ def main():
     with open(args.manifest, "r") as file:
         manifest: dict[str, Any] = yaml.safe_load(file)
 
-    # Inject manifeest with projections and includes
+    # Inject manifest with projections and includes
     manifest_with_projections: dict[str, Any] = inject_projections(
         manifest=manifest, root_spec=args.root_spec, packages=packages
     )
@@ -55,7 +55,7 @@ def inject_projections(
         manifest
     )
 
-    # Essentially...we want to generate projections for all packages that don't already have them, provided they have a version defined
+    # Generate projections for all packages that don't already have them, provided they have a version defined
     projections_to_generate: set[str] = (packages & packages_with_versions_defined) - defined_projections_set
 
     # To start with, add the projections that are already defined in the manifest
@@ -94,7 +94,7 @@ def inject_includes(
     # To sort, we want to ensure that the root spec is always first in the list, and the rest are sorted alphabetically
     sorted_include: list[str] = [root_spec] + sorted(includes)
 
-    # Finally, we inject the includes into and updated manifest, which we return
+    # Finally, inject the includes into a new copy of the manifest, which is returned
     injected_manifest: dict[str, Any] = dict(manifest)
     injected_manifest.setdefault("spack", {}).setdefault("modules", {}).setdefault("default", {}).setdefault("tcl", {})["include"] = sorted_include
 
