@@ -88,15 +88,15 @@ def inject_includes(
     # We want to inject the includes for the root spec, all packages defined in --packages, and existing includes in the manifest.
     existing_includes: set[str] = _get_defined_includes(manifest)
 
-    # Includes are the union of packages, and existing includes - we add the root spec later
-    includes: set[str] = packages | existing_includes
+    # Includes are the union of the root spec, packages, and existing includes
+    includes: set[str] = {root_spec} | packages | existing_includes
 
-    # To sort, we want to ensure that the root spec is always first in the list, and the rest are sorted alphabetically
-    sorted_include: list[str] = [root_spec] + sorted(includes)
+    # To sort, we want to ensure that the root spec is always first in the list, and the rest (minus that root spec) are sorted alphabetically
+    sorted_includes: list[str] = [root_spec] + sorted(includes - {root_spec})
 
     # Finally, inject the includes into a new copy of the manifest, which is returned
     injected_manifest: dict[str, Any] = dict(manifest)
-    injected_manifest.setdefault("spack", {}).setdefault("modules", {}).setdefault("default", {}).setdefault("tcl", {})["include"] = sorted_include
+    injected_manifest.setdefault("spack", {}).setdefault("modules", {}).setdefault("default", {}).setdefault("tcl", {})["include"] = sorted_includes
 
     return injected_manifest
 
