@@ -9,6 +9,7 @@ from typing import Any
 # Main functions #
 ##################
 
+
 def main():
     # Get inputs
     args = parse_args(sys.argv[1:])
@@ -23,7 +24,9 @@ def main():
         manifest=manifest, root_spec=args.root_spec, packages=packages
     )
 
-    manifest_with_projections_and_includes: dict[str, Any] = inject_includes(manifest=manifest_with_projections, root_spec=args.root_spec, packages=packages)
+    manifest_with_projections_and_includes: dict[str, Any] = inject_includes(
+        manifest=manifest_with_projections, root_spec=args.root_spec, packages=packages
+    )
 
     # Output the modified manifest
     dumped_manifest: str = yaml.dump(
@@ -38,6 +41,7 @@ def main():
         with open(args.output, "w") as output_file:
             output_file.write(dumped_manifest)
 
+
 def inject_projections(
     manifest: str, root_spec: str, packages: set[str]
 ) -> dict[str, Any]:
@@ -51,13 +55,17 @@ def inject_projections(
     )
 
     # Generate projections for all packages that don't already have them, provided they have a version defined
-    projections_to_generate: set[str] = (packages & packages_with_versions_defined) - defined_projections_set
+    projections_to_generate: set[str] = (
+        packages & packages_with_versions_defined
+    ) - defined_projections_set
 
     # To start with, add the projections that are already defined in the manifest
     new_projections: dict[str, str] = dict(defined_projections)
 
     if root_spec not in defined_projections_set:
-        new_projections.update(generate_projection_for_root_spec_or_raise(manifest, root_spec))
+        new_projections.update(
+            generate_projection_for_root_spec_or_raise(manifest, root_spec)
+        )
 
     for projection in projections_to_generate:
         new_projections.update(
@@ -77,6 +85,7 @@ def inject_projections(
 
     return injected_manifest
 
+
 def inject_includes(
     manifest: dict[str, Any], root_spec: str, packages: set[str]
 ) -> dict[str, Any]:
@@ -95,9 +104,11 @@ def inject_includes(
 
     return injected_manifest
 
+
 ###############################################
 # Functions to get sections from the manifest #
 ###############################################
+
 
 def _get_defined_projections(manifest: dict[str, Any]) -> dict[str, str]:
     # These are the projections that are already defined in the manifest
@@ -110,6 +121,7 @@ def _get_defined_projections(manifest: dict[str, Any]) -> dict[str, str]:
     )
 
     return projections
+
 
 def _get_defined_includes(manifest: dict[str, Any]) -> set[str]:
     # Interrogating manifests of the form:
@@ -131,6 +143,7 @@ def _get_defined_includes(manifest: dict[str, Any]) -> set[str]:
 
     return set(includes)
 
+
 def _get_packages_with_versions_defined(manifest: dict[str, Any]) -> set[str]:
     # Interrogating manifests of the form:
     # spack:
@@ -147,9 +160,11 @@ def _get_packages_with_versions_defined(manifest: dict[str, Any]) -> set[str]:
 
     return packages_with_versions_defined
 
+
 #######################################################
 # Lower-level functions to generate manifest sections #
 #######################################################
+
 
 def generate_projection_for_root_spec_or_raise(
     manifest: dict[str, Any], root_spec_name: str
@@ -158,7 +173,10 @@ def generate_projection_for_root_spec_or_raise(
 
     # First check if the spec is defined in the multi-target format
     for spec_definition in manifest.get("spack", {}).get("definitions", []):
-        if "ROOT_PACKAGE" in spec_definition and len(spec_definition["ROOT_PACKAGE"]) > 0:
+        if (
+            "ROOT_PACKAGE" in spec_definition
+            and len(spec_definition["ROOT_PACKAGE"]) > 0
+        ):
             root_spec_definition = spec_definition["ROOT_PACKAGE"][0]
             break
 
@@ -195,11 +213,20 @@ def generate_projection_for_root_spec_or_raise(
     # We don't add a hash to the root spec projection, as it is a unique deployment
     return {root_spec_name: f"{{name}}/{version}"}
 
+
 def generate_projection_for_package_or_raise(
     manifest: dict[str, Any], package_name: str
 ) -> dict[str, str]:
     # We require the package to have a version defined first in the spack.packages.PACKAGE section.
-    if len(manifest.get("spack", {}).get("packages", {}).get(package_name, {}).get("require", [])) == 0:
+    if (
+        len(
+            manifest.get("spack", {})
+            .get("packages", {})
+            .get(package_name, {})
+            .get("require", [])
+        )
+        == 0
+    ):
         raise ValueError(
             f"Package '{package_name}' does not have a version defined in the manifests 'spack.packages.{package_name}.require[0]' section. Projections can only be generated for packages with an explicit version."
         )
@@ -222,9 +249,11 @@ def generate_projection_for_package_or_raise(
     # Projections for packages need to be delimited by hash
     return {package_name: f"{{name}}/{version}-{{hash:7}}"}
 
+
 #########################################
 # Invoked module parsing and validation #
 #########################################
+
 
 def parse_args(args: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -263,12 +292,13 @@ def parse_args(args: list[str]) -> argparse.Namespace:
     parsed_args = parser.parse_args(args)
 
     # Verifying that --packages are space-separated, which is a bit different from the usual comma-separated lists
-    if ',' in parsed_args.packages:
+    if "," in parsed_args.packages:
         raise ValueError(
             "The --packages argument must be a space-separated list of package names."
         )
 
     return parsed_args
+
 
 if __name__ == "__main__":
     main()

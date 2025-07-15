@@ -6,8 +6,12 @@ import sys
 from typing import Any
 from copy import deepcopy
 
+
 def inject_prerelease_information(
-    manifest_path: str, root_spec_name: str, version: str, spack_packages_path: str | None = None
+    manifest_path: str,
+    root_spec_name: str,
+    version: str,
+    spack_packages_path: str | None = None,
 ) -> str:
     # In comparison to the projections script, this returns a string rather than a dict because we need to
     # add spack-specific, non-standard 'repo::' sections, which the yaml dumper does not support.
@@ -21,10 +25,14 @@ def inject_prerelease_information(
     )
 
     # We want the root spec projection to be of the form {name}/prX-Y
-    updated_manifest = update_root_spec_projection_version(updated_manifest, root_spec_name, version)
+    updated_manifest = update_root_spec_projection_version(
+        updated_manifest, root_spec_name, version
+    )
 
     # We want all other projections to be of the form {name}/prX-Y/VERSION
-    updated_manifest = add_namespace_to_other_projection_versions(updated_manifest, root_spec_name, version)
+    updated_manifest = add_namespace_to_other_projection_versions(
+        updated_manifest, root_spec_name, version
+    )
 
     # Dump the current dict, and add the non-standard 'repo::' section
     manifest_str: str = yaml.dump(
@@ -43,7 +51,13 @@ def add_namespace_to_other_projection_versions(
 ) -> dict[str, Any]:
     # We don't want to modify the linked manifest dict, so we create a mutable copy.
     mutable_manifest: dict[str, Any] = deepcopy(manifest)
-    projections: dict[str, str] = mutable_manifest.get("spack", {}).get("modules", {}).get("default", {}).get("tcl", {}).get("projections", {})
+    projections: dict[str, str] = (
+        mutable_manifest.get("spack", {})
+        .get("modules", {})
+        .get("default", {})
+        .get("tcl", {})
+        .get("projections", {})
+    )
 
     # We only want to modify projections that are not the root spec, since that already has its version set
     if root_spec_name in projections:
@@ -51,15 +65,22 @@ def add_namespace_to_other_projection_versions(
 
     for projection_name, projection_value in projections.items():
         # Non-root-spec projections will be of the form {name}/prX-Y/VERSION, where VERSION is previously defined.
-        new_projection_value = re.sub(r"{name}/(.+)", fr"{{name}}/{version}/\1", projection_value)
+        new_projection_value = re.sub(
+            r"{name}/(.+)", rf"{{name}}/{version}/\1", projection_value
+        )
 
-        print(f"Updating projection '{projection_name}' from '{projection_value}' to '{new_projection_value}'")
+        print(
+            f"Updating projection '{projection_name}' from '{projection_value}' to '{new_projection_value}'"
+        )
 
         manifest["spack"]["modules"]["default"]["tcl"]["projections"][projection_name] = new_projection_value
 
     return manifest
 
-def remove_potential_root_spec_git_version(manifest: dict[str, Any], root_spec_name: str) -> dict[str, Any]:
+
+def remove_potential_root_spec_git_version(
+    manifest: dict[str, Any], root_spec_name: str
+) -> dict[str, Any]:
     """
     Remove the version information from the root spec in the manifest.
     This is necessary for prerelease deployments where the version may not yet exist.
@@ -68,7 +89,7 @@ def remove_potential_root_spec_git_version(manifest: dict[str, Any], root_spec_n
 
     # Use a regex to match the root spec and any later constraints, minus the @git version
     # This specifically excludes @VERSIONs, which are used for software deployment repositories.
-    spec_regex = re.compile(fr"({root_spec_name})@git\.[^~+% ]+(.*)")
+    spec_regex = re.compile(rf"({root_spec_name})@git\.[^~+% ]+(.*)")
 
     component_match = re.match(spec_regex, root_spec)
 
@@ -83,6 +104,7 @@ def remove_potential_root_spec_git_version(manifest: dict[str, Any], root_spec_n
 
     return manifest
 
+
 def update_root_spec_projection_version(
     manifest: dict[str, Any], root_spec_name: str, root_spec_version: str
 ) -> dict[str, Any]:
@@ -94,16 +116,16 @@ def update_root_spec_projection_version(
 
     return manifest
 
-def add_prerelease_repos_section(
-    manifest_str: str, spack_packages_path: str
-) -> str:
-        manifest_str += (
-            f"  repos::\n"
-            f"  - {spack_packages_path}\n"
-            f"  - $spack/var/spack/repos/builtin\n"
-        )
 
-        return manifest_str
+def add_prerelease_repos_section(manifest_str: str, spack_packages_path: str) -> str:
+    manifest_str += (
+        f"  repos::\n"
+        f"  - {spack_packages_path}\n"
+        f"  - $spack/var/spack/repos/builtin\n"
+    )
+
+    return manifest_str
+
 
 def parse_args(args: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
