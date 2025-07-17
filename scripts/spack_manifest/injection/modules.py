@@ -155,7 +155,9 @@ def generate_projection_for_package_or_raise(
 
     packages_getter = Packages(manifest)
 
-    full_package_version: str = packages_getter.get_package_full_version_requirement(package_name)
+    full_package_version: str = packages_getter.get_package_full_version_requirement(
+        package_name
+    )
     version: str = packages_getter.get_package_ref_requirement(package_name)
 
     print(

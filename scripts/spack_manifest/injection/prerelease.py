@@ -27,9 +27,7 @@ def inject_prerelease_information(
 
     # Remove @git.VERSION information from the root spec, since it will be a tag that does not yet exist for prereleases
     # This does not include versions of the form @VERSION, which are the hallmark of software deployment repositories.
-    updated_manifest: dict[str, Any] = remove_potential_root_spec_git_version(
-        manifest
-    )
+    updated_manifest: dict[str, Any] = remove_potential_root_spec_git_version(manifest)
 
     # We want the root spec projection to be of the form {name}/prX-Y
     updated_manifest = update_root_spec_projection_version(
@@ -80,9 +78,7 @@ def add_namespace_to_other_projection_versions(
     return manifest
 
 
-def remove_potential_root_spec_git_version(
-    manifest: dict[str, Any]
-) -> dict[str, Any]:
+def remove_potential_root_spec_git_version(manifest: dict[str, Any]) -> dict[str, Any]:
     """
     Remove the version information from the root spec in the manifest.
     This is necessary for prerelease deployments where the version may not yet exist.
@@ -95,7 +91,9 @@ def remove_potential_root_spec_git_version(
         # Remove the @git version and then add later contraints back
         manifest["spack"]["specs"][0] = f"{name} {constraints}".strip()
     else:
-        print(f"The root spec '{name}' does not have a git ref, so no changes are made.")
+        print(
+            f"The root spec '{name}' does not have a git ref, so no changes are made."
+        )
 
     return manifest
 

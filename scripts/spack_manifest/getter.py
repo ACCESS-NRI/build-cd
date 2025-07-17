@@ -1,14 +1,20 @@
 from typing import Any
 import re
+
 # from yaml import safe_load is loaded in the class methods from_file as that is the only place it is used
+
 
 class NoSectionError(Exception):
     """Exception raised when the root spec is not found in the manifest."""
+
     pass
+
 
 class NoSectionComponentError(Exception):
     """Exception raised when a specific component of the root spec is not found."""
+
     pass
+
 
 class RootSpec:
     def __init__(self, manifest: dict[str, Any]):
@@ -21,21 +27,25 @@ class RootSpec:
         specs: list[str] = self.manifest.get("spack", {}).get("specs", [])
 
         # It's either in the multi-target format or the single target format, we just need to find which
-            # The multi-target format is of the form:
+        # The multi-target format is of the form:
         # spack:
         #   definitions:
         #     - ROOT_PACKAGE: [access-om2@git.2025.05]
         #     # ...
-        root_package_def = next((d["ROOT_PACKAGE"] for d in defs if "ROOT_PACKAGE" in d), [])
+        root_package_def = next(
+            (d["ROOT_PACKAGE"] for d in defs if "ROOT_PACKAGE" in d), []
+        )
         if root_package_def != []:
             return root_package_def[0]
         elif len(specs) != 0:
             return specs[0]
         else:
-            raise NoSectionError("No root spec defined in the manifest spack.specs section for a single-target manifest.")
+            raise NoSectionError(
+                "No root spec defined in the manifest spack.specs section for a single-target manifest."
+            )
 
     @classmethod
-    def from_file(cls, manifest_path: str) -> 'RootSpec':
+    def from_file(cls, manifest_path: str) -> "RootSpec":
         from yaml import safe_load
 
         with open(manifest_path, "r") as file:
@@ -55,7 +65,9 @@ class RootSpec:
         match = re.match(r"[^@]+", self.root_spec)
 
         if match is None:
-            raise NoSectionComponentError("Root spec component 'name' could not be extracted from the root spec string.")
+            raise NoSectionComponentError(
+                "Root spec component 'name' could not be extracted from the root spec string."
+            )
 
         return match.group(0)
 
@@ -68,7 +80,9 @@ class RootSpec:
         match = re.match(r"[^@]+@(?:git.)?([^+~= ]+)", self.root_spec)
 
         if match is None:
-            raise NoSectionComponentError("Root spec component 'ref' could not be extracted from the root spec string.")
+            raise NoSectionComponentError(
+                "Root spec component 'ref' could not be extracted from the root spec string."
+            )
 
         return match.group(1)
 
@@ -114,7 +128,9 @@ class RootSpec:
         """Check if the root spec has a git ref."""
         return "@git." in self.root_spec
 
+
 ####################################################
+
 
 class Packages:
     def __init__(self, manifest: dict[str, Any]):
@@ -132,7 +148,7 @@ class Packages:
 
     # Can also pass in a path to a yaml manifest instead of a python object
     @classmethod
-    def from_file(cls, manifest_path: str) -> 'Packages':
+    def from_file(cls, manifest_path: str) -> "Packages":
         from yaml import safe_load
 
         with open(manifest_path, "r") as file:
@@ -156,19 +172,25 @@ class Packages:
 
     def get_package_full_version_requirement(self, name: str) -> str:
         if name not in self.packages:
-            raise NoSectionError(f"Package '{name}' not found in the manifest spack.packages section.")
+            raise NoSectionError(
+                f"Package '{name}' not found in the manifest spack.packages section."
+            )
 
         requirements = self.packages[name].get("require", [])
 
         if len(requirements) == 0:
-            raise NoSectionComponentError(f"Package component 'full version' could not be extracted from the package requirements string for '{name}'.")
+            raise NoSectionComponentError(
+                f"Package component 'full version' could not be extracted from the package requirements string for '{name}'."
+            )
 
         return requirements[0]
 
 
     def get_package_requirements(self, name: str) -> list[str]:
         if name not in self.packages:
-            raise NoSectionComponentError(f"Package '{name}' not found in the manifest spack.packages section.")
+            raise NoSectionComponentError(
+                f"Package '{name}' not found in the manifest spack.packages section."
+            )
 
         return self.packages[name].get("require", [])
 
@@ -176,16 +198,22 @@ class Packages:
         requirements = self.get_package_requirements(name)
 
         if requirements == []:
-            raise NoSectionComponentError(f"Package component 'version' could not be extracted from the package requirements string for '{name}'.")
+            raise NoSectionComponentError(
+                f"Package component 'version' could not be extracted from the package requirements string for '{name}'."
+            )
 
         match = re.match(r"@(?:git\.)?([^+~=% ]+)", requirements[0])
 
         if match is None:
-            raise NoSectionComponentError(f"Package component 'version' was not formatted correctly in the package requirements for '{name}'.")
+            raise NoSectionComponentError(
+                f"Package component 'version' was not formatted correctly in the package requirements for '{name}'."
+            )
 
         return match.group(1)
 
+
 ########################################3
+
 
 class Includes:
     def __init__(self, manifest: dict[str, Any]):
@@ -193,7 +221,7 @@ class Includes:
 
     # Can also pass in a path to a yaml manifest instead of a python object
     @classmethod
-    def from_file(cls, manifest_path: str) -> 'Includes':
+    def from_file(cls, manifest_path: str) -> "Includes":
         from yaml import safe_load
 
         with open(manifest_path, "r") as file:
@@ -202,7 +230,14 @@ class Includes:
         return cls(manifest)
 
     def get(self) -> list[str]:
-        return self.manifest.get("spack", {}).get("modules", {}).get("default", {}).get("tcl", {}).get("include", [])
+        return (
+            self.manifest.get("spack", {})
+            .get("modules", {})
+            .get("default", {})
+            .get("tcl", {})
+            .get("include", [])
+        )
+
 
 class Projections:
     def __init__(self, manifest: dict[str, Any]):
@@ -210,7 +245,7 @@ class Projections:
 
     # Can also pass in a path to a yaml manifest instead of a python object
     @classmethod
-    def from_file(cls, manifest_path: str) -> 'Projections':
+    def from_file(cls, manifest_path: str) -> "Projections":
         from yaml import safe_load
 
         with open(manifest_path, "r") as file:
@@ -218,6 +253,11 @@ class Projections:
 
         return cls(manifest)
 
-
     def get(self) -> dict[str, str]:
-        return self.manifest.get("spack", {}).get("modules", {}).get("default", {}).get("tcl", {}).get("projections", {})
+        return (
+            self.manifest.get("spack", {})
+            .get("modules", {})
+            .get("default", {})
+            .get("tcl", {})
+            .get("projections", {})
+        )
