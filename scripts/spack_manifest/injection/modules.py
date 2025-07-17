@@ -1,9 +1,14 @@
 import argparse
 import yaml
-import re
 import sys
 
 from typing import Any
+from scripts.spack_manifest.getter import (
+    RootSpec,
+    Packages,
+    Includes,
+    Projections,
+)
 
 ##################
 # Main functions #
@@ -47,22 +52,31 @@ def inject_projections(
 ) -> dict[str, Any]:
 
     # Get projections that are already defined in the manifest - we don't want to redefine these
-    defined_projections: dict[str, str] = _get_defined_projections(manifest)
-    defined_projections_set: set[str] = set(defined_projections.keys())
+    # defined_projections: dict[str, str] = _get_defined_projections(manifest)
+    # defined_projections_set: set[str] = set(defined_projections.keys())
+
+    projections_getter = Projections(manifest)
+    defined_projections_dict: dict[str, str] = projections_getter.get()
+    defined_projections: set[str] = set(defined_projections_dict.keys())
+
     # Get packages that have versions defined in the manifest - we can only generate projections for things with an explicit version
-    packages_with_versions_defined: set[str] = _get_packages_with_versions_defined(
-        manifest
+    # packages_with_versions_defined: set[str] = _get_packages_with_versions_defined(
+    #     manifest
+    # )
+    packages_getter = Packages(manifest)
+    packages_with_versions_defined: set[str] = set(
+        packages_getter.get_all_package_names_with_ref_requirement()
     )
 
     # Generate projections for all packages that don't already have them, provided they have a version defined
     projections_to_generate: set[str] = (
         packages & packages_with_versions_defined
-    ) - defined_projections_set
+    ) - defined_projections
 
     # To start with, add the projections that are already defined in the manifest
-    new_projections: dict[str, str] = dict(defined_projections)
+    new_projections: dict[str, str] = dict(defined_projections_dict)
 
-    if root_spec not in defined_projections_set:
+    if root_spec not in defined_projections:
         new_projections.update(
             generate_projection_for_root_spec_or_raise(manifest, root_spec)
         )
@@ -90,7 +104,8 @@ def inject_includes(
     manifest: dict[str, Any], root_spec: str, packages: set[str]
 ) -> dict[str, Any]:
     # We want to inject the includes for the root spec, all packages defined in --packages, and existing includes in the manifest.
-    existing_includes: set[str] = _get_defined_includes(manifest)
+    includes_getter = Includes(manifest)
+    existing_includes: set[str] = set(includes_getter.get())
 
     # Includes are the union of the root spec, packages, and existing includes
     includes: set[str] = {root_spec} | packages | existing_includes
@@ -105,62 +120,6 @@ def inject_includes(
     return injected_manifest
 
 
-###############################################
-# Functions to get sections from the manifest #
-###############################################
-
-
-def _get_defined_projections(manifest: dict[str, Any]) -> dict[str, str]:
-    # These are the projections that are already defined in the manifest
-    projections: dict[str, Any] = (
-        manifest.get("spack", {})
-        .get("modules", {})
-        .get("default", {})
-        .get("tcl", {})
-        .get("projections", {})
-    )
-
-    return projections
-
-
-def _get_defined_includes(manifest: dict[str, Any]) -> set[str]:
-    # Interrogating manifests of the form:
-    # spack:
-    #   modules:
-    #     default:
-    #       tcl:
-    #         include:
-    #           - ROOT_PACKAGE
-    #           - PACKAGE1
-    #           - ...
-    includes: list[str] = (
-        manifest.get("spack", {})
-        .get("modules", {})
-        .get("default", {})
-        .get("tcl", {})
-        .get("include", [])
-    )
-
-    return set(includes)
-
-
-def _get_packages_with_versions_defined(manifest: dict[str, Any]) -> set[str]:
-    # Interrogating manifests of the form:
-    # spack:
-    #   packages:
-    #     package1:
-    #       require:
-    #         - "@git.1.0.0"
-    packages: dict[str, Any] = manifest.get("spack", {}).get("packages", {})
-    packages_with_versions_defined: set[str] = set()
-
-    for package_name, package_spec in packages.items():
-        if package_spec["require"][0].startswith("@"):
-            packages_with_versions_defined.add(package_name)
-
-    return packages_with_versions_defined
-
-
 #######################################################
 # Lower-level functions to generate manifest sections #
 #######################################################
@@ -171,35 +130,10 @@ def generate_projection_for_root_spec_or_raise(
 ) -> dict[str, str]:
     root_spec_definition: str | None = None
 
-    # First check if the spec is defined in the multi-target format
-    for spec_definition in manifest.get("spack", {}).get("definitions", []):
-        if (
-            "ROOT_PACKAGE" in spec_definition
-            and len(spec_definition["ROOT_PACKAGE"]) > 0
-        ):
-            root_spec_definition = spec_definition["ROOT_PACKAGE"][0]
-            break
+    root_spec_getter = RootSpec(manifest)
 
-    # Then check if the spec if defined in the traditional, single-target format
-    if not root_spec_definition and len(manifest.get("spack", {}).get("specs", [])) > 0:
-        root_spec_definition = manifest.get("spack", {}).get("specs", [])[0]
-
-    # If it isn't in either of those places, we don't know where it is
-    if not root_spec_definition:
-        raise ValueError(
-            f"Could not find root spec definition for root spec {root_spec_name} in the manifest. The spack.yaml is invalid"
-        )
-
-    # Now we can extract the actual version from the root spec definition
-    version_regex = re.compile(r"([^@]+)@(?:git.)?([^+~= ]+).*")
-    match = re.match(version_regex, root_spec_definition)
-
-    if not match:
-        raise ValueError(
-            f"Could not extract name or version from root spec definition {root_spec_definition} for projection {root_spec_name}. The root spec needs a name and version defined properly."
-        )
-
-    root_spec_name_from_definition, version = match.group(1, 2)
+    root_spec_name_from_definition: str = root_spec_getter.get_name()
+    version = root_spec_getter.get_ref()
 
     if root_spec_name_from_definition != root_spec_name:
         raise ValueError(
@@ -218,29 +152,11 @@ def generate_projection_for_package_or_raise(
     manifest: dict[str, Any], package_name: str
 ) -> dict[str, str]:
     # We require the package to have a version defined first in the spack.packages.PACKAGE section.
-    if (
-        len(
-            manifest.get("spack", {})
-            .get("packages", {})
-            .get(package_name, {})
-            .get("require", [])
-        )
-        == 0
-    ):
-        raise ValueError(
-            f"Package '{package_name}' does not have a version defined in the manifests 'spack.packages.{package_name}.require[0]' section. Projections can only be generated for packages with an explicit version."
-        )
 
-    full_package_version: str = manifest["spack"]["packages"][package_name]["require"][0]
+    packages_getter = Packages(manifest)
 
-    version_regex = re.compile(r"@(?:git.)?([^+~= ]+).*")
-
-    match = re.match(version_regex, full_package_version)
-    if match:
-        version = match.group(1)
-    else:
-        print(f"Could not extract version from package {full_package_version}. ")
-        return
+    full_package_version: str = packages_getter.get_package_full_version_requirement(package_name)
+    version: str = packages_getter.get_package_ref_requirement(package_name)
 
     print(
         f"Extracted version '{version}' from package '{package_name}' using '{full_package_version}'"

@@ -5,167 +5,15 @@ from scripts.spack_manifest.injection.modules import (
     inject_projections,
     inject_includes,
 
-    _get_defined_projections,
-    _get_defined_includes,
-    _get_packages_with_versions_defined,
-
     generate_projection_for_root_spec_or_raise,
     generate_projection_for_package_or_raise,
 
     parse_args
 )
-
-
-class TestGetDefinedProjections:
-    def test__get_defined_projections__valid(self):
-        manifest = {
-            "spack": {
-                "modules": {
-                    "default": {
-                        "tcl": {
-                            "projections": {
-                                "package1": "package1/1.0.0",
-                                "package2": "package2/2.0.0",
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        expected = {"package1": "package1/1.0.0", "package2": "package2/2.0.0"}
-        result = _get_defined_projections(manifest)
-
-        assert (
-            result == expected
-        ), "A valid manifest should return all defined projections."
-
-    def test__get_defined_projections__no_projections(self):
-        manifest = {"spack": {"modules": {"default": {"tcl": {"projections": {}}}}}}
-
-        expected = dict()
-        result = _get_defined_projections(manifest)
-
-        assert (
-            result == expected
-        ), "Manifest without projections should return an empty set."
-
-    def test__get_defined_projections__no_modules_section(self):
-        manifest = {"spack": {}}
-
-        expected = dict()
-        result = _get_defined_projections(manifest)
-
-        assert (
-            result == expected
-        ), "Manifest without a modules section should return an empty set."
-
-
-class TestGetDefinedIncludes:
-    def test__get_defined_includes__valid(self):
-        manifest = {
-            "spack": {
-                "modules": {
-                    "default": {
-                        "tcl": {
-                            "include": ["root-spec", "package2", "package3"]
-                        }
-                    }
-                }
-            }
-        }
-
-        expected = {"root-spec", "package2", "package3"}
-        result = _get_defined_includes(manifest)
-
-        assert (
-            result == expected
-        ), "A valid manifest should return all defined includes."
-
-    def test__get_defined_includes__no_includes(self):
-        manifest = {"spack": {"modules": {"default": {"tcl": {"include": []}}}}}
-
-        expected = set()
-        result = _get_defined_includes(manifest)
-
-        assert (
-            result == expected
-        ), "Manifest without includes should return an empty set."
-
-    def test__get_defined_includes__no_modules_section(self):
-        manifest = {"spack": {}}
-
-        expected = set()
-        result = _get_defined_includes(manifest)
-
-        assert (
-            result == expected
-        ), "Manifest without a modules section should return an empty set."
-
-
-class TestGetPackagesWithVersionsDefined:
-    def test__get_packages_with_versions_defined__valid(self):
-        manifest = {
-            "spack": {
-                "packages": {
-                    "package1": {"require": ["@git.1.0.0"]},
-                    "package2": {"require": ["@git.2.0.0"]},
-                    "package3": {"require": ["@git.3.0.0"]},
-                }
-            }
-        }
-
-        expected = {"package1", "package2", "package3"}
-        result = _get_packages_with_versions_defined(manifest)
-
-        assert (
-            result == expected
-        ), "A valid manifest should return all packages with versions defined."
-
-    def test__get_packages_with_versions_defined__no_package_definitions(self):
-        manifest = {"spack": {"packages": {}}}
-
-        expected = set()
-        result = _get_packages_with_versions_defined(manifest)
-
-        assert (
-            result == expected
-        ), "An empty packages section should return an empty set."
-
-    def test__get_packages_with_versions_defined__no_package_section(self):
-        manifest = {"spack": {}}
-
-        expected = set()
-        result = _get_packages_with_versions_defined(manifest)
-
-        assert (
-            result == expected
-        ), "Manifest without a packages section should return an empty set."
-
-    def test__get_packages_with_versions_defined__package_defined_with_no_version(self):
-        manifest = {"spack": {"packages": {"package1": {"require": [r"%gcc@8.5.0"]}}}}
-
-        expected = set()
-        result = _get_packages_with_versions_defined(manifest)
-        assert (
-            result == expected
-        ), "Package defined without a version should not be included in the result."
-
-    def test__get_packages_with_versions_defined__package_defined_with_multiple_constraints(
-        self,
-    ):
-        manifest = {
-            "spack": {
-                "packages": {"package1": {"require": ["@git.1.0.0", r"%gcc@8.5.0"]}}
-            }
-        }
-
-        expected = {"package1"}
-        result = _get_packages_with_versions_defined(manifest)
-
-        assert (
-            result == expected
-        ), "Packages with versions and other constraints should be included in the result."
+from scripts.spack_manifest.getter import (
+    NoSectionComponentError,
+    NoSectionError
+)
 
 
 class TestParseArgs:
@@ -275,7 +123,7 @@ class TestGenerateProjectionForRootSpecOrRaise:
 
         projection = "access-om2"
 
-        with pytest.raises(ValueError):
+        with pytest.raises(NoSectionComponentError):
             generate_projection_for_root_spec_or_raise(manifest, projection)
 
     def test_generate_projection_for_root_spec_or_raise__multi_target_no_version_defined(
@@ -285,7 +133,7 @@ class TestGenerateProjectionForRootSpecOrRaise:
 
         projection = "access-om2"
 
-        with pytest.raises(ValueError):
+        with pytest.raises(NoSectionComponentError):
             generate_projection_for_root_spec_or_raise(manifest, projection)
 
     def test_generate_projection_for_root_spec_or_raise__single_target_wrong_projection(
@@ -349,11 +197,9 @@ class TestGenerateProjectionForPackageOrRaise:
         manifest = {"spack": {"packages": {"package1": {"require": [r"%gcc@8.5.0"]}}}}
 
         projection = "package1"
-        result = generate_projection_for_package_or_raise(manifest, projection)
 
-        assert (
-            result is None
-        ), "Should return None when no version is defined for the package."
+        with pytest.raises(NoSectionComponentError):
+            generate_projection_for_package_or_raise(manifest, projection)
 
 
 ###############
