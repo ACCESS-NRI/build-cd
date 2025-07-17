@@ -138,7 +138,6 @@ jobs:
         run: |
           python -m cd.scripts.spack_manifest.injection.prerelease \
             --manifest ${{ inputs.spack-manifest-path }} \
-            --root-spec ${{ steps.manifest.outputs.root-spec-name }} \
             --version ${{ inputs.version }} \
             --spack-packages-path ${{ steps.path.outputs.spack-packages }} \
             --output ${{ inputs.spack-manifest-path }}

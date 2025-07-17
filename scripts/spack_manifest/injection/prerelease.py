@@ -6,10 +6,14 @@ import sys
 from typing import Any
 from copy import deepcopy
 
+from scripts.spack_manifest.getter import (
+    RootSpec,
+    Projections,
+)
+
 
 def inject_prerelease_information(
     manifest_path: str,
-    root_spec_name: str,
     version: str,
     spack_packages_path: str | None = None,
 ) -> str:
@@ -18,10 +22,13 @@ def inject_prerelease_information(
     with open(manifest_path, "r") as manifest_file:
         manifest: dict[str, Any] = yaml.safe_load(manifest_file)
 
+    root_spec_from_manifest = RootSpec(manifest)
+    root_spec_name = root_spec_from_manifest.get_name()
+
     # Remove @git.VERSION information from the root spec, since it will be a tag that does not yet exist for prereleases
     # This does not include versions of the form @VERSION, which are the hallmark of software deployment repositories.
     updated_manifest: dict[str, Any] = remove_potential_root_spec_git_version(
-        manifest, root_spec_name
+        manifest
     )
 
     # We want the root spec projection to be of the form {name}/prX-Y
@@ -51,13 +58,8 @@ def add_namespace_to_other_projection_versions(
 ) -> dict[str, Any]:
     # We don't want to modify the linked manifest dict, so we create a mutable copy.
     mutable_manifest: dict[str, Any] = deepcopy(manifest)
-    projections: dict[str, str] = (
-        mutable_manifest.get("spack", {})
-        .get("modules", {})
-        .get("default", {})
-        .get("tcl", {})
-        .get("projections", {})
-    )
+    projections_from_manifest = Projections(mutable_manifest)
+    projections = projections_from_manifest.get()
 
     # We only want to modify projections that are not the root spec, since that already has its version set
     if root_spec_name in projections:
@@ -79,28 +81,21 @@ def add_namespace_to_other_projection_versions(
 
 
 def remove_potential_root_spec_git_version(
-    manifest: dict[str, Any], root_spec_name: str
+    manifest: dict[str, Any]
 ) -> dict[str, Any]:
     """
     Remove the version information from the root spec in the manifest.
     This is necessary for prerelease deployments where the version may not yet exist.
     """
-    root_spec: str = manifest["spack"]["specs"][0]
+    root_spec_from_manifest = RootSpec(manifest)
+    name = root_spec_from_manifest.get_name()
+    constraints = root_spec_from_manifest.get_non_version_constraints()
 
-    # Use a regex to match the root spec and any later constraints, minus the @git version
-    # This specifically excludes @VERSIONs, which are used for software deployment repositories.
-    spec_regex = re.compile(rf"({root_spec_name})@git\.[^~+% ]+(.*)")
-
-    component_match = re.match(spec_regex, root_spec)
-
-    if component_match:
+    if root_spec_from_manifest.has_git_ref():
         # Remove the @git version and then add later contraints back
-        spec_without_version = " ".join(m.lstrip() for m in component_match.groups())
-        manifest["spack"]["specs"][0] = spec_without_version.strip()
+        manifest["spack"]["specs"][0] = f"{name} {constraints}".strip()
     else:
-        raise ValueError(
-            f"Root spec '{root_spec}' not found in the manifest or does not match expected format."
-        )
+        print(f"The root spec '{name}' does not have a git ref, so no changes are made.")
 
     return manifest
 
@@ -141,13 +136,6 @@ def parse_args(args: list[str]) -> argparse.Namespace:
     )
 
     parser.add_argument(
-        "--root-spec",
-        type=str,
-        required=True,
-        help="Name of the root spec of the deployment",
-    )
-
-    parser.add_argument(
         "--version",
         type=str,
         required=True,
@@ -176,7 +164,7 @@ def main():
     args = parse_args(sys.argv[1:])
 
     injected_manifest: str = inject_prerelease_information(
-        args.manifest, args.root_spec, args.version, args.spack_packages_path
+        args.manifest, args.version, args.spack_packages_path
     )
 
     print(injected_manifest)

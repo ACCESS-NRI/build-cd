@@ -77,9 +77,8 @@ class TestRemovePotentialRootSpecGitVersion:
                 ]
             }
         }
-        root_spec_name = "access-om2"
 
-        updated_manifest = remove_potential_root_spec_git_version(manifest, root_spec_name)
+        updated_manifest = remove_potential_root_spec_git_version(manifest)
 
         assert updated_manifest["spack"]["specs"][0] == "access-om2"
 
@@ -91,9 +90,8 @@ class TestRemovePotentialRootSpecGitVersion:
                 ]
             }
         }
-        root_spec_name = "access-om2"
 
-        updated_manifest = remove_potential_root_spec_git_version(manifest, root_spec_name)
+        updated_manifest = remove_potential_root_spec_git_version(manifest)
 
         assert updated_manifest["spack"]["specs"][0] == f"access-om2 %compiler@2.0.0"
 
@@ -105,24 +103,10 @@ class TestRemovePotentialRootSpecGitVersion:
                 ]
             }
         }
-        root_spec_name = "access-om2"
 
-        updated_manifest = remove_potential_root_spec_git_version(manifest, root_spec_name)
+        updated_manifest = remove_potential_root_spec_git_version(manifest)
 
         assert updated_manifest["spack"]["specs"][0] == f"access-om2 %compiler@2.0.0 +debug"
-
-    def test_remove_potential_root_spec_git_version__invalid_root_spec(self):
-        manifest = {
-            "spack": {
-                "specs": [
-                    "access-om2@git.1.0.0"
-                ]
-            }
-        }
-        root_spec_name = "nonexistent-spec"
-
-        with pytest.raises(ValueError):
-            remove_potential_root_spec_git_version(manifest, root_spec_name)
 
     def test_remove_potential_root_spec_git_version__invalid_no_git_version(self):
         manifest = {
@@ -132,10 +116,10 @@ class TestRemovePotentialRootSpecGitVersion:
                 ]
             }
         }
-        root_spec_name = "access-om2"
 
-        with pytest.raises(ValueError):
-            remove_potential_root_spec_git_version(manifest, root_spec_name)
+        updated_manifest = dict(remove_potential_root_spec_git_version(manifest))
+
+        assert manifest == updated_manifest, "Manifest should remain unchanged if no git version is present"
 
 class TestAddPrereleaseReposSection:
     def test_add_prerelease_repos_section__valid(self):
@@ -157,12 +141,11 @@ class TestAddPrereleaseReposSection:
 class TestInjectPrereleaseInformation:
     def test_inject_prerelease_information__valid(self):
         manifest_path = "tests/scripts/spack_manifest/injection/inputs/prerelease.spack.yaml"
-        root_spec_name = "access-om2"
         root_spec_version = "pr12-12"
         spack_packages_path = "/some/spack-packages"
 
         updated_manifest_str: str = inject_prerelease_information(
-            manifest_path, root_spec_name, root_spec_version, spack_packages_path
+            manifest_path, root_spec_version, spack_packages_path
         )
 
         expected_manifest_path = "tests/scripts/spack_manifest/injection/outputs/expected.prerelease.spack.yaml"
@@ -243,14 +226,12 @@ class TestParseArgs:
     def test_parse_args__valid_no_optionals(self):
         args = [
             "--manifest", "path/to/manifest.yaml",
-            "--root-spec", "access-om2",
             "--version", "pr12-2",
         ]
 
         parsed_args = parse_args(args)
 
         assert parsed_args.manifest == "path/to/manifest.yaml"
-        assert parsed_args.root_spec == "access-om2"
         assert parsed_args.version == "pr12-2"
         assert parsed_args.spack_packages_path is None
         assert parsed_args.output is None
@@ -258,7 +239,6 @@ class TestParseArgs:
     def test_parse_args__valid_with_optionals(self):
         args = [
             "--manifest", "path/to/manifest.yaml",
-            "--root-spec", "access-om2",
             "--version", "pr12-2",
             "--spack-packages-path", "/some/spack/packages",
             "--output", "output.yaml"
@@ -267,7 +247,6 @@ class TestParseArgs:
         parsed_args = parse_args(args)
 
         assert parsed_args.manifest == "path/to/manifest.yaml"
-        assert parsed_args.root_spec == "access-om2"
         assert parsed_args.version == "pr12-2"
         assert parsed_args.spack_packages_path == "/some/spack/packages"
         assert parsed_args.output == "output.yaml"
