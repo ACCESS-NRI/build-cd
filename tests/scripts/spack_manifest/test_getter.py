@@ -1,4 +1,5 @@
 import pytest
+import yaml
 
 from scripts.spack_manifest.getter import (
     RootSpec,
@@ -8,6 +9,31 @@ from scripts.spack_manifest.getter import (
     NoSectionError,
     NoSectionComponentError,
 )
+
+### Global Fixtures ###
+
+@pytest.fixture
+def manifest_from_file():
+    return {
+        "spack": {
+            "specs": ["access-om2@git.1.0.0"],
+            "packages": {
+                "package1": {"require": ["@git.1.0.0"]},
+                "package2": {"require": ["@git.2.0.0"]},
+            },
+            "modules": {
+                "default": {
+                    "tcl": {
+                        "include": ["root-spec", "package2", "package3"],
+                        "projections": {
+                            "package1": "package1/1.0.0",
+                            "package2": "package2/2.0.0",
+                        },
+                    }
+                }
+            }
+        }
+    }
 
 
 class TestRootSpecGetter:
@@ -52,14 +78,15 @@ class TestRootSpecGetter:
         with pytest.raises(NoSectionError):
             RootSpec({})
 
-    def test_from_file__valid(self):
-        manifest_path = (
-            "tests/scripts/spack_manifest/injection/inputs/prerelease.spack.yaml"
-        )
-        root_spec_getter = RootSpec.from_file(manifest_path)
+    def test_from_file__valid(self, manifest_from_file, tmp_path):
+        manifest_path = tmp_path / "manifest.yaml"
+        with open(manifest_path, "w") as file:
+            yaml.dump(manifest_from_file, file)
+
+        root_spec_getter = RootSpec.from_file(tmp_path / "manifest.yaml")
 
         assert (
-            root_spec_getter.root_spec == "access-om2@git.2024.03.0=latest"
+            root_spec_getter.root_spec == "access-om2@git.1.0.0"
         ), "Root spec should be correctly retrieved from file."
 
     def test_from_file__invalid(self):
@@ -168,7 +195,7 @@ class TestPackagesGetter:
     ### Fixtures ###
 
     @pytest.fixture
-    def manifest_with_packages(self):
+    def manifest_with_no_packages(self):
         return {"spack": {"packages": {}}}
 
     ### Tests ###
@@ -205,11 +232,12 @@ class TestPackagesGetter:
             packages_getter.packages == {}
         ), "Packages should be initialized as an empty dictionary if no packages are defined."
 
-    def test_from_file__valid(self):
-        manifest_path = (
-            "tests/scripts/spack_manifest/injection/inputs/prerelease.spack.yaml"
-        )
-        packages_getter = Packages.from_file(manifest_path)
+    def test_from_file__valid(self, tmp_path, manifest_from_file):
+        manifest_path = tmp_path / "manifest.yaml"
+        with open(manifest_path, "w") as file:
+            yaml.dump(manifest_from_file, file)
+
+        assert Packages.from_file(manifest_path).manifest == manifest_from_file
 
     def test_from_file__invalid(self):
         manifest_path = (
