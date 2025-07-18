@@ -5,10 +5,10 @@ from scripts.spack_manifest.getter import (
     Packages,
     Includes,
     Projections,
-
     NoSectionError,
     NoSectionComponentError,
 )
+
 
 class TestRootSpecGetter:
     def test___init___valid_multi_target_spec(self):
@@ -24,36 +24,26 @@ class TestRootSpecGetter:
         #   spec:
         #     - $ROOT_SPEC
         manifest = {
-            "spack": {
-                "definitions": [
-                    {
-                        "ROOT_PACKAGE": ["access-om2@git.1.0.0"]
-                    }
-                ]
-            }
+            "spack": {"definitions": [{"ROOT_PACKAGE": ["access-om2@git.1.0.0"]}]}
         }
 
         root_spec_getter = RootSpec(manifest)
 
-        assert root_spec_getter.root_spec == "access-om2@git.1.0.0", "Root spec should be correctly initialized from multi-target manifest."
+        assert (
+            root_spec_getter.root_spec == "access-om2@git.1.0.0"
+        ), "Root spec should be correctly initialized from multi-target manifest."
 
     def test___init___valid_single_target_spec(self):
-        manifest = {
-            "spack": {
-                "specs": ["access-om2@git.1.0.0"]
-            }
-        }
+        manifest = {"spack": {"specs": ["access-om2@git.1.0.0"]}}
 
         root_spec_getter = RootSpec(manifest)
 
-        assert root_spec_getter.root_spec == "access-om2@git.1.0.0", "Root spec should be correctly initialized from single-target manifest."
+        assert (
+            root_spec_getter.root_spec == "access-om2@git.1.0.0"
+        ), "Root spec should be correctly initialized from single-target manifest."
 
     def test___init___invalid_no_root_spec(self):
-        manifest = {
-            "spack": {
-                "specs": []
-            }
-        }
+        manifest = {"spack": {"specs": []}}
 
         with pytest.raises(NoSectionError):
             RootSpec(manifest)
@@ -63,110 +53,84 @@ class TestRootSpecGetter:
             RootSpec({})
 
     def test_from_file__valid(self):
-        manifest_path = "tests/scripts/spack_manifest/injection/inputs/prerelease.spack.yaml"
+        manifest_path = (
+            "tests/scripts/spack_manifest/injection/inputs/prerelease.spack.yaml"
+        )
         root_spec_getter = RootSpec.from_file(manifest_path)
 
-        assert root_spec_getter.root_spec == "access-om2@git.2024.03.0=latest", "Root spec should be correctly retrieved from file."
+        assert (
+            root_spec_getter.root_spec == "access-om2@git.2024.03.0=latest"
+        ), "Root spec should be correctly retrieved from file."
 
     def test_from_file__invalid(self):
-        manifest_path = "tests/scripts/spack_manifest/injection/inputs/invalid_manifest.yaml"
+        manifest_path = (
+            "tests/scripts/spack_manifest/injection/inputs/invalid_manifest.yaml"
+        )
 
         with pytest.raises(OSError):
             RootSpec.from_file(manifest_path)
 
-    def test_get_name__valid(self):
-        manifest = {
-            "spack": {
-                "specs": ["access-om2@git.1.0.0"]
-            }
-        }
+    @pytest.mark.parametrize(
+        "spec, expected_name",
+        [
+            ("access-om2@git.1.0.0", "access-om2"),
+            ("access-esm1p6@git.2025.05+debug", "access-esm1p6"),
+            ("access-om2@1.0.0 %intel@2021.2.0 +debug", "access-om2"),
+        ],
+    )
+    def test_get_name__valid(self, spec, expected_name):
+        manifest = {"spack": {"specs": [spec]}}
 
-        root_spec_getter = RootSpec(manifest)
-        name = root_spec_getter.get_name()
+        assert (
+            RootSpec(manifest).get_name() == expected_name
+        ), "Root spec name should be correctly extracted."
 
-        assert name == "access-om2", "Root spec name should be correctly extracted."
+    @pytest.mark.parametrize(
+        "spec",
+        [
+            "@git.1.0.0",
+            "%compiler@2.0.0",
+            "+debug",
+        ],
+    )
+    def test_get_name__invalid(self, spec):
+        manifest = {"spack": {"specs": [spec]}}
 
-    def test_get_name__invalid(self):
-        manifest = {
-            "spack": {
-                "specs": ["@git.1.0.0"]
-            }
-        }
-
-        root_spec_getter = RootSpec(manifest)
         with pytest.raises(NoSectionComponentError):
-            root_spec_getter.get_name()
+            RootSpec(manifest).get_name()
 
-    def test_get_ref__valid_git(self):
-        manifest = {
-            "spack": {
-                "specs": ["access-om2@git.1.0.0"]
-            }
-        }
+    @pytest.mark.parametrize(
+        "spec, expected_ref",
+        [
+            ("access-om2@git.1.0.0", "1.0.0"),
+            ("access-om2@git.1.0.0 %compiler@2.0.0", "1.0.0"),
+            ("access-om2@git.1.0.0 %compiler@2.0.0 +debug", "1.0.0"),
+            ("access-om2@git.1.0.0=develop %compiler@2.0.0 +debug", "1.0.0"),
+            ("access-om2@git.1.0.0=latest %compiler@2.0.0 +debug", "1.0.0"),
+            ("access-esm1p5@git.develop=access-esm1p5 +debug", "develop"),
+            ("access-esm1p5@git.2025.05+debug", "2025.05"),
+        ],
+    )
+    def test_get_ref__valid(self, spec, expected_ref):
+        manifest = {"spack": {"specs": [spec]}}
 
-        root_spec_getter = RootSpec(manifest)
-        ref = root_spec_getter.get_ref()
+        assert (
+            RootSpec(manifest).get_ref() == expected_ref
+        ), "Root spec ref should be correctly extracted."
 
-        assert ref == "1.0.0", "Root spec ref should be correctly extracted."
+    @pytest.mark.parametrize(
+        "spec",
+        [
+            "access-om2",
+            "access-om2+debug",
+            "access-om2%intel@2025.05",
+        ],
+    )
+    def test_get_ref__invalid(self, spec):
+        manifest = {"spack": {"specs": [spec]}}
 
-    def test_get_ref__valid_non_git(self):
-        manifest = {
-            "spack": {
-                "specs": ["access-om2@1.0.0"]
-            }
-        }
-
-        root_spec_getter = RootSpec(manifest)
-        ref = root_spec_getter.get_ref()
-
-        assert ref == "1.0.0", "Root spec ref should be correctly extracted."
-
-    def test_get_ref__valid_git_with_constraints(self):
-        manifest = {
-            "spack": {
-                "specs": ["access-om2@git.1.0.0 %compiler@2.0.0"]
-            }
-        }
-
-        root_spec_getter = RootSpec(manifest)
-        ref = root_spec_getter.get_ref()
-
-        assert ref == "1.0.0", "Root spec ref should be correctly extracted with constraints."
-
-    def test_get_ref__valid_git_with_space_constraints(self):
-        manifest = {
-            "spack": {
-                "specs": ["access-om2@git.1.0.0 %compiler@2.0.0 +debug"]
-            }
-        }
-
-        root_spec_getter = RootSpec(manifest)
-        ref = root_spec_getter.get_ref()
-
-        assert ref == "1.0.0", "Root spec ref should be correctly extracted with space constraints."
-
-    def test_get_ref__valid_git_with_spack_version_and_constraints(self):
-        manifest = {
-            "spack": {
-                "specs": ["access-om2@git.1.0.0=develop %compiler@2.0.0 +debug"]
-            }
-        }
-
-        root_spec_getter = RootSpec(manifest)
-        ref = root_spec_getter.get_ref()
-
-        assert ref == "1.0.0", "Root spec ref should be correctly extracted with Spack version and constraints."
-
-    def test_get_ref__invalid(self):
-        manifest = {
-            "spack": {
-                "specs": ["access-om2"]
-            }
-        }
-
-        root_spec_getter = RootSpec(manifest)
         with pytest.raises(NoSectionComponentError):
-            root_spec_getter.get_ref()
+            RootSpec(manifest).get_ref()
 
     @pytest.mark.parametrize(
         "root_spec",
@@ -178,39 +142,26 @@ class TestRootSpecGetter:
             "~debug",
             " +debug",
             " ~debug",
-        ]
+        ],
     )
     def test_get_non_version_constraints__valid(self, root_spec):
-        manifest = {
-            "spack": {
-                "specs": [f"access-om2@git.1.0.0{root_spec}"]
-            }
-        }
+        manifest = {"spack": {"specs": [f"access-om2@git.1.0.0{root_spec}"]}}
 
-        root_spec_getter = RootSpec(manifest)
-        constraints = root_spec_getter.get_non_version_constraints()
+        assert (
+            RootSpec(manifest).get_non_version_constraints() == root_spec.strip()
+        ), "Non-version constraints should be correctly extracted."
 
-        assert constraints == root_spec.strip(), "Non-version constraints should be correctly extracted."
+    @pytest.mark.parametrize(
+        "root_spec, expected",
+        [
+            ("access-om2@git.1.0.0", True),
+            ("access-om2@1.0.0", False),
+        ],
+    )
+    def test_has_git_ref__valid(self, root_spec, expected):
+        manifest = {"spack": {"specs": [root_spec]}}
 
-    def test_has_git_ref__valid_yes(self):
-        manifest = {
-            "spack": {
-                "specs": ["access-om2@git.1.0.0"]
-            }
-        }
-
-        root_spec_getter = RootSpec(manifest)
-        assert root_spec_getter.has_git_ref(), "Root spec should have a git ref."
-
-    def test_has_git_ref__valid_no(self):
-        manifest = {
-            "spack": {
-                "specs": ["access-om2@1.0.0"]
-            }
-        }
-
-        root_spec_getter = RootSpec(manifest)
-        assert not root_spec_getter.has_git_ref(), "Root spec should not have a git ref."
+        assert RootSpec(manifest).has_git_ref() == expected
 
 
 class TestPackagesGetter:
@@ -232,36 +183,30 @@ class TestPackagesGetter:
         }, "Packages should be correctly initialized from manifest."
 
     def test___init___invalid_no_packages_section(self):
-        manifest = {
-            "spack": {}
-        }
-
-        with pytest.raises(NoSectionError):
-            Packages(manifest)
-
-    def test___init___invalid_no_packages(self):
-        manifest = {
-            "spack": {
-                "packages": {}
-            }
-        }
-
-        packages_getter = Packages(manifest)
-
-        assert packages_getter.packages == {}, "Packages should be initialized as an empty dictionary if no packages are defined."
-
-    def test___init___invalid_no_packages(self):
         manifest = {"spack": {}}
 
         with pytest.raises(NoSectionError):
             Packages(manifest)
 
+    def test___init___invalid_no_packages(self):
+        manifest = {"spack": {"packages": {}}}
+
+        packages_getter = Packages(manifest)
+
+        assert (
+            packages_getter.packages == {}
+        ), "Packages should be initialized as an empty dictionary if no packages are defined."
+
     def test_from_file__valid(self):
-        manifest_path = "tests/scripts/spack_manifest/injection/inputs/prerelease.spack.yaml"
+        manifest_path = (
+            "tests/scripts/spack_manifest/injection/inputs/prerelease.spack.yaml"
+        )
         packages_getter = Packages.from_file(manifest_path)
 
     def test_from_file__invalid(self):
-        manifest_path = "tests/scripts/spack_manifest/injection/inputs/invalid_manifest.yaml"
+        manifest_path = (
+            "tests/scripts/spack_manifest/injection/inputs/invalid_manifest.yaml"
+        )
 
         with pytest.raises(OSError):
             Packages.from_file(manifest_path)
@@ -271,7 +216,6 @@ class TestPackagesGetter:
             "spack": {
                 "packages": {
                     "package1": {"require": ["@git.1.0.0"]},
-                    "package2": {"require": ["@git.2.0.0"]},
                 }
             }
         }
@@ -279,25 +223,23 @@ class TestPackagesGetter:
         packages_getter = Packages(manifest)
         requirements = packages_getter.get_package_requirements("package1")
 
-        assert requirements == {"require": ["@git.1.0.0"]}, "Package requirements should be correctly retrieved."
+        assert requirements == {
+            "require": ["@git.1.0.0"]
+        }, "Package requirements should be correctly retrieved."
 
     def test_get_package_requirements__invalid_no_package(self):
-        manifest = {
-            "spack": {
-                "packages": {}
-            }
-        }
+        manifest = {"spack": {"packages": {}}}
 
         packages_getter = Packages(manifest)
         with pytest.raises(NoSectionComponentError):
             packages_getter.get_package_requirements("nonexistent_package")
 
-    def test_get_package_full_version_requirement__valid(self):
+    @pytest.mark.parametrize("version_req", ["@git.1.0.9", "@2.0.0"])
+    def test_get_package_full_version_requirement__valid(self, version_req):
         manifest = {
             "spack": {
                 "packages": {
-                    "package1": {"require": ["@git.1.0.0"]},
-                    "package2": {"require": ["@git.2.0.0"]},
+                    "package1": {"require": [version_req, "+debug"]},
                 }
             }
         }
@@ -305,58 +247,56 @@ class TestPackagesGetter:
         packages_getter = Packages(manifest)
         full_version = packages_getter.get_package_full_version_requirement("package1")
 
-        assert full_version == "@git.1.0.0", "Full version requirement should be correctly retrieved."
+        assert (
+            full_version == version_req
+        ), "Full version requirement should be correctly retrieved."
 
     def test_get_package_full_version_requirement__invalid_no_package(self):
-        manifest = {
-            "spack": {
-                "packages": {}
-            }
-        }
+        manifest = {"spack": {"packages": {}}}
 
         packages_getter = Packages(manifest)
         with pytest.raises(NoSectionError):
             packages_getter.get_package_full_version_requirement("nonexistent_package")
 
-    def test_get_package_requirements__valid(self):
-        manifest = {
-            "spack": {
-                "packages": {
-                    "package1": {
-                        "require": [
-                            "@git.1.0.0",
-                            "+debug",
-                            "%compiler@2.0.0"
-                        ]
-                    }
-                }
-            }
-        }
+    @pytest.mark.parametrize(
+        "version_reqs",
+        [
+            ["@git.1.0.0", "+debug", "%compiler@2.0.0"],
+            ["@git.2.0.0"],
+        ],
+    )
+    def test_get_package_requirements__valid(self, version_reqs):
+        manifest = {"spack": {"packages": {"package1": {"require": version_reqs}}}}
 
         packages_getter = Packages(manifest)
         requirements = packages_getter.get_package_requirements("package1")
 
-        assert requirements == ["@git.1.0.0", "+debug","%compiler@2.0.0"], "Package requirements should be correctly retrieved."
+        assert (
+            requirements == version_reqs
+        ), "Package requirements should be correctly retrieved."
 
     def test_get_package_requirements__invalid_no_requirements(self):
-        manifest = {
-            "spack": {
-                "packages": {
-                    "package1": {}
-                }
-            }
-        }
+        manifest = {"spack": {"packages": {"package1": {}}}}
 
         packages_getter = Packages(manifest)
 
-        assert packages_getter.get_package_requirements("package1") == [], "Package with no requirements should return an empty list."
+        assert (
+            packages_getter.get_package_requirements("package1") == []
+        ), "Package with no requirements should return an empty list."
 
-    def test_get_package_ref_requirement__valid(self):
+    @pytest.mark.parametrize(
+        "ref_requirement, expected_ref",
+        [
+            ("@git.1.0.0", "1.0.0"),
+            ("@2.0.0", "2.0.0"),
+            ("@git.2025.05+debug", "2025.05"),
+        ],
+    )
+    def test_get_package_ref_requirement__valid(self, ref_requirement, expected_ref):
         manifest = {
             "spack": {
                 "packages": {
-                    "package1": {"require": ["@git.1.0.0"]},
-                    "package2": {"require": ["@git.2.0.0"]},
+                    "package1": {"require": [ref_requirement]},
                 }
             }
         }
@@ -364,7 +304,9 @@ class TestPackagesGetter:
         packages_getter = Packages(manifest)
         ref = packages_getter.get_package_ref_requirement("package1")
 
-        assert ref == "1.0.0", "Package ref requirement should be correctly retrieved."
+        assert (
+            ref == expected_ref
+        ), "Package ref requirement should be correctly retrieved."
 
     def test_get_package_ref_requirement__invalid_no_package(self):
         manifest = {
@@ -379,11 +321,15 @@ class TestPackagesGetter:
         with pytest.raises(NoSectionComponentError):
             packages_getter.get_package_ref_requirement("nonexistent_package")
 
+
 ####################
+
 
 class TestProjectionsGetter:
     def test_from_file__invalid(self):
-        manifest_path = "tests/scripts/spack_manifest/injection/inputs/invalid_manifest.yaml"
+        manifest_path = (
+            "tests/scripts/spack_manifest/injection/inputs/invalid_manifest.yaml"
+        )
 
         with pytest.raises(OSError):
             Projections.from_file(manifest_path)
@@ -437,42 +383,29 @@ class TestProjectionsGetter:
 
 class TestIncludesGetter:
     def test_from_file__invalid(self):
-        manifest_path = "tests/scripts/spack_manifest/injection/inputs/invalid_manifest.yaml"
+        manifest_path = (
+            "tests/scripts/spack_manifest/injection/inputs/invalid_manifest.yaml"
+        )
 
         with pytest.raises(OSError):
             Includes.from_file(manifest_path)
 
-    def test__get_defined_includes__valid(self):
-        manifest = {
-            "spack": {
-                "modules": {
-                    "default": {
-                        "tcl": {
-                            "include": ["root-spec", "package2", "package3"]
-                        }
-                    }
-                }
-            }
-        }
-
-        expected = ["root-spec", "package2", "package3"]
+    @pytest.mark.parametrize(
+        "includes",
+        [
+            ["root-spec", "package2", "package3"],
+            ["root-spec"],
+            [],
+        ],
+    )
+    def test__get_defined_includes__valid(self, includes):
+        manifest = {"spack": {"modules": {"default": {"tcl": {"include": includes}}}}}
 
         result = Includes(manifest).get()
 
         assert (
-            result == expected
+            result == includes
         ), "A valid manifest should return all defined includes."
-
-    def test__get_defined_includes__no_includes(self):
-        manifest = {"spack": {"modules": {"default": {"tcl": {"include": []}}}}}
-
-        expected = []
-
-        result = Includes(manifest).get()
-
-        assert (
-            result == expected
-        ), "Manifest without includes should return an empty set."
 
     def test__get_defined_includes__no_modules_section(self):
         manifest = {"spack": {}}
