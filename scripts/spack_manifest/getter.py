@@ -5,13 +5,13 @@ import re
 
 
 class NoSectionError(Exception):
-    """Exception raised when the root spec is not found in the manifest."""
+    """Exception raised when the section (projections, root spec, packages...) is not found in the manifest."""
 
     pass
 
 
 class NoSectionComponentError(Exception):
-    """Exception raised when a specific component of the root spec is not found."""
+    """Exception raised when a specific component (like a version, name, etc) of a section (projections, root spec, packages...) is not found."""
 
     pass
 
@@ -73,11 +73,14 @@ class RootSpec:
 
     ## Get version-related information
 
-    # def get_full_version(self) -> str:
-    #     pass
+    def get_full_version(self) -> str:
+        raise NotImplementedError()
 
     def get_ref(self) -> str:
-        match = re.match(r"[^@]+@(?:git.)?([^+~= ]+)", self.root_spec)
+        # For example:
+        # access-om2#git.2025.05+debug -> 2025.05
+        # access-om2@2025.05 %intel@2021.2.0 -> 2025.05
+        match = re.match(r"[^@]+@(?:git.)?([^+~=% ]+)", self.root_spec)
 
         if match is None:
             raise NoSectionComponentError(
@@ -86,29 +89,29 @@ class RootSpec:
 
         return match.group(1)
 
-    # def get_spack_version(self) -> str:
-    #     pass
+    def get_spack_version(self) -> str:
+        raise NotImplementedError()
 
     ## Get variant information
 
-    # def get_variants(self) -> list[str]:
-    #     pass
+    def get_variants(self) -> list[str]:
+        raise NotImplementedError()
 
     ## Get compiler information
 
-    # def get_compiler(self) -> str:
-    #     pass
+    def get_compiler(self) -> str:
+        raise NotImplementedError()
 
-    # def get_compiler_name(self) -> str:
-    #     pass
+    def get_compiler_name(self) -> str:
+        raise NotImplementedError()
 
-    # def get_compiler_version(self) -> str:
-    #     pass
+    def get_compiler_version(self) -> str:
+        raise NotImplementedError()
 
     ## Get architecture information
 
-    # def get_arch(self) -> str:
-    #     pass
+    def get_arch(self) -> str:
+        raise NotImplementedError()
 
     ## Other functions
 
@@ -117,6 +120,8 @@ class RootSpec:
         Get all non-version constraints from the root spec.
         This is everything after the @ref, including variants, compiler info and arch.
         """
+        # For example:
+        # access-om2@2025.05 %intel@2021.2.0 foo=bar -> %intel@2021.2.0 foo=bar
         match = re.match(r"[^@]+@[^+~% ]+(.*)", self.root_spec)
 
         if match is None:
@@ -202,6 +207,9 @@ class Packages:
                 f"Package component 'version' could not be extracted from the package requirements string for '{name}'."
             )
 
+        # For example:
+        # @git.2025.05+debug -> 2025.05
+        # @develop -> develop
         match = re.match(r"@(?:git\.)?([^+~=% ]+)", requirements[0])
 
         if match is None:
