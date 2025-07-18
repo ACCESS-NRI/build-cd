@@ -12,9 +12,19 @@ from scripts.spack_manifest.getter import (
 
 class TestRootSpecGetter:
     def test___init___valid_multi_target_spec(self):
+        # This is a pared-down example due to json being annoying to represent without many lines of code.
+        # In practice, the multi-target spec looks something like:
+        # spack:
+        #   definitions:
+        #     - ROOT_PACKAGE: [access-om2@git.2025.05]
+        #     - ROOT_SPEC:
+        #         - matrix:
+        #             - [$ROOT_PACKAGE]
+        #             - ['%intel@2021.2.0', '%intel@2021.10.0']
+        #   spec:
+        #     - $ROOT_SPEC
         manifest = {
             "spack": {
-                "specs": ["$ROOT_SPEC"],
                 "definitions": [
                     {
                         "ROOT_PACKAGE": ["access-om2@git.1.0.0"]
