@@ -165,6 +165,8 @@ class TestRootSpecGetter:
             "%compiler@2.0.0",
             " %compiler@2.0.0 +debug",
             "+debug",
+            "~debug",
+            " +debug",
             " ~debug",
         ]
     )
@@ -394,8 +396,7 @@ class TestProjectionsGetter:
 
         expected = {"package1": "package1/1.0.0", "package2": "package2/2.0.0"}
 
-        projections_getter = Projections(manifest)
-        result = projections_getter.get()
+        result = Projections(manifest).get()
 
         assert (
             result == expected
@@ -406,8 +407,7 @@ class TestProjectionsGetter:
 
         expected = dict()
 
-        projections_getter = Projections(manifest)
-        result = projections_getter.get()
+        result = Projections(manifest).get()
 
         assert (
             result == expected
@@ -418,8 +418,7 @@ class TestProjectionsGetter:
 
         expected = dict()
 
-        projections_getter = Projections(manifest)
-        result = projections_getter.get()
+        result = Projections(manifest).get()
 
         assert (
             result == expected
@@ -448,8 +447,7 @@ class TestIncludesGetter:
 
         expected = ["root-spec", "package2", "package3"]
 
-        includes_getter = Includes(manifest)
-        result = includes_getter.get()
+        result = Includes(manifest).get()
 
         assert (
             result == expected
@@ -460,8 +458,7 @@ class TestIncludesGetter:
 
         expected = []
 
-        includes_getter = Includes(manifest)
-        result = includes_getter.get()
+        result = Includes(manifest).get()
 
         assert (
             result == expected
@@ -472,8 +469,7 @@ class TestIncludesGetter:
 
         expected = []
 
-        includes_getter = Includes(manifest)
-        result = includes_getter.get()
+        result = Includes(manifest).get()
 
         assert (
             result == expected
