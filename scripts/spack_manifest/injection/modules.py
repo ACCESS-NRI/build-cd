@@ -52,17 +52,11 @@ def inject_projections(
 ) -> dict[str, Any]:
 
     # Get projections that are already defined in the manifest - we don't want to redefine these
-    # defined_projections: dict[str, str] = _get_defined_projections(manifest)
-    # defined_projections_set: set[str] = set(defined_projections.keys())
-
     projections_getter = Projections(manifest)
     defined_projections_dict: dict[str, str] = projections_getter.get()
     defined_projections: set[str] = set(defined_projections_dict.keys())
 
     # Get packages that have versions defined in the manifest - we can only generate projections for things with an explicit version
-    # packages_with_versions_defined: set[str] = _get_packages_with_versions_defined(
-    #     manifest
-    # )
     packages_getter = Packages(manifest)
     packages_with_versions_defined: set[str] = set(
         packages_getter.get_all_package_names_with_ref_requirement()
