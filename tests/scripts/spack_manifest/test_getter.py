@@ -165,6 +165,14 @@ class TestRootSpecGetter:
 
 
 class TestPackagesGetter:
+    ### Fixtures ###
+
+    @pytest.fixture
+    def manifest_with_packages(self):
+        return {"spack": {"packages": {}}}
+
+    ### Tests ###
+
     def test___init___valid(self):
         manifest = {
             "spack": {
@@ -227,10 +235,8 @@ class TestPackagesGetter:
             "require": ["@git.1.0.0"]
         }, "Package requirements should be correctly retrieved."
 
-    def test_get_package_requirements__invalid_no_package(self):
-        manifest = {"spack": {"packages": {}}}
-
-        packages_getter = Packages(manifest)
+    def test_get_package_requirements__invalid_no_package(self, manifest_with_no_packages):
+        packages_getter = Packages(manifest_with_no_packages)
         with pytest.raises(NoSectionComponentError):
             packages_getter.get_package_requirements("nonexistent_package")
 
@@ -251,10 +257,9 @@ class TestPackagesGetter:
             full_version == version_req
         ), "Full version requirement should be correctly retrieved."
 
-    def test_get_package_full_version_requirement__invalid_no_package(self):
-        manifest = {"spack": {"packages": {}}}
+    def test_get_package_full_version_requirement__invalid_no_package(self, manifest_with_no_packages):
 
-        packages_getter = Packages(manifest)
+        packages_getter = Packages(manifest_with_no_packages)
         with pytest.raises(NoSectionError):
             packages_getter.get_package_full_version_requirement("nonexistent_package")
 
@@ -308,21 +313,10 @@ class TestPackagesGetter:
             ref == expected_ref
         ), "Package ref requirement should be correctly retrieved."
 
-    def test_get_package_ref_requirement__invalid_no_package(self):
-        manifest = {
-            "spack": {
-                "packages": {
-                    "package1": {"require": ["@git.1.0.0"]},
-                }
-            }
-        }
-
-        packages_getter = Packages(manifest)
+    def test_get_package_ref_requirement__invalid_no_package(self, manifest_with_no_packages):
+        packages_getter = Packages(manifest_with_no_packages)
         with pytest.raises(NoSectionComponentError):
             packages_getter.get_package_ref_requirement("nonexistent_package")
-
-
-####################
 
 
 class TestProjectionsGetter:
