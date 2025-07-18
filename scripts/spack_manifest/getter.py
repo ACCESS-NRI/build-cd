@@ -62,7 +62,7 @@ class RootSpec:
     ## Get root spec name
 
     def get_name(self) -> str:
-        match = re.match(r"[^@]+", self.root_spec)
+        match = re.match(r"[^@%+~ ]+", self.root_spec)
 
         if match is None:
             raise NoSectionComponentError(
@@ -80,7 +80,7 @@ class RootSpec:
         # For example:
         # access-om2#git.2025.05+debug -> 2025.05
         # access-om2@2025.05 %intel@2021.2.0 -> 2025.05
-        match = re.match(r"[^@]+@(?:git.)?([^+~=% ]+)", self.root_spec)
+        match = re.match(r"[^@%+~ ]+@(?:git.)?([^+~=% ]+)", self.root_spec)
 
         if match is None:
             raise NoSectionComponentError(
