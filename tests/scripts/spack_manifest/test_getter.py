@@ -12,6 +12,7 @@ from scripts.spack_manifest.getter import (
 
 ### Global Fixtures ###
 
+
 @pytest.fixture
 def manifest_from_file():
     return {
@@ -31,7 +32,7 @@ def manifest_from_file():
                         },
                     }
                 }
-            }
+            },
         }
     }
 
@@ -200,30 +201,26 @@ class TestPackagesGetter:
 
     ### Tests ###
 
-    def test___init___valid(self):
-        manifest = {
-            "spack": {
-                "packages": {
-                    "package1": {"require": ["@git.1.0.0"]},
-                    "package2": {"require": ["@git.2.0.0"]},
-                }
-            }
-        }
+    @pytest.mark.parametrize(
+        "packages",
+        [
+            {
+                "package1": {"require": ["@git.1.0.0"]},
+                "package2": {"require": ["@git.2.0.0"]},
+            },
+            {},
+        ],
+    )
+    def test___init___valid(self, packages):
+        manifest = {"spack": {"packages": packages}}
 
         packages_getter = Packages(manifest)
 
-        assert packages_getter.packages == {
-            "package1": {"require": ["@git.1.0.0"]},
-            "package2": {"require": ["@git.2.0.0"]},
-        }, "Packages should be correctly initialized from manifest."
+        assert (
+            packages_getter.packages == packages
+        ), "Packages should be correctly initialized from manifest."
 
-    def test___init___invalid_no_packages_section(self):
-        manifest = {"spack": {}}
-
-        with pytest.raises(NoSectionError):
-            Packages(manifest)
-
-    def test___init___invalid_no_packages(self):
+    def test___init___valid_no_packages(self):
         manifest = {"spack": {"packages": {}}}
 
         packages_getter = Packages(manifest)
@@ -231,6 +228,12 @@ class TestPackagesGetter:
         assert (
             packages_getter.packages == {}
         ), "Packages should be initialized as an empty dictionary if no packages are defined."
+
+    def test___init___invalid_no_packages_section(self):
+        manifest = {"spack": {}}
+
+        with pytest.raises(NoSectionError):
+            Packages(manifest)
 
     def test_from_file__valid(self, tmp_path, manifest_from_file):
         manifest_path = tmp_path / "manifest.yaml"
@@ -263,7 +266,9 @@ class TestPackagesGetter:
             "require": ["@git.1.0.0"]
         }, "Package requirements should be correctly retrieved."
 
-    def test_get_package_requirements__invalid_no_package(self, manifest_with_no_packages):
+    def test_get_package_requirements__invalid_no_package(
+        self, manifest_with_no_packages
+    ):
         packages_getter = Packages(manifest_with_no_packages)
         with pytest.raises(NoSectionComponentError):
             packages_getter.get_package_requirements("nonexistent_package")
@@ -285,7 +290,9 @@ class TestPackagesGetter:
             full_version == version_req
         ), "Full version requirement should be correctly retrieved."
 
-    def test_get_package_full_version_requirement__invalid_no_package(self, manifest_with_no_packages):
+    def test_get_package_full_version_requirement__invalid_no_package(
+        self, manifest_with_no_packages
+    ):
 
         packages_getter = Packages(manifest_with_no_packages)
         with pytest.raises(NoSectionError):
@@ -341,7 +348,9 @@ class TestPackagesGetter:
             ref == expected_ref
         ), "Package ref requirement should be correctly retrieved."
 
-    def test_get_package_ref_requirement__invalid_no_package(self, manifest_with_no_packages):
+    def test_get_package_ref_requirement__invalid_no_package(
+        self, manifest_with_no_packages
+    ):
         packages_getter = Packages(manifest_with_no_packages)
         with pytest.raises(NoSectionComponentError):
             packages_getter.get_package_ref_requirement("nonexistent_package")
