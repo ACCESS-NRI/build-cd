@@ -25,12 +25,14 @@ def main():
         manifest: dict[str, Any] = yaml.safe_load(file)
 
     # Inject manifest with projections and includes
+    root_spec_name: str = RootSpec(manifest).get_name()
+
     manifest_with_projections: dict[str, Any] = inject_projections(
-        manifest=manifest, root_spec=args.root_spec, packages=packages
+        manifest=manifest, root_spec=root_spec_name, packages=packages
     )
 
     manifest_with_projections_and_includes: dict[str, Any] = inject_includes(
-        manifest=manifest_with_projections, root_spec=args.root_spec, packages=packages
+        manifest=manifest_with_projections, root_spec=root_spec_name, packages=packages
     )
 
     # Output the modified manifest
@@ -178,13 +180,6 @@ def parse_args(args: list[str]) -> argparse.Namespace:
         type=str,
         required=True,
         help="Path to the spack manifest file to be injected with projection information",
-    )
-
-    parser.add_argument(
-        "--root-spec",
-        type=str,
-        required=True,
-        help="Name of the root spec of the deployment",
     )
 
     parser.add_argument(

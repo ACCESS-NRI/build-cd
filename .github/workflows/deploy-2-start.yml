@@ -125,7 +125,6 @@ jobs:
         run: |
           python -m cd.scripts.spack_manifest.injection.modules \
             --manifest ${{ inputs.spack-manifest-path }} \
-            --root-spec ${{ steps.manifest.outputs.root-spec-name }} \
             --packages "${{ vars.BUILD_DB_PACKAGES }}" \
             --output ${{ inputs.spack-manifest-path }}
 

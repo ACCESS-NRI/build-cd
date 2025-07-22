@@ -21,8 +21,6 @@ class TestParseArgs:
         args = [
             "--manifest",
             "tests/scripts/spack_manifest/injection/inputs/spack.yaml",
-            "--root-spec",
-            "access-om2",
             "--packages",
             "mom5",
         ]
@@ -30,7 +28,6 @@ class TestParseArgs:
         parsed_args = parse_args(args)
 
         assert parsed_args.manifest == "tests/scripts/spack_manifest/injection/inputs/spack.yaml"
-        assert parsed_args.root_spec == "access-om2"
         assert parsed_args.packages == "mom5"
         assert parsed_args.output is None, "Output should be None when not specified."
 
@@ -39,8 +36,6 @@ class TestParseArgs:
         args = [
             "--manifest",
             "tests/scripts/spack_manifest/injection/inputs/spack.yaml",
-            "--root-spec",
-            "access-om2",
             "--packages",
             "mom5 cice5 libaccessom2"
         ]
@@ -48,7 +43,6 @@ class TestParseArgs:
         parsed_args = parse_args(args)
 
         assert parsed_args.manifest == "tests/scripts/spack_manifest/injection/inputs/spack.yaml"
-        assert parsed_args.root_spec == "access-om2"
         assert parsed_args.packages == "mom5 cice5 libaccessom2"
         assert parsed_args.output is None, "Output should be None when not specified."
 
@@ -57,8 +51,6 @@ class TestParseArgs:
         args = [
             "--manifest",
             "tests/scripts/spack_manifest/injection/inputs/spack.yaml",
-            "--root-spec",
-            "access-om2",
             "--output",
             "output.yaml",
             "--packages",
@@ -68,7 +60,6 @@ class TestParseArgs:
         parsed_args = parse_args(args)
 
         assert parsed_args.manifest == "tests/scripts/spack_manifest/injection/inputs/spack.yaml"
-        assert parsed_args.root_spec == "access-om2"
         assert parsed_args.output == "output.yaml"
         assert parsed_args.packages == "mom5 cice5 libaccessom2"
 
@@ -76,8 +67,6 @@ class TestParseArgs:
         args = [
             "--manifest",
             "tests/scripts/spack_manifest/injection/inputs/spack.yaml",
-            "--root-spec",
-            "access-om2",
             "--packages",
             "mom5,cice5,libaccessom2"
         ]
