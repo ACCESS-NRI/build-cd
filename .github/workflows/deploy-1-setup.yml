@@ -148,6 +148,13 @@ jobs:
           schema-location: au.org.access-nri/model/deployment/config/versions
           data-location: ./model/config/versions.json
 
+      - name: Validate ${{ github.repository }} config/packages.json
+        uses: access-nri/schema/.github/actions/validate-with-schema@main
+        with:
+          schema-version: ${{ vars.CONFIG_SETTINGS_SCHEMA_VERSION }}
+          schema-location: au.org.access-nri/model/deployment/config/packages
+          data-location: ./model/config/packages.json
+
       - name: Validate spack-packages version
         id: spack-packages
         uses: access-nri/build-cd/.github/actions/validate-repo-version@v5
