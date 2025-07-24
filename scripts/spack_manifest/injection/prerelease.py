@@ -15,6 +15,7 @@ from scripts.spack_manifest.getter import (
 def inject_prerelease_information(
     manifest_path: str,
     version: str,
+    keep_root_spec_intact: bool = False,
     spack_packages_path: str | None = None,
 ) -> str:
     # In comparison to the projections script, this returns a string rather than a dict because we need to
@@ -25,9 +26,13 @@ def inject_prerelease_information(
     root_spec_from_manifest = RootSpec(manifest)
     root_spec_name = root_spec_from_manifest.get_name()
 
+    updated_manifest: dict[str, Any] = deepcopy(manifest)
+
     # Remove @git.VERSION information from the root spec, since it will be a tag that does not yet exist for prereleases
-    # This does not include versions of the form @VERSION, which are the hallmark of software deployment repositories.
-    updated_manifest: dict[str, Any] = remove_potential_root_spec_git_version(manifest)
+    # This does not include versions of the form @VERSION, which are the hallmark of software deployment repositories,
+    # or builds that explicitly ask to keep_root_spec_intact.
+    if not keep_root_spec_intact:
+        updated_manifest = remove_potential_root_spec_git_version(manifest)
 
     # We want the root spec projection to be of the form {name}/prX-Y
     updated_manifest = update_root_spec_projection_version(
@@ -140,6 +145,15 @@ def parse_args(args: list[str]) -> argparse.Namespace:
         help="Version to be used for projections in the manifest",
     )
 
+    # This option is for the special case where the root spec defined at the repository level (a bundle with
+    # a version that doesn't yet exist) is not the same as the root spec defined in the manifest (which could
+    # be a regular package with a meaningful version). This is not recommended, but can be useful for special builds.
+    parser.add_argument(
+        "--keep-root-spec-intact",
+        action="store_true",
+        help="If set, the root spec will not be modified to remove git version information.",
+    )
+
     parser.add_argument(
         "--spack-packages-path",
         type=str,
@@ -162,7 +176,7 @@ def main():
     args = parse_args(sys.argv[1:])
 
     injected_manifest: str = inject_prerelease_information(
-        args.manifest, args.version, args.spack_packages_path
+        args.manifest, args.version, args.keep_root_spec_intact, args.spack_packages_path
     )
 
     print(injected_manifest)

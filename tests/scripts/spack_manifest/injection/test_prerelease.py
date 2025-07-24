@@ -145,7 +145,7 @@ class TestInjectPrereleaseInformation:
         spack_packages_path = "/some/spack-packages"
 
         updated_manifest_str: str = inject_prerelease_information(
-            manifest_path, root_spec_version, spack_packages_path
+            manifest_path, root_spec_version, False, spack_packages_path
         )
 
         expected_manifest_path = "tests/scripts/spack_manifest/injection/outputs/expected.prerelease.spack.yaml"
