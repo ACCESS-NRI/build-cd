@@ -123,6 +123,7 @@ jobs:
         # Injects relevant module projections and includes into the spack manifest so users don't have to
         run: |
           packages_for_injection=$(jq -cr '.provenance + .injection | join(" ")' config/packages.json)
+          echo "Packages to be injected: $packages_for_injection"
 
           cd cd
           python -m scripts.spack_manifest.injection.modules \
@@ -255,6 +256,7 @@ jobs:
           jq -n '[]' > ${{ steps.path.outputs.spack-environment }}/build-db-pkgs.json
 
           packages_for_provenance=$(jq -cr '.provenance | join(" ")' config/packages.json)
+          echo "Packages for provenance: $packages_for_provenance"
 
           for pkg in $packages_for_provenance; do
             hash=$(spack find --format '{hash}' $pkg)
