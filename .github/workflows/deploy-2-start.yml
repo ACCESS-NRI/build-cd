@@ -121,25 +121,28 @@ jobs:
 
       - name: Spack Manifest - Modules Injection
         # Injects relevant module projections and includes into the spack manifest so users don't have to
-        # Note the cd prefix to the module name, as this is the path we cloned build-cd into
         run: |
-          python -m cd.scripts.spack_manifest.injection.modules \
-            --manifest ${{ inputs.spack-manifest-path }} \
-            --packages "${{ vars.BUILD_DB_PACKAGES }}" \
-            --output ${{ inputs.spack-manifest-path }}
+          packages_for_injection=$(jq -cr '.provenance + .injection | join(" ")' config/packages.json)
+          echo "Packages to be injected: $packages_for_injection"
+
+          cd cd
+          python -m scripts.spack_manifest.injection.modules \
+            --manifest ../${{ inputs.spack-manifest-path }} \
+            --packages "$packages_for_injection" \
+            --output ../${{ inputs.spack-manifest-path }}
 
       - name: Spack Manifest - Prerelease Injection
         if: inputs.deployment-type == 'Prerelease'
         # Modifies the name of the prerelease modulefile to the pr<number>-<deployment number>` style.
         # Also removes the `@git.VERSION` specifier for Prereleases as it is a tag that doesn't yet exist.
         # Also adds a repos section that points to the prereleases specific spack-packages repo.
-        # Note the cd prefix to the module name, as this is the path we cloned build-cd into
+        working-directory: cd
         run: |
-          python -m cd.scripts.spack_manifest.injection.prerelease \
-            --manifest ${{ inputs.spack-manifest-path }} \
+          python -m scripts.spack_manifest.injection.prerelease \
+            --manifest ../${{ inputs.spack-manifest-path }} \
             --version ${{ inputs.version }} \
             --spack-packages-path ${{ steps.path.outputs.spack-packages }} \
-            --output ${{ inputs.spack-manifest-path }}
+            --output ../${{ inputs.spack-manifest-path }}
 
       - name: Copy ${{ inputs.spack-manifest-path }}
         run: |
@@ -252,7 +255,10 @@ jobs:
           # Get the information associated with the packages for the build database
           jq -n '[]' > ${{ steps.path.outputs.spack-environment }}/build-db-pkgs.json
 
-          for pkg in ${{ vars.BUILD_DB_PACKAGES }}; do
+          packages_for_provenance=$(jq -cr '.provenance | join(" ")' config/packages.json)
+          echo "Packages for provenance: $packages_for_provenance"
+
+          for pkg in $packages_for_provenance; do
             hash=$(spack find --format '{hash}' $pkg)
             version=$(spack find --format '{version}' $pkg)
             location=$(spack find --format '{prefix}' $pkg)

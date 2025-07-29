@@ -180,9 +180,9 @@ class TestAddNamespaceToOtherProjectionVersions:
         updated_manifest = add_namespace_to_other_projection_versions(manifest, root_spec_name, version)
 
         assert updated_manifest["spack"]["modules"]["default"]["tcl"]["projections"]["access-om2"] == f"{{name}}/{version}"
-        assert updated_manifest["spack"]["modules"]["default"]["tcl"]["projections"]["dependency1"] == f"{{name}}/{version}/2.0.0"
-        assert updated_manifest["spack"]["modules"]["default"]["tcl"]["projections"]["dependency2"] == f"{{name}}/{version}/3.0.0-{{hash:7}}"
-        assert updated_manifest["spack"]["modules"]["default"]["tcl"]["projections"]["dependency3"] == f"{{name}}/{version}/special/4.0.0-{{hash:7}}"
+        assert updated_manifest["spack"]["modules"]["default"]["tcl"]["projections"]["dependency1"] == f"{root_spec_name}/{version}/{{name}}/2.0.0"
+        assert updated_manifest["spack"]["modules"]["default"]["tcl"]["projections"]["dependency2"] == f"{root_spec_name}/{version}/{{name}}/3.0.0-{{hash:7}}"
+        assert updated_manifest["spack"]["modules"]["default"]["tcl"]["projections"]["dependency3"] == f"{root_spec_name}/{version}/{{name}}/special/4.0.0-{{hash:7}}"
 
     def test_add_namespace_to_other_projection_versions__no_projections_except_for_root(self):
         root_spec_name = "access-om2"
