@@ -121,27 +121,27 @@ jobs:
 
       - name: Spack Manifest - Modules Injection
         # Injects relevant module projections and includes into the spack manifest so users don't have to
-        # Note the cd prefix to the module name, as this is the path we cloned build-cd into
         run: |
           packages_for_injection=$(jq -cr '.provenance + .injection | join(" ")' config/packages.json)
 
-          python -m cd.scripts.spack_manifest.injection.modules \
-            --manifest ${{ inputs.spack-manifest-path }} \
+          cd cd
+          python -m scripts.spack_manifest.injection.modules \
+            --manifest ../${{ inputs.spack-manifest-path }} \
             --packages "$packages_for_injection" \
-            --output ${{ inputs.spack-manifest-path }}
+            --output ../${{ inputs.spack-manifest-path }}
 
       - name: Spack Manifest - Prerelease Injection
         if: inputs.deployment-type == 'Prerelease'
         # Modifies the name of the prerelease modulefile to the pr<number>-<deployment number>` style.
         # Also removes the `@git.VERSION` specifier for Prereleases as it is a tag that doesn't yet exist.
         # Also adds a repos section that points to the prereleases specific spack-packages repo.
-        # Note the cd prefix to the module name, as this is the path we cloned build-cd into
+        working-directory: cd
         run: |
-          python -m cd.scripts.spack_manifest.injection.prerelease \
-            --manifest ${{ inputs.spack-manifest-path }} \
+          python -m scripts.spack_manifest.injection.prerelease \
+            --manifest ../${{ inputs.spack-manifest-path }} \
             --version ${{ inputs.version }} \
             --spack-packages-path ${{ steps.path.outputs.spack-packages }} \
-            --output ${{ inputs.spack-manifest-path }}
+            --output ../${{ inputs.spack-manifest-path }}
 
       - name: Copy ${{ inputs.spack-manifest-path }}
         run: |
