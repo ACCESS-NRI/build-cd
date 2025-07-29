@@ -69,9 +69,10 @@ def add_namespace_to_other_projection_versions(
         projections.pop(root_spec_name)
 
     for projection_name, projection_value in projections.items():
-        # Non-root-spec projections will be of the form {name}/prX-Y/VERSION, where VERSION is previously defined.
+        # Non-root-spec projections will be of the form ROOT_SPEC_NAME/prX-Y/{name}/VERSION, where VERSION is previously defined.
+        # For example, access-om2/pr12-13/mom5/main-{hash:7}
         new_projection_value = re.sub(
-            r"{name}/(.+)", rf"{{name}}/{version}/\1", projection_value
+            r"{name}/(.+)", rf"{root_spec_name}/{version}/{{name}}/\1", projection_value
         )
 
         print(
