@@ -70,7 +70,7 @@ jobs:
 
       - name: Generate Deployment Target Matrix
         id: target
-        uses: access-nri/build-cd/.github/actions/get-target-matrix@v5
+        uses: access-nri/build-cd/.github/actions/get-target-matrix@v6
         with:
           targets: ${{ vars.RELEASE_DEPLOYMENT_TARGETS }}
 
@@ -87,7 +87,7 @@ jobs:
         with:
           repository: access-nri/build-cd
 
-      - uses: access-nri/build-cd/.github/actions/validate-deployment-settings@v5
+      - uses: access-nri/build-cd/.github/actions/validate-deployment-settings@v6
         with:
           settings-path: ./config/settings.json
           target: ${{ matrix.target }}
@@ -105,7 +105,7 @@ jobs:
 
       - name: Get root spec ref
         id: tag
-        uses: access-nri/build-cd/.github/actions/get-spack-root-spec@v5
+        uses: access-nri/build-cd/.github/actions/get-spack-root-spec@v6
         with:
           spack-manifest-path: ${{ inputs.spack-manifest-path }}
 
@@ -159,7 +159,7 @@ jobs:
     strategy:
       matrix:
         target: ${{ fromJson(needs.defaults.outputs.targets) }}
-    uses: access-nri/build-cd/.github/workflows/deploy-1-setup.yml@v5
+    uses: access-nri/build-cd/.github/workflows/deploy-1-setup.yml@v6
     with:
       deployment-target: ${{ matrix.target }}
       deployment-ref: ${{ github.ref_name }}
