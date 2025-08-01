@@ -12,6 +12,28 @@ from scripts.spack_manifest.getter import (
 )
 
 
+# PyYaml by default dumps unquoted strings if they look unambiguous, and quoted strings otherwise.
+# Unquoted strings, for some reason, cause issues when they are used as projections in spack manifests.
+# PyYaml dumps '{name}/prX-Y' as a quoted str as it has '{' at the front and causes ambiguity (good for projections)
+# But 'ROOT_SPEC/prX-Y/VERSION-{hash:7}' is dumped as an unquoted str as it is unambiguous (bad for projections)
+# So we need to wrap projections in a custom class that forces PyYaml to dump them as quoted strings.
+class YamlExplicitQuotedString(str):
+    pass
+
+
+def yaml_explicit_quoted_string_representer(dumper, data):
+    """
+    Custom representer for YAML to ensure that some strings are quoted explicitly.
+    This is necessary for strings that are used as projections in spack manifests.
+    """
+    return dumper.represent_scalar("tag:yaml.org,2002:str", data, style="'")
+
+
+yaml.add_representer(YamlExplicitQuotedString, yaml_explicit_quoted_string_representer)
+
+### Actual methods begin here ###
+
+
 def inject_prerelease_information(
     manifest_path: str,
     version: str,
@@ -79,7 +101,8 @@ def add_namespace_to_other_projection_versions(
             f"Updating projection '{projection_name}' from '{projection_value}' to '{new_projection_value}'"
         )
 
-        manifest["spack"]["modules"]["default"]["tcl"]["projections"][projection_name] = new_projection_value
+        # Ensures that the new projection is a quoted string when dumped so spack does projected modules correctly, see top of file.
+        manifest["spack"]["modules"]["default"]["tcl"]["projections"][projection_name] = YamlExplicitQuotedString(new_projection_value)
 
     return manifest
 
@@ -177,7 +200,10 @@ def main():
     args = parse_args(sys.argv[1:])
 
     injected_manifest: str = inject_prerelease_information(
-        args.manifest, args.version, args.keep_root_spec_intact, args.spack_packages_path
+        args.manifest,
+        args.version,
+        args.keep_root_spec_intact,
+        args.spack_packages_path,
     )
 
     print(injected_manifest)
