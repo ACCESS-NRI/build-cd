@@ -44,6 +44,26 @@ on:
         description: |
           The expected overarching spack bundle that contains all other packages, set in the caller repository.
           Usually .spack.specs[0] or .spack.definitions.ROOT_PACKAGE in the manifest, but draft PRs can override this.
+      spack-manifest-schema-path:
+        type: string
+        required: true
+        description: |
+          The path to the Spack manifest schema directory relative to the ACCESS-NRI/schema repository.
+      spack-manifest-schema-version:
+        type: string
+        required: true
+        description: |
+          The version of the Spack manifest schema to use for validation, from the ACCESS-NRI/schema repository.
+      config-versions-schema-version:
+        type: string
+        required: true
+        description: |
+          The version of the config/versions.json schema to use for validation, from the ACCESS-NRI/schema repository.
+      config-packages-schema-version:
+        type: string
+        required: true
+        description: |
+          The version of the config/packages.json schema to use for validation, from the ACCESS-NRI/schema repository.
     outputs:
       general-metadata-artifact-glob:
         value: ${{ jobs.deployment.outputs.general-metadata-artifact-glob }}
@@ -144,14 +164,14 @@ jobs:
       - name: Validate ${{ github.repository }} config/versions.json
         uses: access-nri/schema/.github/actions/validate-with-schema@main
         with:
-          schema-version: ${{ vars.CONFIG_VERSIONS_SCHEMA_VERSION }}
+          schema-version: ${{ inputs.config-versions-schema-version }}
           schema-location: au.org.access-nri/model/deployment/config/versions
           data-location: ./model/config/versions.json
 
       - name: Validate ${{ github.repository }} config/packages.json
         uses: access-nri/schema/.github/actions/validate-with-schema@main
         with:
-          schema-version: ${{ vars.CONFIG_PACKAGES_SCHEMA_VERSION }}
+          schema-version: ${{ inputs.config-packages-schema-version }}
           schema-location: au.org.access-nri/model/deployment/config/packages
           data-location: ./model/config/packages.json
 
@@ -224,8 +244,8 @@ jobs:
         if: env.IS_NOT_DRAFT == 'true' || inputs.deployment-type == 'Release'
         uses: access-nri/schema/.github/actions/validate-with-schema@main
         with:
-          schema-version: ${{ vars.SPACK_YAML_SCHEMA_VERSION }}
-          schema-location: au.org.access-nri/model/spack/environment/deployment
+          schema-version: ${{ inputs.spack-manifest-schema-version }}
+          schema-location: ${{ inputs.spack-manifest-schema-path }}
           data-location: ${{ inputs.spack-manifest-path }}
 
       - name: Get current (${{ inputs.deployment-ref }}) root spec version
