@@ -13,9 +13,8 @@ from scripts.spack_manifest.getter import (
 
 
 # PyYaml by default dumps unquoted strings if they look unambiguous, and quoted strings otherwise.
-# Unquoted strings, for some reason, cause issues when they are used as projections in spack manifests.
-# PyYaml dumps '{name}/prX-Y' as a quoted str as it has '{' at the front and causes ambiguity (good for projections)
-# But 'ROOT_SPEC/prX-Y/VERSION-{hash:7}' is dumped as an unquoted str as it is unambiguous (bad for projections)
+# PyYaml dumps '{name}/prX-Y' as a quoted str as it has '{' at the front and causes ambiguity
+# But 'ROOT_SPEC/.dependencies/prX-Y/VERSION-{hash:7}' is dumped as an unquoted str as it is unambiguous
 # So we need to wrap projections in a custom class that forces PyYaml to dump them as quoted strings.
 class YamlExplicitQuotedString(str):
     pass
@@ -94,7 +93,7 @@ def add_namespace_to_other_projection_versions(
         # Non-root-spec projections will be of the form ROOT_SPEC_NAME/prX-Y/{name}/VERSION, where VERSION is previously defined.
         # For example, access-om2/pr12-13/mom5/main-{hash:7}
         new_projection_value = re.sub(
-            r"{name}/(.+)", rf"{root_spec_name}/{version}/{{name}}/\1", projection_value
+            r"{name}/(.+)", rf"{root_spec_name}/.dependencies/{version}/{{name}}/\1", projection_value
         )
 
         print(
