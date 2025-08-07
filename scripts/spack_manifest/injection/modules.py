@@ -124,8 +124,6 @@ def inject_includes(
 def generate_projection_for_root_spec_or_raise(
     manifest: dict[str, Any], root_spec_name: str
 ) -> dict[str, str]:
-    root_spec_definition: str | None = None
-
     root_spec_getter = RootSpec(manifest)
 
     root_spec_name_from_definition: str = root_spec_getter.get_name()
@@ -137,7 +135,7 @@ def generate_projection_for_root_spec_or_raise(
         )
 
     print(
-        f"Extracted version '{version}' from root spec definition '{root_spec_definition}'"
+        f"Extracted version '{version}' from root spec definition '{root_spec_getter.get()}'"
     )
 
     # We don't add a hash to the root spec projection, as it is a unique deployment
