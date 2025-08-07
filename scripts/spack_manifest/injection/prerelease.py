@@ -93,7 +93,7 @@ def add_namespace_to_other_projection_versions(
         # Non-root-spec projections will be of the form ROOT_SPEC_NAME/prX-Y/{name}/VERSION, where VERSION is previously defined.
         # For example, access-om2/pr12-13/mom5/main-{hash:7}
         new_projection_value = re.sub(
-            r"{name}/(.+)", rf"{root_spec_name}/.dependencies/{version}/{{name}}/\1", projection_value
+            r"{name}/(.+)", rf"{root_spec_name}/dependencies/{version}/{{name}}/\1", projection_value
         )
 
         print(
