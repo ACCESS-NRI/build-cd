@@ -38,6 +38,27 @@ on:
         description: |
           Whether to upload the deployment information to the build database (requires tag-deployment to also be true).
           NOTE: Setting this to false is not recommended for model deployments.
+      spack-manifest-schema-path:
+        type: string
+        required: false
+        default: au.org.access-nri/model/spack/environment/deployment
+        description: |
+          The path to the Spack manifest schema directory relative to the ACCESS-NRI/schema repository.
+      spack-manifest-schema-version:
+        type: string
+        required: true
+        description: |
+          The version of the Spack manifest schema to use for validation, from the ACCESS-NRI/schema repository.
+      config-versions-schema-version:
+        type: string
+        required: true
+        description: |
+          The version of the config/versions.json schema to use for validation, from the ACCESS-NRI/schema repository.
+      config-packages-schema-version:
+        type: string
+        required: true
+        description: |
+          The version of the config/packages.json schema to use for validation, from the ACCESS-NRI/schema repository.
   # Callers usually have the trigger:
   # push:
   #   branches:
@@ -70,7 +91,7 @@ jobs:
 
       - name: Generate Deployment Target Matrix
         id: target
-        uses: access-nri/build-cd/.github/actions/get-target-matrix@v5
+        uses: access-nri/build-cd/.github/actions/get-target-matrix@v6
         with:
           targets: ${{ vars.RELEASE_DEPLOYMENT_TARGETS }}
 
@@ -87,7 +108,7 @@ jobs:
         with:
           repository: access-nri/build-cd
 
-      - uses: access-nri/build-cd/.github/actions/validate-deployment-settings@v5
+      - uses: access-nri/build-cd/.github/actions/validate-deployment-settings@v6
         with:
           settings-path: ./config/settings.json
           target: ${{ matrix.target }}
@@ -105,7 +126,7 @@ jobs:
 
       - name: Get root spec ref
         id: tag
-        uses: access-nri/build-cd/.github/actions/get-spack-root-spec@v5
+        uses: access-nri/build-cd/.github/actions/get-spack-root-spec@v6
         with:
           spack-manifest-path: ${{ inputs.spack-manifest-path }}
 
@@ -159,7 +180,7 @@ jobs:
     strategy:
       matrix:
         target: ${{ fromJson(needs.defaults.outputs.targets) }}
-    uses: access-nri/build-cd/.github/workflows/deploy-1-setup.yml@v5
+    uses: access-nri/build-cd/.github/workflows/deploy-1-setup.yml@v6
     with:
       deployment-target: ${{ matrix.target }}
       deployment-ref: ${{ github.ref_name }}
@@ -167,6 +188,10 @@ jobs:
       deployment-version: ${{ needs.get-root-spec-ref.outputs.root-spec-ref }}
       spack-manifest-path: ${{ inputs.spack-manifest-path }}
       expected-root-spec-name: ${{ needs.defaults.outputs.root-sbd }}
+      spack-manifest-schema-path: ${{ inputs.spack-manifest-schema-path }}
+      spack-manifest-schema-version: ${{ inputs.spack-manifest-schema-version }}
+      config-versions-schema-version: ${{ inputs.config-versions-schema-version }}
+      config-packages-schema-version: ${{ inputs.config-packages-schema-version }}
     secrets: inherit
     permissions:
       contents: write

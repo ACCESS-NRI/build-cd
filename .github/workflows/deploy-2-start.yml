@@ -68,10 +68,16 @@ jobs:
       root-spec-pkg-hash: ${{ steps.metadata.outputs.root-spec-pkg-hash }}
       metadata-artifact-name: ${{ env.ARTIFACT_NAME }}
     steps:
-      # Deployment
-      - uses: actions/checkout@v4
+      - name: Checkout ${{ github.repository }}
+        uses: actions/checkout@v4
         with:
           ref: ${{ inputs.ref }}
+
+      - name: Checkout build-cd
+        uses: actions/checkout@v4
+        with:
+          repository: access-nri/build-cd
+          path: cd
 
       - name: Get Versions From config/versions.json
         id: versions
@@ -81,7 +87,7 @@ jobs:
 
       - name: Get ${{ inputs.deployment-target }} ${{ inputs.deployment-type }} Remote Paths
         id: path
-        uses: access-nri/build-cd/.github/actions/get-deploy-paths@v5
+        uses: access-nri/build-cd/.github/actions/get-deploy-paths@v6
         with:
           spack-installs-root-path: ${{ vars.SPACK_INSTALLS_ROOT_LOCATION }}
           spack-version: ${{ steps.versions.outputs.spack }}
@@ -90,7 +96,7 @@ jobs:
 
       - name: Get manifest info
         id: manifest
-        uses: access-nri/build-cd/.github/actions/get-spack-root-spec@v5
+        uses: access-nri/build-cd/.github/actions/get-spack-root-spec@v6
         with:
           spack-manifest-path: ${{ inputs.spack-manifest-path }}
 
@@ -103,35 +109,49 @@ jobs:
             ${{ secrets.HOST }}
             ${{ secrets.HOST_DATA }}
 
-      - name: Prerelease spack manifest modifications
-        # Modifies the name of the prerelease modulefile to the
-        # `pr<number>-<commit>` style. For example, `access-om3/pr12-2`.
-        # Also removes the `@git.VERSION` specifier for Prereleases so
-        # we don't have to shift tags around.
-        # Also adds a repos section that points to the PRs specific spack-packages repo.
-        if: inputs.deployment-type == 'Prerelease'
-        # If the inputs.expected-root-spec-name for the repository is the same as the one in the spack manifest,
-        # we can safely remove the @git.VERSION specifier. Otherwise it could be because the Prerelease
-        # is being used to test something else.
-        env:
-          SPACK_YAML_MODULEFILE_PROJECTION_YQ: .spack.modules.default.tcl.projections.${{ steps.manifest.outputs.root-spec-name }}
-          OPTIONAL_VARIANTS: ${{ steps.manifest.outputs.root-spec-variants != 'null' && steps.manifest.outputs.root-spec-variants || '' }}
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Injection Requirements
+        working-directory: cd
+        run: python -m pip install -r scripts/spack_manifest/injection/requirements.txt
+
+      - name: Spack Manifest - Get Provenance and Injection Packages
+        id: config-packages
         run: |
-          if [[ "${{ inputs.expected-root-spec-name }}" == "${{ steps.manifest.outputs.root-spec-name }}" ]]; then
-            yq -i '${{ steps.manifest.outputs.yq-root-spec }} = "${{ inputs.expected-root-spec-name }} ${{ env.OPTIONAL_VARIANTS }}"' ${{ inputs.spack-manifest-path }}
-          fi
+          packages_for_injection=$(jq -cr '.provenance + .injection | join(" ")' config/packages.json)
+          packages_for_provenance=$(jq -cr '.provenance | join(" ")' config/packages.json)
 
-          yq -i '${{ env.SPACK_YAML_MODULEFILE_PROJECTION_YQ }} = "{name}/${{ inputs.version }}"' ${{ inputs.spack-manifest-path }}
+          echo "Packages to be injected: $packages_for_injection"
+          echo "Packages for provenance: $packages_for_provenance"
 
-          # Add the specific prerelease spack-packages repo to the environment
-          # We can't use yq as we are using a non-standard spack-specific '::' construct to ignore higher config scopes
-          cat << 'EOF' >> ${{ inputs.spack-manifest-path }}
-            repos::
-                - ${{ steps.path.outputs.spack-packages }}
-                - $spack/var/spack/repos/builtin
-          EOF
+          echo "packages-for-injection=$packages_for_injection" >> $GITHUB_OUTPUT
+          echo "packages-for-provenance=$packages_for_provenance" >> $GITHUB_OUTPUT
 
-          echo '::notice::Prerelease accessible as module ${{ steps.manifest.outputs.root-spec-name }}/${{ inputs.version }}'
+      - name: Spack Manifest - Modules Injection
+        # Injects relevant module projections and includes into the spack manifest so users don't have to
+        run: |
+          cd cd
+          python -m scripts.spack_manifest.injection.modules \
+            --manifest ../${{ inputs.spack-manifest-path }} \
+            --packages "${{ steps.config-packages.outputs.packages-for-injection }}" \
+            --output ../${{ inputs.spack-manifest-path }}
+
+      - name: Spack Manifest - Prerelease Injection
+        if: inputs.deployment-type == 'Prerelease'
+        # Modifies the name of the prerelease modulefile to the pr<number>-<deployment number>` style.
+        # Also removes the `@git.VERSION` specifier for Prereleases as it is a tag that doesn't yet exist.
+        # Also adds a repos section that points to the prereleases specific spack-packages repo.
+        working-directory: cd
+        run: |
+          python -m scripts.spack_manifest.injection.prerelease \
+            --manifest ../${{ inputs.spack-manifest-path }} \
+            --version ${{ inputs.version }} \
+            --spack-packages-path ${{ steps.path.outputs.spack-packages }} \
+            --output ../${{ inputs.spack-manifest-path }}
 
       - name: Copy ${{ inputs.spack-manifest-path }}
         run: |
@@ -209,6 +229,7 @@ jobs:
           spack env activate ${{ inputs.env-name }}
           spack --debug install --fail-fast --fresh ${{ vars.SPACK_INSTALL_ADDITIONAL_ARGS }} || exit $?
           spack module tcl refresh -y
+          EOT
 
       - name: Move spack logs
         if: always() && (steps.deploy.outcome == 'success' || steps.deploy.outcome == 'failure')
@@ -243,7 +264,7 @@ jobs:
           # Get the information associated with the packages for the build database
           jq -n '[]' > ${{ steps.path.outputs.spack-environment }}/build-db-pkgs.json
 
-          for pkg in ${{ vars.BUILD_DB_PACKAGES }}; do
+          for pkg in ${{ steps.config-packages.outputs.packages-for-provenance }}; do
             hash=$(spack find --format '{hash}' $pkg)
             version=$(spack find --format '{version}' $pkg)
             location=$(spack find --format '{prefix}' $pkg)

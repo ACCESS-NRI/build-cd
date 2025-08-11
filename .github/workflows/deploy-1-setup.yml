@@ -44,6 +44,26 @@ on:
         description: |
           The expected overarching spack bundle that contains all other packages, set in the caller repository.
           Usually .spack.specs[0] or .spack.definitions.ROOT_PACKAGE in the manifest, but draft PRs can override this.
+      spack-manifest-schema-path:
+        type: string
+        required: true
+        description: |
+          The path to the Spack manifest schema directory relative to the ACCESS-NRI/schema repository.
+      spack-manifest-schema-version:
+        type: string
+        required: true
+        description: |
+          The version of the Spack manifest schema to use for validation, from the ACCESS-NRI/schema repository.
+      config-versions-schema-version:
+        type: string
+        required: true
+        description: |
+          The version of the config/versions.json schema to use for validation, from the ACCESS-NRI/schema repository.
+      config-packages-schema-version:
+        type: string
+        required: true
+        description: |
+          The version of the config/packages.json schema to use for validation, from the ACCESS-NRI/schema repository.
     outputs:
       general-metadata-artifact-glob:
         value: ${{ jobs.deployment.outputs.general-metadata-artifact-glob }}
@@ -144,20 +164,27 @@ jobs:
       - name: Validate ${{ github.repository }} config/versions.json
         uses: access-nri/schema/.github/actions/validate-with-schema@main
         with:
-          schema-version: ${{ vars.CONFIG_VERSIONS_SCHEMA_VERSION }}
+          schema-version: ${{ inputs.config-versions-schema-version }}
           schema-location: au.org.access-nri/model/deployment/config/versions
           data-location: ./model/config/versions.json
 
+      - name: Validate ${{ github.repository }} config/packages.json
+        uses: access-nri/schema/.github/actions/validate-with-schema@main
+        with:
+          schema-version: ${{ inputs.config-packages-schema-version }}
+          schema-location: au.org.access-nri/model/deployment/config/packages
+          data-location: ./model/config/packages.json
+
       - name: Validate spack-packages version
         id: spack-packages
-        uses: access-nri/build-cd/.github/actions/validate-repo-version@v5
+        uses: access-nri/build-cd/.github/actions/validate-repo-version@v6
         with:
           repo-to-check: spack-packages
           pr: ${{ inputs.deployment-ref }}
 
       - name: Validate spack version
         id: spack
-        uses: access-nri/build-cd/.github/actions/validate-repo-version@v5
+        uses: access-nri/build-cd/.github/actions/validate-repo-version@v6
         with:
           repo-to-check: spack
           pr: ${{ inputs.deployment-ref }}
@@ -188,7 +215,7 @@ jobs:
 
       - name: Validate build-cd config/settings.json
         id: settings
-        uses: access-nri/build-cd/.github/actions/validate-deployment-settings@v5
+        uses: access-nri/build-cd/.github/actions/validate-deployment-settings@v6
         with:
           settings-path: ./cd/config/settings.json
           target: ${{ inputs.deployment-target }}
@@ -217,13 +244,13 @@ jobs:
         if: env.IS_NOT_DRAFT == 'true' || inputs.deployment-type == 'Release'
         uses: access-nri/schema/.github/actions/validate-with-schema@main
         with:
-          schema-version: ${{ vars.SPACK_YAML_SCHEMA_VERSION }}
-          schema-location: au.org.access-nri/model/spack/environment/deployment
+          schema-version: ${{ inputs.spack-manifest-schema-version }}
+          schema-location: ${{ inputs.spack-manifest-schema-path }}
           data-location: ${{ inputs.spack-manifest-path }}
 
       - name: Get current (${{ inputs.deployment-ref }}) root spec version
         id: current
-        uses: access-nri/build-cd/.github/actions/get-spack-root-spec@v5
+        uses: access-nri/build-cd/.github/actions/get-spack-root-spec@v6
         with:
           spack-manifest-path: ${{ inputs.spack-manifest-path }}
 
@@ -262,7 +289,7 @@ jobs:
       - name: Get base root spec version
         id: base
         if: inputs.deployment-type != 'Release' && steps.checkout-base-spack.outcome != 'failure'
-        uses: access-nri/build-cd/.github/actions/get-spack-root-spec@v5
+        uses: access-nri/build-cd/.github/actions/get-spack-root-spec@v6
         with:
           spack-manifest-path: ${{ inputs.spack-manifest-path }}
 
@@ -293,64 +320,6 @@ jobs:
               You can update it manually.
               ${{ inputs.spack-manifest-path != './spack.yaml' && env.BUMP_COMMENT_BODY || '' }}
 
-
-      - name: Check Projections - Specs
-        # This step checks that the root spec has an appropriate projection in the manifest file.
-        id: projection-check-spec
-        continue-on-error: true
-        run: |
-          git checkout ${{ inputs.deployment-ref }}
-
-          current_projection=$(yq '.spack.modules.default.tcl.projections.${{ steps.current.outputs.root-spec-name }}' ${{ inputs.spack-manifest-path }})
-          expected_projection_prefix='{name}/${{ steps.current.outputs.root-spec-ref }}'
-
-          if [[ "$current_projection" == "$expected_projection_prefix"* ]]; then
-              echo "${{ inputs.spack-manifest-path }}: Current root spec projection ($current_projection) and expected projection prefix ($expected_projection_prefix) match."
-          else
-              echo "::error::${{ inputs.spack-manifest-path }}: Current root spec projection ($current_projection) and expected projection prefix ($expected_projection_prefix) don't match."
-              exit 1
-          fi
-
-      - name: Check Projections - Packages
-        # This step checks that the defined projections have the same versions as the referenced packages in the spack.yaml file.
-        # For example, mom5@git.2023.12.12 matches with the
-        #  modulefile mom5/2023.12.12 (specifically, the version strings match)
-        id: projection-check-packages
-        continue-on-error: true
-        if: env.IS_NOT_DRAFT == 'true' || inputs.deployment-type == 'Release'
-        run: |
-          FAILED="false"
-          # Get all the defined projections (minus 'all' and the root spec) and make them suitable for a bash for loop
-          DEPS=$(yq '.spack.modules.default.tcl.projections | del(.all) | del(.${{ steps.current.outputs.root-spec-name }}) | keys | join(" ")' ${{ inputs.spack-manifest-path }})
-
-          # for each of the module names
-          for DEP in $DEPS; do
-            # Capture the section after '@git.' or '@' (if it's not a git-attributed version) and before a possible '=' for a given dependency.
-            # Ex. '@git.2024.02.11' -> '2024.02.11', '@access-esm1.5' -> 'access-esm1.5', '@git.2024.05.21=access-esm1.5' -> '2024.05.21'
-            package_ver=$(yq ".spack.packages.\"$DEP\".require[0] | match(\"^@(?:git.)?([^=]*)\").captures[0].string" ${{ inputs.spack-manifest-path }})
-            expected_projection_prefix="{name}/$package_ver"
-
-            # Projections must start with '{name}/VERSION'. For example, '{name}/2024.11.11', or '{name}/2024.11.11-{hash:7}'
-            current_projection=$(yq ".spack.modules.default.tcl.projections.\"$DEP\"" ${{ inputs.spack-manifest-path }})
-
-            if [[ "$current_projection" == "$expected_projection_prefix"* ]]; then
-              echo "$DEP in ${{ inputs.spack-manifest-path }}: Current projection ($current_projection) and expected projection prefix ($expected_projection_prefix) match."
-            else
-              echo "::error::$DEP in ${{ inputs.spack-manifest-path }}: Current projection ($current_projection) and expected projection prefix ($expected_projection_prefix) don't match."
-              FAILED='true'
-            fi
-          done
-          if [[ "$FAILED" == "true" ]]; then
-            exit 1
-          fi
-
-      - name: Check Projections - Error Notifier
-        # If either of the Check Projection steps failed earlier, exit here
-        if: steps.projection-check-spec.outcome == 'failure' || steps.projection-check-packages.outcome == 'failure'
-        run: |
-          echo "::error::Some projections in ${{ inputs.spack-manifest-path }} don't match."
-          exit 1
-
       - name: Set Spack Env Name String
         id: get-env-name
         # replace occurences of '.' with '_' in environment name as spack doesn't support '.'. Ex: 'access-om2-v1.0.0' -> 'access-om2-v1_0_0'.
@@ -361,7 +330,7 @@ jobs:
     needs:
       - check-config  # Verify configuration information is correct
       - check-spack-yaml  # Verify spack manifest information is correct
-    uses: access-nri/build-cd/.github/workflows/deploy-2-start.yml@v5
+    uses: access-nri/build-cd/.github/workflows/deploy-2-start.yml@v6
     with:
       ref: ${{ inputs.deployment-ref }}
       version: ${{ inputs.deployment-version }}
