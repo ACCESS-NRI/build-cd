@@ -297,10 +297,7 @@ jobs:
 
       - name: Tar spack environment metadata
         # We want to attempt to tar up the .spack-env directory even if the install fails, so we can save inodes.
-        if: >-
-          always() &&
-          (steps.deploy.conclusion == 'success' || steps.deploy.conclusion == 'failure') &&
-          inputs.deployment-type == 'Prerelease'
+        if: always() && (steps.deploy.conclusion == 'success' || steps.deploy.conclusion == 'failure')
         run: |
           ssh ${{ secrets.USER }}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
           if [ -d "${{ steps.path.outputs.spack-environment }}/.spack-env" ]; then
