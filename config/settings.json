@@ -16,6 +16,10 @@
         "0.22": {
           "spack": "f348dd2bcbd64e8da8a375ab3cfa300e77aca352",
           "spack-config": "2025.08.000"
+        },
+        "1.0": {
+          "spack": "17d34285729c1bb39dfbdef09c5b78d88bb9e3f9",
+          "spack-config": "2025.08.005"
         }
       }
     }
