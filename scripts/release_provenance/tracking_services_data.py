@@ -202,7 +202,7 @@ def get_repo_url_at_ref_or_raise(repository_url: str, ref: str) -> str:
     }
 
     # CI can use an optional token to pull private repositories data
-    if os.getenv("TRACKING_SERVICES_REPO_FETCH_TOKEN") is not None:
+    if os.getenv("TRACKING_SERVICES_REPO_FETCH_TOKEN") is not None and os.getenv("TRACKING_SERVICES_REPO_FETCH_TOKEN") != "":
         repo_request_headers["Authorization"] = f"Bearer {os.getenv('TRACKING_SERVICES_REPO_FETCH_TOKEN')}"
     elif os.getenv("GITHUB_TOKEN") is not None:
         repo_request_headers["Authorization"] = f"Bearer {os.getenv('GITHUB_TOKEN')}"
