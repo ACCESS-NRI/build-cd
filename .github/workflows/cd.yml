@@ -309,6 +309,7 @@ jobs:
         env:
           TRACKING_SERVICES_POST_URL: ${{ vars.TRACKING_SERVICES_POST_URL }}
           TRACKING_SERVICES_POST_TOKEN: ${{ secrets.TRACKING_SERVICES_POST_TOKEN }}
+          TRACKING_SERVICES_REPO_FETCH_TOKEN: ${{ secrets.TRACKING_SERVICES_REPO_FETCH_TOKEN }}
         run: |
           python -m scripts.release_provenance.tracking_services_data \
             --repository ${{ github.repository }} \

@@ -200,7 +200,11 @@ def get_repo_url_at_ref_or_raise(repository_url: str, ref: str) -> str:
         "Accept": "application/vnd.github+json",
         "X-GitHub-Api-Version": "2022-11-28",
     }
-    if os.getenv("GITHUB_TOKEN") is not None:
+
+    # CI can use an optional token to pull private repositories data
+    if os.getenv("TRACKING_SERVICES_REPO_FETCH_TOKEN") is not None and os.getenv("TRACKING_SERVICES_REPO_FETCH_TOKEN") != "":
+        repo_request_headers["Authorization"] = f"Bearer {os.getenv('TRACKING_SERVICES_REPO_FETCH_TOKEN')}"
+    elif os.getenv("GITHUB_TOKEN") is not None:
         repo_request_headers["Authorization"] = f"Bearer {os.getenv('GITHUB_TOKEN')}"
 
     # Check if the version is a release, tag, or commit SHA
