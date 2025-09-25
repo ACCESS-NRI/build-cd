@@ -1,0 +1,71 @@
+name: Get PR Deployments
+description: Action that returns how many deployments were made in a PR (both from commits and !redeploys)
+author: Tommy Gatti
+inputs:
+  pr:
+    required: true
+    description: The pull request number to check for deployments of all kinds
+  repository:
+    required: false
+    default: ${{ github.repository }}
+    description: The repository to check for deployments
+  token:
+    required: false
+    default: ${{ github.token }}
+    description: The GitHub token to use for API requests
+outputs:
+  deployments:
+    description: The total number of deployments for the given PR (from commits and !redeploys)
+    value: ${{ steps.total.outputs.number }}
+runs:
+  using: composite
+  # Essentially, count all the deployment entries that match the given branch, as well as
+  # all the `!redeploy` comments, to get the next deployment number.
+  # See https://docs.github.com/en/rest/deployments/deployments?apiVersion=2022-11-28#list-deployments
+  steps:
+    - name: Get PR HEAD
+      id: pr
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+      run: |
+        head=$(gh pr view ${{ inputs.pr }} --repo ${{ inputs.repository }} --json headRefName --jq .headRefName)
+        echo "HEAD of PR #${{ inputs.pr }} in ${{ inputs.repository }} is $head"
+        echo "head=$head" >> $GITHUB_OUTPUT
+
+    - name: Get commit deployments for PR
+      id: commit
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+      # We --slurp the results because --paginate introduces potentially multiple array results
+      run: |
+        deployments=$(gh api \
+            -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" \
+            --paginate --slurp \
+            /repos/${{ inputs.repository }}/deployments \
+          | jq '[select(.[][].ref == "${{ steps.pr.outputs.head }}")] | length'
+        )
+        echo "Found $deployments deployments for PR #${{ inputs.pr }} in ${{ inputs.repository }}"
+        echo "deployments=$deployments" >> $GITHUB_OUTPUT
+
+    - name: Get !redeploys from comments
+      id: comment
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+      run: |
+        redeployments=$(gh pr view ${{ inputs.pr }} --repo ${{ github.repository }} \
+          --json comments \
+          --jq '[.comments[] | select(.body | startswith("!redeploy"))] | length'
+        )
+        echo "Found $redeployments redeploy comments for PR #${{ inputs.pr }} in ${{ inputs.repository }}"
+        echo "redeployments=$redeployments" >> $GITHUB_OUTPUT
+
+    - name: Return total deployments
+      id: total
+      shell: bash
+      run: |
+        total=$(( ${{ steps.commit.outputs.deployments }} + ${{ steps.comment.outputs.redeployments }} ))
+        echo "Found $total deployments across commits (${{ steps.commit.outputs.deployments }}) and redeploys (${{ steps.comment.outputs.redeployments }}) for PR #${{ inputs.pr }} in ${{ inputs.repository }}"
+        echo "number=$total" >> $GITHUB_OUTPUT
