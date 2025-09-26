@@ -1,0 +1,258 @@
+name: Configs
+on:
+  workflow_call:
+    inputs:
+      model:
+        type: string
+        required: true
+        description: The model that is being tested and deployed
+      root-sbd:
+        type: string
+        required: false
+        # The equivalent default is set in the defaults job below.
+        # default: ${{ inputs.model }}
+        description: |
+          The name of the root Spack Bundle Definition, if it is different from the model name.
+          This is often a package named similarly in ACCESS-NRI/spack-packages.
+      auto-configs-pr-schema-version:
+        type: string
+        required: true
+        description: The version of the auto-configs-pr schema to use for validation, from the ACCESS-NRI/schema repository.
+    secrets:
+      configs-repo-token:
+        required: true
+        description: |
+          The GitHub token to use for pushing and pull request creation in the *-configs repositories.
+          Requires pull-requests:write and contents:write permissions.
+      commit-gpg-private-key:
+        required: true
+        description: The private GPG key used to sign commits.
+      commit-gpg-passphrase:
+        required: true
+        description: The passphrase for the private GPG key used to sign commits.
+env:
+  RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+jobs:
+  update-configs:
+    name: Update
+    runs-on: ubuntu-latest
+    steps:
+      - name: Parse command
+        id: parse
+        env:
+          USAGE: '!update-configs [profile=PROFILE]'
+        # We don't like ! event expansion here
+        shell: bash +H {0}
+        run: |
+          # Defaults
+          profile="default"
+
+          # Parse comment into command args
+          comment='${{ github.event.comment.body }}'
+          command=$(head -n1 <<< "$comment")
+          args=${command#!update-configs}
+
+          # Processing args
+          # FIXME: Wouldn't handle positional args, if they were part of the command syntax
+          for arg in $args; do
+            case $arg in
+              profile=*) profile="${arg#profile=}" ;;
+              *) echo "::error::Unknown argument '$arg'. Usage: $USAGE"; exit 1;;
+            esac
+          done
+
+          # Output processed args
+          echo "profile=$profile" >> $GITHUB_OUTPUT
+
+      - name: Set defaults
+        id: defaults
+        run: |
+          if [[ "${{ inputs.root-sbd }}" == "" ]]; then
+            echo "root-sbd=${{ inputs.model }}" >> $GITHUB_OUTPUT
+          else
+            echo "root-sbd=${{ inputs.root-sbd }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Checkout build-cd
+        uses: actions/checkout@v4
+        with:
+          repository: access-nri/build-cd
+          ref: prerelease-to-model-configs-pipeline  # FIXME: Remove before merging
+          path: build-cd
+
+      - name: Get caller repository ref
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: echo "ref=$(gh pr view ${{ github.event.issue.number }} --repo ${{ github.repository }} --json headRefName --jq .headRefName)" >> $GITHUB_OUTPUT
+
+      - name: Checkout caller repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.pr.outputs.ref }}
+          path: caller
+
+      - name: Validate auto configs PR configuration
+        uses: access-nri/schema/.github/actions/validate-with-schema@main
+        with:
+          schema-version: ${{ inputs.auto-configs-pr-schema-version }}
+          schema-location: au.org.access-nri/model/deployment/config/auto-configs-pr
+          data-location: caller/config/auto-configs-pr.json
+
+      - name: Read auto configs PR configuration
+        id: read-config
+        run: |
+          if [ ! -f caller/config/auto-configs-pr.json ]; then
+            echo "::error::File config/auto-configs-pr.json not found in ${{ github.repository }}, cannot automatically open configs PRs"
+            exit 1
+          fi
+
+          if ! jq --exit-status '.profiles."${{ steps.parse.outputs.profile }}"' caller/config/auto-configs-pr.json; then
+            echo "::error::Profile ${{ steps.parse.outputs.profile }} does not exist in config/auto-configs-pr.json at ref ${{ steps.pr.outputs.ref }}"
+            exit 1
+          fi
+
+          configs=$(jq -cr '.profiles."${{ steps.parse.outputs.profile }}".configs | keys | join(" ")' caller/config/auto-configs-pr.json)
+          configs_repo=$(jq -cr '.profiles."${{ steps.parse.outputs.profile }}".configs_repo' caller/config/auto-configs-pr.json)
+
+          echo "$configs"
+          echo "$configs_repo"
+
+          echo "configs=$configs" >> $GITHUB_OUTPUT
+          echo "configs-repo=$configs_repo" >> $GITHUB_OUTPUT
+
+      - name: Checkout caller configs repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ steps.read-config.outputs.configs-repo }}
+          path: caller-configs
+          fetch-depth: 0
+          token: ${{ secrets.configs-repo-token }}
+
+      - name: Import Commit-Signing Key
+        uses: crazy-max/ghaction-import-gpg@01dd5d3ca463c7f10f7f4f7b4f177225ac661ee4  # v6.1.0
+        with:
+          gpg_private_key: ${{ secrets.commit-gpg-private-key }}
+          passphrase: ${{ secrets.commit-gpg-passphrase }}
+          git_config_global: true
+          git_committer_name: ${{ vars.GH_ACTIONS_BOT_GIT_USER_NAME }}
+          git_committer_email: ${{ vars.GH_ACTIONS_BOT_GIT_USER_EMAIL }}
+          git_user_signingkey: true
+          git_commit_gpgsign: true
+          git_tag_gpgsign: true
+
+      - name: Get previous deployments on in PR
+        id: previous-deployments
+        # FIXME: Temp ref for testing, this should be v6 once released
+        uses: access-nri/build-cd/.github/actions/get-pr-deployments@prerelease-to-model-configs-pipeline
+        with:
+          pr: ${{ github.event.issue.number }}
+          token: ${{ github.token }}
+
+      - name: Open PRs
+        id: open-prs
+        env:
+          GH_TOKEN: ${{ secrets.configs-repo-token }}
+          DEPLOYMENT_IDENTIFIER: ${{ steps.defaults.outputs.root-sbd }}/pr${{ github.event.issue.number }}-${{ steps.previous-deployments.outputs.deployments }}
+        run: |
+          set +e
+
+          error=false
+          pr_urls=""
+
+          for config in ${{ steps.read-config.outputs.configs }}; do
+            pr_branch_name="auto/pr${{ github.event.issue.number }}-${{ steps.previous-deployments.outputs.deployments }}/${config}"
+
+            echo "Creating PR branch $pr_branch_name from $config..."
+            git -C caller-configs checkout $config
+
+            if git -C caller-configs ls-remote --exit-code --heads origin $pr_branch_name; then
+              # TODO: Feature: Append to the existing PR instead of continuing
+              echo "::error::Branch $pr_branch_name already exists for $config, so a gh PR can't be created from it"
+              error=true
+              continue
+            fi
+
+            git -C caller-configs checkout -b $pr_branch_name
+
+            if [ ! -f caller-configs/config.yaml ]; then
+              echo "::error::File config.yaml not found in ${{ steps.read-config.outputs.configs-repo }} on branch $config, cannot automatically open configs PRs"
+              error=true
+              continue
+            fi
+
+            # FIXME: This is Gadi-specific
+            echo "Updating config.yaml in $pr_branch_name to use ${{ env.DEPLOYMENT_IDENTIFIER }}..."
+            yq -i '.modules.use += ["/g/data/vk83/prerelease/modules"]' caller-configs/config.yaml
+            yq -i '.modules.load |= map(sub("^${{ steps.defaults.outputs.root-sbd }}/.*"; "${{ env.DEPLOYMENT_IDENTIFIER }}"))' caller-configs/config.yaml
+            yq -i '.manifest.reproduce.exe=false' caller-configs/config.yaml
+
+            echo "Committing and pushing changes..."
+            git -C caller-configs diff
+            git -C caller-configs commit -am "Auto update to use ${{ env.DEPLOYMENT_IDENTIFIER }} as part of ${{ env.RUN_URL }}"
+            git -C caller-configs push --set-upstream origin $pr_branch_name
+
+            echo "Opening PR for branch $pr_branch_name in repo ${{ steps.read-config.outputs.configs-repo }}..."
+            pr_url=$(gh pr create \
+              --draft \
+              --repo "${{ steps.read-config.outputs.configs-repo }}" \
+              --title "Auto update $config to use ${{ env.DEPLOYMENT_IDENTIFIER }}" \
+              --body "Auto-generated PR to update $config to use ${{ env.DEPLOYMENT_IDENTIFIER }} from ${{ github.repository }}#${{ github.event.issue.number }}, see ${{ env.RUN_URL }}" \
+              --head "$pr_branch_name" \
+              --base "$config"
+            )
+            if [ $? -ne 0 ]; then
+              echo "::error::Failed to open PR for branch $pr_branch_name in repo ${{ steps.read-config.outputs.configs-repo }}"
+              error=true
+              continue
+            fi
+            echo "::notice::Opened PR: $pr_url"
+            pr_urls+="$pr_url "
+
+            require_repro_check=$(jq -cr \
+              --arg config "$config" \
+              '.profiles."${{ steps.parse.outputs.profile }}".configs.[$config].checks.repro' \
+              caller/config/auto-configs-pr.json
+            )
+            if [[ "$require_repro_check" == "true" ]]; then
+              echo "::notice::The updated $config configuration requested a repro check, commenting !test repro on $pr_url"
+              gh pr comment $pr_url --repo "${{ steps.read-config.outputs.configs-repo }}" --body '!test repro'
+            fi
+          done
+
+          echo "pr-urls=$pr_urls" >> $GITHUB_OUTPUT
+
+          set -e
+
+          if [[ "$error" == "true" ]]; then
+            echo "::error::One or more errors occurred, see above"
+            exit 1
+          fi
+
+      - name: Setup python
+        if: always()
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Jinja2
+        if: always()
+        run: python3 -m pip install jinja-cli==1.2.2
+
+      - name: Comment on caller PR
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          jinja \
+              --define model_configs_repo "${{ steps.read-config.outputs.configs-repo }}" \
+              --define run_url "${{ env.RUN_URL }}" \
+              --define pr_urls "${{ steps.open-prs.outputs.pr-urls }}" \
+              --define profile "${{ steps.parse.outputs.profile }}" \
+              --define configs "${{ steps.read-config.outputs.configs }}" \
+              --define error "${{ contains(steps.*.conclusion, 'failure') }}" \
+              build-cd/scripts/jinja_template/templates/auto-prs-comment-body.md.j2 \
+            > templated.auto-prs-comment-body.md
+
+          gh pr comment ${{ github.event.issue.number }} --repo ${{ github.repository }} --body-file templated.auto-prs-comment-body.md
