@@ -124,7 +124,7 @@ jobs:
 
       - name: Get previous PR deployments
         id: previous-deploys
-        uses: access-nri/build-cd/.github/actions/get-pr-deployments@v6
+        uses: access-nri/build-cd/.github/actions/get-pr-deployments@v7
         with:
           pr: ${{ inputs.pr }}
 
@@ -144,7 +144,7 @@ jobs:
 
       - name: Generate Deployment Target Matrix
         id: target
-        uses: access-nri/build-cd/.github/actions/get-target-matrix@v6
+        uses: access-nri/build-cd/.github/actions/get-target-matrix@v7
         with:
           targets: ${{ vars.PRERELEASE_DEPLOYMENT_TARGETS }}
 
@@ -208,7 +208,7 @@ jobs:
       matrix:
         # Example: ['Gadi', 'Setonix', ...]
         target: ${{ fromJson(needs.defaults.outputs.targets) }}
-    uses: access-nri/build-cd/.github/workflows/deploy-1-setup.yml@v6
+    uses: access-nri/build-cd/.github/workflows/deploy-1-setup.yml@v7
     with:
       deployment-target: ${{ matrix.target }}
       deployment-ref: ${{ needs.defaults.outputs.head-ref }}

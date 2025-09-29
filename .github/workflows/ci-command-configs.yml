@@ -176,8 +176,7 @@ jobs:
 
       - name: Get previous deployments on in PR
         id: previous-deployments
-        # FIXME: Temp ref for testing, this should be v6 once released
-        uses: access-nri/build-cd/.github/actions/get-pr-deployments@prerelease-to-model-configs-pipeline
+        uses: access-nri/build-cd/.github/actions/get-pr-deployments@v7
         with:
           pr: ${{ github.event.issue.number }}
           token: ${{ github.token }}
@@ -274,7 +273,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: access-nri/build-cd
-          ref: prerelease-to-model-configs-pipeline  # FIXME: Remove before merging
           path: build-cd
 
       - name: Setup python
