@@ -154,13 +154,6 @@ jobs:
       # List of URLs of the opened PRs, space-separated
       pr-urls: ${{ steps.open-prs.outputs.pr-urls }}
     steps:
-      - name: Checkout build-cd
-        uses: actions/checkout@v4
-        with:
-          repository: access-nri/build-cd
-          ref: prerelease-to-model-configs-pipeline  # FIXME: Remove before merging
-          path: build-cd
-
       - name: Checkout caller configs repository
         uses: actions/checkout@v4
         with:
@@ -269,18 +262,26 @@ jobs:
             exit 1
           fi
 
-  post:
-    name: Post Command
+  result:
+    name: Result
     if: always()
     needs:
       - setup
       - update-configs
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout build-cd
+        uses: actions/checkout@v4
+        with:
+          repository: access-nri/build-cd
+          ref: prerelease-to-model-configs-pipeline  # FIXME: Remove before merging
+          path: build-cd
+
       - name: Setup python
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
+          cache: pip
 
       - name: Install Jinja2
         run: python3 -m pip install jinja-cli==1.2.2
