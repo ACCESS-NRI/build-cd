@@ -37,6 +37,26 @@ jobs:
     name: Update
     runs-on: ubuntu-latest
     steps:
+      - name: Check commenter permissions
+        id: commenter
+        uses: access-nri/actions/.github/actions/commenter-permission-check@main
+        with:
+          # This means that commenters who use `!update-configs` must have at least `write` perms
+          # in the repository.
+          minimum-permission: write
+
+      - name: React to Comment
+        uses: access-nri/actions/.github/actions/react-to-comment@main
+        with:
+          token: ${{ github.token }}
+          reaction: ${{ steps.commenter.outputs.has-permission == 'true' && 'rocket' || '-1' }}
+
+      - name: Exit if no permission to run
+        if: steps.commenter.outputs.has-permission != 'true'
+        run: |
+          echo "::error::Commenter does not have permission to run this command, requires at least 'write' permission"
+          exit 1
+
       - name: Parse command
         id: parse
         env:
