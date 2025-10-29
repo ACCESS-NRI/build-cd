@@ -61,8 +61,6 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ inputs.deployment-target }} ${{ inputs.deployment-type }}
     outputs:
-      packages-version: ${{ steps.versions.outputs.packages }}
-      config-version: ${{ steps.versions.outputs.config }}
       spack-location: ${{ steps.location.outputs.spack }}
       modules-location: ${{ steps.location.outputs.modules }}
       root-spec-pkg-hash: ${{ steps.metadata.outputs.root-spec-pkg-hash }}
@@ -83,7 +81,7 @@ jobs:
         id: versions
         run: |
           echo "spack=$(jq --compact-output --raw-output '.spack' ./config/versions.json)" >> $GITHUB_OUTPUT
-          echo "packages=$(jq --compact-output --raw-output '."spack-packages"' ./config/versions.json)" >> $GITHUB_OUTPUT
+          echo "packages=$(jq --compact-output --raw-output '."access-spack-packages"' ./config/versions.json)" >> $GITHUB_OUTPUT
 
       - name: Get ${{ inputs.deployment-target }} ${{ inputs.deployment-type }} Remote Paths
         id: path
@@ -184,34 +182,12 @@ jobs:
           done
           EOT
 
-      - name: Update spack-packages repository
-        run: |
-          ssh ${{ secrets.USER}}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
-          # Check that a suitable spack-packages location exists
-          if [ ! -d '${{ steps.path.outputs.spack-packages-root }}' ]; then
-            echo '::error::spack-packages does not exist in ${{ steps.path.outputs.root }} for ${{ inputs.deployment-target }} ${{ inputs.deployment-type}}'
-            exit 1
-          fi
-
-          # In the case of a Prerelease, we need to create a new instance of spack-packages per commit, so there is no concurrent access problems.
-          if [ ! -d '${{ steps.path.outputs.spack-packages }}' ]; then
-            echo 'Creating spack-packages instance for ${{ inputs.env-name }} under ${{ steps.path.outputs.spack-packages }}'
-            mkdir -p ${{ steps.path.outputs.spack-packages }}
-            git clone https://github.com/ACCESS-NRI/spack-packages.git '${{ steps.path.outputs.spack-packages }}'
-          fi
-
-          cd ${{ steps.path.outputs.spack-packages }} || exit 1
-
-          git fetch --all --tags
-
-          if git ls-remote --exit-code --heads origin ${{ steps.versions.outputs.packages }}; then  # If the ref is a branch
-            echo "Checking out the branch at the latest commit"
-            git checkout -B ${{ steps.versions.outputs.packages }} origin/${{ steps.versions.outputs.packages }}
-          else  # checkout the tag/commit
-            echo "Checking out the tag/commit"
-            git checkout ${{ steps.versions.outputs.packages }}
-          fi
-          EOT
+      - name: Get SHA for access-spack-packages repository
+        id: packages-ref
+        uses: access-nri/actions/.github/actions/get-git-ref-info@main
+        with:
+          repository: ACCESS-NRI/access-spack-packages
+          ref: ${{ steps.versions.outputs.packages }}
 
       - name: Deploy to ${{ inputs.deployment-target }} ${{ inputs.deployment-type }}
         id: deploy
@@ -231,9 +207,13 @@ jobs:
           # Enable spack
           . ${{ steps.path.outputs.spack-config }}/spack-enable.bash
 
-          # Create environment and build model
-          spack env create ${{ inputs.env-name }} ${{ vars.SPACK_YAML_LOCATION }}/${{ inputs.expected-root-spec-name }}-${{ github.run_id }}.spack.yaml
-          spack env activate ${{ inputs.env-name }}
+          # Create and activate environment
+          spack env activate ${{ inputs.env-name }} --create --envfile ${{ vars.SPACK_YAML_LOCATION }}/${{ inputs.expected-root-spec-name }}-${{ github.run_id }}.spack.yaml
+
+          # Update access-spack-packages repository before installation
+          spack repo update access_spack_packages --commit ${{ steps.packages-ref.outputs.sha }}
+
+          # Finally, install the spack manifest
           spack --debug install --fail-fast --fresh ${{ vars.SPACK_INSTALL_ADDITIONAL_ARGS }} || exit $?
           spack module tcl refresh -y
           EOT
