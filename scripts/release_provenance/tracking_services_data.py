@@ -8,7 +8,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-TRACKING_SERVICES_JSON_SCHEMA_VERSION = "1-0-0"
+TRACKING_SERVICES_JSON_SCHEMA_VERSION = "2-0-0"
 TRACKING_SERVICES_JSON_SCHEMA_URL = f"https://raw.githubusercontent.com/ACCESS-NRI/schema/main/au.org.access-nri/tracking_services/release_provenance/telemetry/{TRACKING_SERVICES_JSON_SCHEMA_VERSION}.json"
 
 
@@ -121,8 +121,10 @@ def _format_telemetry_of_deployment_target(
             "deployment_target.spack_git_hash": outputs["spack_git_hash"],
             "deployment_target.spack_config_version": outputs["spack_config_version"],
             "deployment_target.spack_config_git_hash": outputs["spack_config_git_hash"],
-            "deployment_target.spack_packages_version": outputs["spack_packages_version"],
-            "deployment_target.spack_packages_git_hash": outputs["spack_packages_git_hash"],
+            "deployment_target.builtin_spack_packages_version": outputs["builtin_spack_packages_version"],
+            "deployment_target.builtin_spack_packages_git_hash": outputs["builtin_spack_packages_git_hash"],
+            "deployment_target.access_spack_packages_version": outputs["access_spack_packages_version"],
+            "deployment_target.access_spack_packages_git_hash": outputs["access_spack_packages_git_hash"],
             "deployment_target.module_use_location": outputs["deployment_modules_location"],
 
             "spack_model.name": root_spec,
