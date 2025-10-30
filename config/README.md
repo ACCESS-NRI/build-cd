@@ -15,3 +15,8 @@ This means that one should not modify the repositories versions on the HPC targe
 ## `settings.schema.json`
 
 This schema enforces the structure shown in `settings.json`.
+
+Note:
+
+- For deployments using spack version keys >= `1.0` (for example `"1.0"`, `"1.1"`, `"2.0"`), each versioned entry under `deployment/<TARGET>/<Release|Prerelease>/<VERSION>` must include the field `builtin-spack-packages` in addition to `spack` and `spack-config`.
+- For version keys < `1.0` (for example `"0.22"`), only `spack` and `spack-config` are required. This is because historically `spack`s builtin `spack-packages` repository was versioned as part of the `spack` repository version.
