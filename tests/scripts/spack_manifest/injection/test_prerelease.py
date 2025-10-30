@@ -124,20 +124,24 @@ class TestRemovePotentialRootSpecGitVersion:
 
 class TestAddPrereleaseReposSection:
     def test_add_prerelease_repos_section__valid(self):
-        manifest_str = "spack:\n  specs:\n    - access-om2@git.1.0.0\n"
+        manifest = {
+            "spack": {
+                "specs": [
+                    "access-om2@1.0.0"
+                ]
+            }
+        }
         spack_packages_path = "/path/to/spack/packages"
 
-        updated_manifest_str = add_prerelease_repos_section(manifest_str, spack_packages_path)
+        updated_manifest = add_prerelease_repos_section(manifest, spack_packages_path)
 
-        last_three_lines = "\n".join(updated_manifest_str.splitlines()[-3:])
-
-        expected_last_three_lines = (
-            f"  repos::\n"
-            f"  - {spack_packages_path}\n"
-            f"  - $spack/var/spack/repos/builtin\n"
-        )
-
-        assert last_three_lines.strip() == expected_last_three_lines.strip()
+        expected_repos_section = {
+            "access_spack_packages": {
+                "git": "https://github.com/ACCESS-NRI/access-spack-packages.git",
+                "destination": spack_packages_path,
+            }
+        }
+        assert updated_manifest["spack"]["repos"] == expected_repos_section
 
 class TestInjectPrereleaseInformation:
     def test_inject_prerelease_information__valid_custom_projection(self):

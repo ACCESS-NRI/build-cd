@@ -45,6 +45,7 @@ spack:
         projections:
           access-om2: '{name}/pr12-12/2024.03.0'
           mom5: 'access-om2/dependencies/pr12-12/{name}/2023.11.09-{hash:7}'
-  repos::
-  - /some/spack-packages
-  - $spack/var/spack/repos/builtin
+  repos:
+    access_spack_packages:
+      git: https://github.com/ACCESS-NRI/access-spack-packages.git
+      destination: /some/spack-packages

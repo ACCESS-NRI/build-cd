@@ -66,14 +66,16 @@ def inject_prerelease_information(
         updated_manifest, root_spec_name, version
     )
 
+    if spack_packages_path:
+        # Add the 'repo:' section for prerelease spack packages if provided
+        updated_manifest = add_prerelease_repos_section(
+            updated_manifest, spack_packages_path
+        )
+
     # Dump the current dict, and add the non-standard 'repo::' section
     manifest_str: str = yaml.dump(
         updated_manifest, default_flow_style=False, sort_keys=False
     )
-
-    if spack_packages_path:
-        # Add the 'repo::' section for prerelease spack packages if provided
-        manifest_str = add_prerelease_repos_section(manifest_str, spack_packages_path)
 
     return manifest_str
 
@@ -148,14 +150,19 @@ def update_root_spec_projection_version(
     return manifest
 
 
-def add_prerelease_repos_section(manifest_str: str, spack_packages_path: str) -> str:
-    manifest_str += (
-        f"  repos::\n"
-        f"  - {spack_packages_path}\n"
-        f"  - $spack/var/spack/repos/builtin\n"
-    )
+def add_prerelease_repos_section(
+    manifest: dict[str, Any], spack_packages_path: str
+) -> dict[str, Any]:
 
-    return manifest_str
+    manifest.setdefault("spack", {}).setdefault("repos", {})
+    manifest["spack"]["repos"] = {
+        "access_spack_packages": {
+            "git": "https://github.com/ACCESS-NRI/access-spack-packages.git",
+            "destination": spack_packages_path,
+        }
+    }
+
+    return manifest
 
 
 def parse_args(args: list[str]) -> argparse.Namespace:
