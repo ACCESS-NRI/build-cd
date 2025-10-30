@@ -9,11 +9,18 @@ inputs:
   spack-version:
     required: true
     description: |
-      Version of spack deployed.
+      Major branch version of spack deployed, eg. 0.22, 1.0.
       Used to construct a specific spack installation path, in conjunction with `spack-installs-root-path`.
-  deployment-environment:
+  deployment-target:
     required: true
-    description: Name of the GitHub deployment target environment
+    description: |
+      Name of the GitHub deployment target. Combined with inputs.deployment-type to form the GitHub Environment name.
+      For example: Gadi, Setonix
+  deployment-type:
+    required: true
+    description: |
+      Type of the GitHub deployment target. Combined with inputs.deployment-target to form the GitHub Environment name.
+      For example: Prerelease, Release
   spack-environment:
     required: true
     description: |
@@ -34,8 +41,8 @@ outputs:
   spack-packages-root:
     description: |
       Path to the folder containing all ACCESS-NRI/spack-packages repositories used in the install of spack.
-      For Release inputs.deployment-environment, this is the repository itself.
-      For Prerelease inputs.deployment-environment, this is the folder containing multiple spack-packages repositories.
+      For Release inputs.deployment-type, this is the repository itself.
+      For Prerelease inputs.deployment-type, this is the folder containing multiple spack-packages repositories.
     value: ${{ steps.path.outputs.spack-packages-root }}
   spack-packages:
     description: Path to the ACCESS-NRI/spack-packages repository associated with the environment created in the install of spack.
@@ -54,19 +61,17 @@ runs:
       run: |
         # Check that the inputs.spack-installs-root-path exists - it's usually a var
         if [ -z '${{ inputs.spack-installs-root-path }}' ]; then
-          echo '::error::inputs.spack-installs-root-path does not exist in ${{ github.repository }}s ${{ inputs.deployment-environment }} environment. Check Environment vars.'
+          echo '::error::inputs.spack-installs-root-path does not exist in ${{ github.repository }}s ${{ inputs.deployment-target }} ${{ inputs.deployment-type }} environment. Check Environment vars.'
           exit 1
         fi
 
-        # We want the type of deployment environment, which is the last word in the string.
-        type=$(echo '${{ inputs.deployment-environment }}' | rev | cut -d ' ' -f 1 | rev)
-        if [[ ! '${{ env.ACCEPTABLE_DEPLOYMENT_ENVIRONMENT_TARGETS}}' =~ "$type" ]]; then
-          echo '::error::inputs.deployment-environment must be one of ${{ env.ACCEPTABLE_ENVIRONMENT_TARGETS }}.'
+        if [[ ! '${{ env.ACCEPTABLE_DEPLOYMENT_ENVIRONMENT_TARGETS}}' =~ "${{ inputs.deployment-type }}" ]]; then
+          echo '::error::inputs.deployment-type must be one of ${{ env.ACCEPTABLE_DEPLOYMENT_ENVIRONMENT_TARGETS }}.'
           exit 1
         fi
         echo "type=$type" >> $GITHUB_OUTPUT
 
-    - name: Get ${{ inputs.deployment-environment }} Remote Paths
+    - name: Get ${{ inputs.deployment-target }} ${{ inputs.deployment-type }} Remote Paths
       id: path
       shell: bash
       run: |

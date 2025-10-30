@@ -8,7 +8,8 @@ This action constructs paths relevant to a deployment of `spack`.
 | ---- | ---- | ----------- | -------- | ------- | ------- |
 | `spack-installs-root-path` | `string` | Path to a directory within which all versions of spack are installed | `true` | N/A | `"/some/dir/apps/spack"` |
 | `spack-version` | `string` | Version of spack deployed. Used to construct a specific spack installation path, in conjunction with `spack-installs-root-path`. | `true` | N/A | `"0.21"` |
-| `deployment-environment` | `string` | Name of the GitHub deployment target environment | `true` | N/A | `"Gadi Prerelease"` |
+| `deployment-target` | `string` | Name of the GitHub deployment target | `true` | N/A | `"Gadi"` |
+| `deployment-type` | `string` | Type of the GitHub deployment target | `true` | N/A | `"Release"`, `"Prerelease"` |
 | `spack-environment` | `string` | Spack environment name that is used for this deployment. Used to construct Prerelease spack-packages path, which is demarcated by the environment name | `true` | N/A | `"access-om2-pr12-12"` |
 
 ## Outputs
@@ -29,7 +30,7 @@ This action constructs paths relevant to a deployment of `spack`.
 jobs:
   get-paths:
     runs-on: ubuntu-latest
-    environment: ${{ inputs.deployment-environment }}
+    environment: ${{ inputs.deployment-target }} ${{ inputs.deployment-type }}
     steps:
       - name: Get Deployment Paths
         id: paths
@@ -37,7 +38,8 @@ jobs:
         with:
           spack-installs-root-path: ${{ vars.SPACK_INSTALLS_ROOT_PATH }}
           spack-version: "0.21"
-          deployment-environment: ${{ inputs.deployment-environment }}
+          deployment-target: ${{ inputs.deployment-target }}
+          deployment-type: ${{ inputs.deployment-type }}
           spack-environment: ${{ inputs.env-name }}
 
       - run: echo 'Spack is installed in `${{ steps.paths.outputs.spack }}` and spack-packages is installed in `${{ steps.paths.outputs.spack-packages }}`'

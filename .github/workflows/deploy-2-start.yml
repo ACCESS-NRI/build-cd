@@ -89,7 +89,8 @@ jobs:
         with:
           spack-installs-root-path: ${{ vars.SPACK_INSTALLS_ROOT_LOCATION }}
           spack-version: ${{ steps.versions.outputs.spack }}
-          deployment-environment: ${{ inputs.deployment-target }} ${{ inputs.deployment-type }}
+          deployment-target: ${{ inputs.deployment-target }}
+          deployment-type: ${{ inputs.deployment-type }}
           spack-environment: ${{ inputs.env-name }}
 
       - name: Get manifest info
