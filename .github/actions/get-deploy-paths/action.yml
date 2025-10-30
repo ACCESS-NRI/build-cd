@@ -25,12 +25,11 @@ inputs:
     required: true
     description: |
       Spack environment name that is used for this deployment.
-      Used to construct Prerelease spack-packages path, which is demarcated by the environment name.
 outputs:
   root:
     description: |
       Path to the root of a specific deployment of `spack`.
-      This path contains `spack-{packages,config}` repositories as well.
+      This path contains `spack-config` and various `spack-packages` repositories in it's hierarchy as well.
     value: ${{ steps.path.outputs.root }}
   spack:
     description: Path to a specific installation of `spack`.
@@ -38,18 +37,12 @@ outputs:
   spack-config:
     description: Path to the ACCESS-NRI/spack-config repository associated with the install of spack.
     value: ${{ steps.path.outputs.spack-config }}
-  spack-packages-root:
-    description: |
-      Path to the folder containing all ACCESS-NRI/spack-packages repositories used in the install of spack.
-      For Release inputs.deployment-type, this is the repository itself.
-      For Prerelease inputs.deployment-type, this is the folder containing multiple spack-packages repositories.
-    value: ${{ steps.path.outputs.spack-packages-root }}
-  spack-packages:
-    description: Path to the ACCESS-NRI/spack-packages repository associated with the environment created in the install of spack.
-    value: ${{ steps.path.outputs.spack-packages }}
   spack-environment:
-    description: Path to the spack environment folder for the given inputs.spack-environment.
+    description: Path to the spack environment folder for the given inputs.spack-environment. Also contains the `spack-packages` repository for Prerelease deployments.
     value: ${{ steps.path.outputs.spack-environment }}
+  # Regarding our other important repository path, spack-packages:
+  # Release instances of spack-packages are now managed by spack itself via `spack repo` commands, so deployment doesn't actually need to know where it is.
+  # Prerelease instances of spack-packages are located within the outputs.spack-environment folder, and are removed when that environment is removed, so there is no need to track them either.
 runs:
   using: composite
   steps:
@@ -79,12 +72,4 @@ runs:
         echo "root=$root" >> $GITHUB_OUTPUT
         echo "spack=$root/spack" >> $GITHUB_OUTPUT
         echo "spack-config=$root/spack-config" >> $GITHUB_OUTPUT
-        echo "spack-packages-root=$root/spack-packages" >> $GITHUB_OUTPUT
-
-        if [[ '${{ steps.validate.outputs.type }}' == Release ]]; then
-          echo "spack-packages=$root/spack-packages" >> $GITHUB_OUTPUT
-        elif [[ '${{ steps.validate.outputs.type }}' == Prerelease ]]; then
-          echo "spack-packages=$root/spack-packages/${{ inputs.spack-environment }}/spack-packages" >> $GITHUB_OUTPUT
-        fi
-
         echo "spack-environment=$root/environments/${{ inputs.spack-environment }}" >> $GITHUB_OUTPUT

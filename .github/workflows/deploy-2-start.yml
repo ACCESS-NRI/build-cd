@@ -156,7 +156,7 @@ jobs:
             --manifest ../${{ inputs.spack-manifest-path }} \
             --version ${{ inputs.version }} \
             ${{ steps.modules-injection.outputs.custom-projection != '' && format('--custom-root-projection {0}', steps.modules-injection.outputs.custom-projection ) || ''}} \
-            --spack-packages-path ${{ steps.path.outputs.spack-packages }} \
+            --spack-packages-path ${{ steps.path.outputs.spack-environment }}/access-spack-packages \
             --output ../${{ inputs.spack-manifest-path }}
 
       - name: Copy ${{ inputs.spack-manifest-path }}
