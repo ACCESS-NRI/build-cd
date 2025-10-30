@@ -55,6 +55,23 @@ jobs:
           echo "$updates" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
+      - name: Setup builtin spack-packages updates
+        id: builtin-spack-packages
+        # Notably, only the spack instances that are >=1.0 and have builtin-spack-packages entries will produce any output here
+        run: |
+          updates=$(jq --compact-output --raw-output \
+            --arg env "${{ inputs.deployment-environment }}" \
+            --arg type "${{ inputs.spack-type }}" \
+            '.deployment[$env][$type] | to_entries[] | select(.value."builtin-spack-packages" != null) | "\(.key) \(.value."builtin-spack-packages")"' \
+            ${{ env.CONFIG_SETTINGS_PATH }}
+          )
+
+          echo "$updates"
+          # For multiline output, use a heredoc. See https://github.com/orgs/community/discussions/116619#discussioncomment-8994849
+          echo "updates<<EOF" >> $GITHUB_OUTPUT
+          echo "$updates" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
       - name: Setup SSH
         id: ssh
         uses: access-nri/actions/.github/actions/setup-ssh@main
@@ -119,10 +136,46 @@ jobs:
               if [ $? -ne 0 ]; then
                 echo "::error::Error: ${{ inputs.deployment-environment }} ${{ inputs.spack-type }} $version spack-config failed checkout from $current_head_commit to $new_commit"
               else
+                ln -s -r -v -f \
+                  ${{ secrets.SPACK_INSTALLS_ROOT_LOCATION }}/$version/spack-config/$version/* \
+                  ${{ secrets.SPACK_INSTALLS_ROOT_LOCATION }}/$version/spack/etc/spack/
+
                 echo "::notice::Changed: ${{ inputs.deployment-environment }} ${{ inputs.spack-type }} $version spack-config changed from $current_head_commit to $new_commit"
               fi
+
             else
               echo "::notice::Unchanged: ${{ inputs.deployment-environment }} ${{ inputs.spack-type }} $version spack-config left at $current_head_commit"
             fi
           done <<< "${{ steps.spack-config.outputs.updates }}"
           EOT
+
+      - name: Update builtin spack-packages
+        # This will only run for instances that have builtin-spack-packages defined in their entries (i.e. instances at spack >=1.0)
+        continue-on-error: true
+        run: |
+          ssh ${{ secrets.USER}}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
+          set +e
+
+          while read -ra update; do
+            version=${update[0]}
+            new_ref=${update[1]}
+
+            . ${{ secrets.SPACK_INSTALLS_ROOT_LOCATION }}/$version/spack-config/spack-enable.bash
+
+            builtin_repo_path=$(spack location --repo builtin)
+
+            current_head_commit=$(git -C $builtin_repo_path rev-parse HEAD)
+            new_commit=$(git -C $builtin_repo_path rev-parse "$new_ref")
+
+            if [[ "$current_head_commit" != "$new_commit" ]]; then
+
+              spack repo update builtin --commit $new_commit
+
+              if [ $? -ne 0 ]; then
+                echo "::error::Error: ${{ inputs.deployment-environment }} ${{ inputs.spack-type }} $version builtin-spack-packages failed checkout from $current_head_commit to $new_commit"
+              else
+                echo "::notice::Changed: ${{ inputs.deployment-environment }} ${{ inputs.spack-type }} $version builtin-spack-packages changed from $current_head_commit to $new_commit"
+              fi
+            else
+              echo "::notice::Unchanged: ${{ inputs.deployment-environment }} ${{ inputs.spack-type }} $version builtin-spack-packages left at $current_head_commit"
+            fi
