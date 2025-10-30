@@ -222,7 +222,7 @@ jobs:
 
       - name: 'build-cd: Validate config/settings.json'
         id: settings
-        uses: access-nri/build-cd/.github/actions/validate-deployment-settings@v7
+        uses: access-nri/build-cd/.github/actions/validate-deployment-settings@v8
         with:
           settings-path: ./cd/config/settings.json
           target: ${{ inputs.deployment-target }}
@@ -293,7 +293,7 @@ jobs:
 
       - name: Get current (${{ inputs.deployment-ref }}) root spec version
         id: current
-        uses: access-nri/build-cd/.github/actions/get-spack-root-spec@v7
+        uses: access-nri/build-cd/.github/actions/get-spack-root-spec@v8
         with:
           spack-manifest-path: ${{ inputs.spack-manifest-path }}
 
@@ -332,7 +332,7 @@ jobs:
       - name: Get base root spec version
         id: base
         if: inputs.deployment-type != 'Release' && steps.checkout-base-spack.outcome != 'failure'
-        uses: access-nri/build-cd/.github/actions/get-spack-root-spec@v7
+        uses: access-nri/build-cd/.github/actions/get-spack-root-spec@v8
         with:
           spack-manifest-path: ${{ inputs.spack-manifest-path }}
 
@@ -373,7 +373,7 @@ jobs:
     needs:
       - check-config  # Verify configuration information is correct
       - check-spack-yaml  # Verify spack manifest information is correct
-    uses: access-nri/build-cd/.github/workflows/deploy-2-start.yml@v7
+    uses: access-nri/build-cd/.github/workflows/deploy-2-start.yml@v8
     with:
       ref: ${{ inputs.deployment-ref }}
       version: ${{ inputs.deployment-version }}
