@@ -1,0 +1,6 @@
+config:
+  install_tree:
+    root: $spack/../restricted/ukmo/release
+  source_cache: $spack/../restricted/ukmo/source_cache
+  build_stage:
+    - $TMPDIR/restricted/spack-stage
