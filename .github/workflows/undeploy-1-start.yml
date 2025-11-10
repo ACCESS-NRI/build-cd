@@ -64,16 +64,6 @@ jobs:
             ${{ secrets.HOST }}
             ${{ secrets.HOST_DATA }}
 
-      - uses: actions/checkout@v4
-        with:
-          repository: access-nri/build-cd
-
-      - name: Rsync alternative scopes
-        run: |
-          rsync -av --delete -e 'ssh -i ${{ steps.ssh.outputs.private-key-path }}' \
-            ./tools/custom-spack-scopes \
-            ${{ secrets.USER }}@${{ secrets.HOST_DATA }}:${{ steps.path.outputs.spack }}/..
-
       - name: Undeploy Environment
         # ssh into deployment environment, create and activate the env, remove all the unneeded environments
         run: |
@@ -94,7 +84,7 @@ jobs:
           spack gc --except-any-environment --yes-to-all
 
           # Custom scopes cleanup (like restricted scopes, etc)
-          scopes=$(find ${{ steps.path.outputs.spack }}/../custom-spack-scopes -mindepth 1 -maxdepth 1 -type d -printf '%p ')
+          scopes=$(find ${{ steps.path.outputs.spack-config }}/common/cd/custom-spack-scopes -mindepth 1 -maxdepth 1 -type d -printf '%p ')
           for scope in $scopes; do
             spack --config-scope $scope gc --except-any-environment --yes-to-all
           done
