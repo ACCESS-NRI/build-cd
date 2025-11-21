@@ -10,12 +10,22 @@
         "0.22": {
           "spack": "559a4290961f1262a3a74b138223ebcb376f0a03",
           "spack-config": "2025.08.000"
+        },
+        "1.1": {
+          "spack": "89b3f0baae13477ee5384cd30ebf512489a69890",
+          "builtin-spack-packages": "8ed34337e15d759890b68682d704aa55dd243537",
+          "spack-config": "2025.11.003"
         }
       },
       "Prerelease": {
         "0.22": {
           "spack": "559a4290961f1262a3a74b138223ebcb376f0a03",
           "spack-config": "2025.08.000"
+        },
+        "1.1": {
+          "spack": "89b3f0baae13477ee5384cd30ebf512489a69890",
+          "builtin-spack-packages": "8ed34337e15d759890b68682d704aa55dd243537",
+          "spack-config": "2025.11.003"
         }
       }
     }
