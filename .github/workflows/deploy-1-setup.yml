@@ -211,7 +211,7 @@ jobs:
         uses: access-nri/actions/.github/actions/get-git-ref-info@main
         with:
           repository: ACCESS-NRI/access-spack-packages
-          ref: ${{ steps.config-versions-refs.outputs.builtin-spack-packages-ref }}
+          ref: ${{ steps.config-versions-refs.outputs.access-spack-packages-ref }}
 
       # Validate the build-cd repository's config/settings.json for the deployment target
       - name: 'build-cd: Checkout build-cd Config'
