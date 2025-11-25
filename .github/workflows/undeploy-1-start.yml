@@ -79,7 +79,16 @@ jobs:
           for env in $envs; do
             spack env rm $env --yes-to-all
           done
+
+          # Base scope cleanup (most environments are in this scope)
           spack gc --except-any-environment --yes-to-all
+
+          # Custom scopes cleanup (like restricted scopes, etc)
+          scopes=$(find ${{ steps.path.outputs.spack-config }}/custom/cd -mindepth 1 -maxdepth 1 -type d -printf '%p ')
+          for scope in $scopes; do
+            spack --config-scope $scope gc --except-any-environment --yes-to-all
+          done
+
           EOT
 
       - name: Undeploy spack-packages
