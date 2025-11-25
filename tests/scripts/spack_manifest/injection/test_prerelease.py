@@ -26,7 +26,7 @@ class TestUpdateRootSpecProjectionVersion:
             }
         }
         root_spec_name = "access-om2"
-        root_spec_version = "pr12-2"
+        root_spec_version = "pr12-2/1.0.0"
 
         updated_manifest = update_root_spec_projection_version(manifest, root_spec_name, root_spec_version)
 
@@ -139,9 +139,9 @@ class TestAddPrereleaseReposSection:
         assert last_three_lines.strip() == expected_last_three_lines.strip()
 
 class TestInjectPrereleaseInformation:
-    def test_inject_prerelease_information__valid(self):
+    def test_inject_prerelease_information__valid_custom_version(self):
         manifest_path = "tests/scripts/spack_manifest/injection/inputs/prerelease.spack.yaml"
-        root_spec_version = "pr12-12"
+        root_spec_version = "pr12-12/2024.03.0"
         spack_packages_path = "/some/spack-packages"
 
         updated_manifest_str: str = inject_prerelease_information(
