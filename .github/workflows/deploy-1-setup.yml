@@ -279,7 +279,7 @@ jobs:
       pull-requests: write
     outputs:
       # Release version of the deployment. Inferred if not given in inputs.deployment-version
-      release: ${{ steps.current.outputs.root-spec-ref }}
+      release: ${{ steps.current.outputs.deployment-version }}
       # Spack env name in form <model>-<version>
       spack-env-name: ${{ steps.get-env-name.outputs.env-name }}
     steps:
@@ -298,22 +298,9 @@ jobs:
 
       - name: Get current (${{ inputs.deployment-ref }}) root spec version
         id: current
-        uses: access-nri/build-cd/.github/actions/get-spack-root-spec@v8
+        uses: access-nri/build-cd/.github/actions/get-spack-manifest@v8
         with:
           spack-manifest-path: ${{ inputs.spack-manifest-path }}
-
-      - name: Check root spec usage
-        if: env.IS_NOT_DRAFT == 'true' || inputs.deployment-type == 'Release'
-        run: |
-          if [[ "${{ steps.current.outputs.root-spec-ref }}" == "latest" ]]; then
-              echo "::error::The '@latest' version string is not allowed in non-draft PRs. It is reserved for a spack package that moves often and cannot be used as a future release tag"
-              exit 1
-          fi
-
-          if [[ "${{ inputs.expected-root-spec-name }}" != "${{ steps.current.outputs.root-spec-name }}" ]]; then
-              echo "::error::The root spec in the spack manifest (${{ steps.current.outputs.root-spec-name }}) cannot be different from the expected root spec (${{ inputs.expected-root-spec-name }}) in non-Draft PRs."
-              exit 1
-          fi
 
       - name: Checkout base (${{ inputs.prerelease-compare-ref }}) spack manifest
         if: inputs.deployment-type != 'Release'
@@ -337,7 +324,7 @@ jobs:
       - name: Get base root spec version
         id: base
         if: inputs.deployment-type != 'Release' && steps.checkout-base-spack.outcome != 'failure'
-        uses: access-nri/build-cd/.github/actions/get-spack-root-spec@v8
+        uses: access-nri/build-cd/.github/actions/get-spack-manifest@v8
         with:
           spack-manifest-path: ${{ inputs.spack-manifest-path }}
 
@@ -348,7 +335,7 @@ jobs:
         if: inputs.deployment-type != 'Release' && steps.checkout-base-spack.outcome != 'failure' && env.IS_NOT_DRAFT == 'true'
         id: version-modified
         run: |
-          if [[ "${{ steps.base.outputs.root-spec-ref }}" == "${{ steps.current.outputs.root-spec-ref }}" ]]; then
+          if [[ "${{ steps.base.outputs.deployment-version }}" == "${{ steps.current.outputs.deployment-version }}" ]]; then
               echo "::warning::The version string in ${{ inputs.spack-manifest-path }} hasn't been modified in this PR, but needs to be before merging."
               exit 1
           fi
