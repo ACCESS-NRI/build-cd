@@ -33,7 +33,7 @@ runs:
       #   _name: test-model
       #   _version: 1.0.0
       run: |
-        reserved_definitions=$(yq '.spack.definitions[] | to_entries[] | select(.key == "_*") | {(.key): (.value[0])}')
+        reserved_definitions=$(yq '.spack.definitions[] | to_entries[] | select(.key == "_*") | {(.key): (.value[0])}' ${{ inputs.spack-manifest-path }})
 
         if [ -z "$reserved_definitions" ]; then
           echo "::error::No reserved definitions found in spack manifest - some of them are required for deployment"
