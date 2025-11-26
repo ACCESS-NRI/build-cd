@@ -137,13 +137,9 @@ jobs:
         working-directory: cd
         run: |
           original_root_spec_projection=$(yq '.spack.modules.default.tcl.projections."${{ steps.manifest.outputs.root-spec-name }}"' ../${{ inputs.spack-manifest-path }})
-          if [[ "$original_root_spec_projection" == "null" ]]; then
-            # If there is no custom projection for the root spec, we just use the version as the projection, of the form `{name}/prX-Y`
-            echo "version=${{ inputs.version }}" >> $GITHUB_OUTPUT
-          else
-            # For custom root spec projections, the prerelease portion will be infixed
-            # Eg. `{name}/2025.01.000-{^dep.variants.x}` -> `{name}/prX-Y/2025.01.000-{^dep.variants.x}`
-            echo "version=${{ inputs.version }}/${original_root_spec_projection#*/}" >> $GITHUB_OUTPUT
+          if [[ "$original_root_spec_projection" != "null" ]]; then
+            # For custom root spec projections, we want to take everything after the first `/`
+            echo "custom-projection=${original_root_spec_projection#*/}" >> $GITHUB_OUTPUT
           fi
 
           python -m scripts.spack_manifest.injection.modules \
@@ -161,6 +157,7 @@ jobs:
           python -m scripts.spack_manifest.injection.prerelease \
             --manifest ../${{ inputs.spack-manifest-path }} \
             --version ${{ steps.modules-injection.outputs.version }} \
+            ${{ steps.modules-injection.outputs.custom-projection != '' && format('--custom-root-projection {0}', steps.modules-injection.outputs.custom-projection ) || ''}} \
             --spack-packages-path ${{ steps.path.outputs.spack-packages }} \
             --output ../${{ inputs.spack-manifest-path }}
 
