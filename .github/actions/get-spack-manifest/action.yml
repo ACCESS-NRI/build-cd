@@ -1,0 +1,60 @@
+name: Get Spack Manifest Information
+description: Action that returns information about a Spack manifest file
+author: Tommy Gatti
+inputs:
+  spack-manifest-path:
+    required: false
+    default: ./spack.yaml
+    description: The path to the spack manifest file
+outputs:
+  deployment-name:
+    description: |
+      The name of the deployment as specified in the reserved definition _name, in the spack manifest file.
+    value: ${{ steps.defs.outputs.name }}
+  deployment-version:
+    description: |
+      The version of the deployment as specified in the reserved definition _version, in the spack manifest file.
+    value: ${{ steps.defs.outputs.version }}
+runs:
+  using: composite
+  steps:
+    - name: Get reserved definitions
+      id: defs
+      shell: bash
+      # Converts an array of spack definitions into a simpler object of
+      # only reserved definitions and their values, for later processing.
+      # From:
+      #   spack:
+      #     definitions:
+      #       - _name: [test-model]
+      #       - _version: [1.0.0]
+      #       - compilers: [gcc@10.2.0, intel@2025.10.0]
+      # To:
+      #   _name: test-model
+      #   _version: 1.0.0
+      run: |
+        reserved_definitions=$(yq '.spack.definitions[] | to_entries[] | select(.key == "_*") | {(.key): (.value[0])}')
+
+        if [ -z "$reserved_definitions" ]; then
+          echo "::error::No reserved definitions found in spack manifest - some of them are required for deployment"
+          exit 1
+        fi
+
+        name=$(yq "._name" <<< "$reserved_definitions")
+        if [["$name" == "null" ]]; then
+          echo "::error::No deployment name (_name) found in spack manifest reserved definitions"
+          exit 1
+        fi
+
+        version=$(yq "._version" <<< "$reserved_definitions")
+        if [["$version" == "null" ]]; then
+          echo "::error::No deployment version (_version) found in spack manifest reserved definitions"
+          exit 1
+        fi
+
+        echo "Given reserved definitions:"
+        echo "$reserved_definitions"
+        echo "We have extracted name: $name, and version: $version"
+
+        echo "name=$name" >> $GITHUB_OUTPUT
+        echo "version=$version" >> $GITHUB_OUTPUT
