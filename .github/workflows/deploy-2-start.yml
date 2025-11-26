@@ -133,8 +133,19 @@ jobs:
 
       - name: Spack Manifest - Modules Injection
         # Injects relevant module projections and includes into the spack manifest so users don't have to
+        id: modules-injection
+        working-directory: cd
         run: |
-          cd cd
+          original_root_spec_projection=$(yq '.spack.modules.default.tcl.projections."${{ steps.manifest.outputs.root-spec-name }}"' ../${{ inputs.spack-manifest-path }})
+          if [[ "$original_root_spec_projection" == "null" ]]; then
+            # If there is no custom projection for the root spec, we just use the version as the projection, of the form `{name}/prX-Y`
+            echo "version=${{ inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            # For custom root spec projections, the prerelease portion will be infixed
+            # Eg. `{name}/2025.01.000-{^dep.variants.x}` -> `{name}/prX-Y/2025.01.000-{^dep.variants.x}`
+            echo "version=${{ inputs.version }}/${original_root_spec_projection#*/}" >> $GITHUB_OUTPUT
+          fi
+
           python -m scripts.spack_manifest.injection.modules \
             --manifest ../${{ inputs.spack-manifest-path }} \
             --packages "${{ steps.config-packages.outputs.packages-for-injection }}" \
@@ -149,7 +160,7 @@ jobs:
         run: |
           python -m scripts.spack_manifest.injection.prerelease \
             --manifest ../${{ inputs.spack-manifest-path }} \
-            --version ${{ inputs.version }} \
+            --version ${{ steps.modules-injection.outputs.version }} \
             --spack-packages-path ${{ steps.path.outputs.spack-packages }} \
             --output ../${{ inputs.spack-manifest-path }}
 
