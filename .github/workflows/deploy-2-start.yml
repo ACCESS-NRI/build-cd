@@ -138,8 +138,7 @@ jobs:
         run: |
           original_root_spec_projection=$(yq '.spack.modules.default.tcl.projections."${{ steps.manifest.outputs.root-spec-name }}"' ../${{ inputs.spack-manifest-path }})
           if [[ "$original_root_spec_projection" != "null" ]]; then
-            # For custom root spec projections, we want to take everything after the first `/`
-            echo "custom-projection=${original_root_spec_projection#*/}" >> $GITHUB_OUTPUT
+            echo "custom-projection=${original_root_spec_projection}" >> $GITHUB_OUTPUT
           fi
 
           python -m scripts.spack_manifest.injection.modules \

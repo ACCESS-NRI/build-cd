@@ -132,7 +132,12 @@ def update_root_spec_projection_version(
 ) -> dict[str, Any]:
 
     if custom_root_projection is not None and custom_root_projection != "":
-        updated_version: str = f"{{name}}/{root_spec_version}/{custom_root_projection}"
+        projection_components = custom_root_projection.split("/", 1)
+
+        if len(projection_components) == 1:
+            updated_version: str = f"{{name}}/{root_spec_version}/{projection_components[0]}"
+        else:
+            updated_version: str = f"{{name}}/{root_spec_version}/{projection_components[1]}"
     else:
         updated_version: str = f"{{name}}/{root_spec_version}"
 
