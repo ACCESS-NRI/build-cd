@@ -155,7 +155,7 @@ jobs:
         run: |
           python -m scripts.spack_manifest.injection.prerelease \
             --manifest ../${{ inputs.spack-manifest-path }} \
-            --version ${{ steps.modules-injection.outputs.version }} \
+            --version ${{ inputs.version }} \
             ${{ steps.modules-injection.outputs.custom-projection != '' && format('--custom-root-projection {0}', steps.modules-injection.outputs.custom-projection ) || ''}} \
             --spack-packages-path ${{ steps.path.outputs.spack-packages }} \
             --output ../${{ inputs.spack-manifest-path }}
