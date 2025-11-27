@@ -27,10 +27,11 @@ class TestUpdateRootSpecProjectionVersion:
         }
         root_spec_name = "access-om2"
         root_spec_version = "pr12-2"
+        custom_root_spec_projection = "1.0.0"
 
-        updated_manifest = update_root_spec_projection_version(manifest, root_spec_name, root_spec_version)
+        updated_manifest = update_root_spec_projection_version(manifest, root_spec_name, root_spec_version, custom_root_spec_projection)
 
-        assert updated_manifest["spack"]["modules"]["default"]["tcl"]["projections"][root_spec_name] == f"{{name}}/{root_spec_version}"
+        assert updated_manifest["spack"]["modules"]["default"]["tcl"]["projections"][root_spec_name] == f"{{name}}/{root_spec_version}/{custom_root_spec_projection}"
 
     def test_update_root_spec_projection_version__valid_new(self):
         manifest = {
@@ -139,13 +140,14 @@ class TestAddPrereleaseReposSection:
         assert last_three_lines.strip() == expected_last_three_lines.strip()
 
 class TestInjectPrereleaseInformation:
-    def test_inject_prerelease_information__valid(self):
+    def test_inject_prerelease_information__valid_custom_projection(self):
         manifest_path = "tests/scripts/spack_manifest/injection/inputs/prerelease.spack.yaml"
         root_spec_version = "pr12-12"
+        custom_root_projection = "2024.03.0"
         spack_packages_path = "/some/spack-packages"
 
         updated_manifest_str: str = inject_prerelease_information(
-            manifest_path, root_spec_version, False, spack_packages_path
+            manifest_path, root_spec_version, custom_root_projection, False, spack_packages_path
         )
 
         expected_manifest_path = "tests/scripts/spack_manifest/injection/outputs/expected.prerelease.spack.yaml"

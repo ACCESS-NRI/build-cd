@@ -36,6 +36,7 @@ yaml.add_representer(YamlExplicitQuotedString, yaml_explicit_quoted_string_repre
 def inject_prerelease_information(
     manifest_path: str,
     version: str,
+    custom_root_projection: str | None = None,
     keep_root_spec_intact: bool = False,
     spack_packages_path: str | None = None,
 ) -> str:
@@ -57,7 +58,7 @@ def inject_prerelease_information(
 
     # We want the root spec projection to be of the form {name}/prX-Y
     updated_manifest = update_root_spec_projection_version(
-        updated_manifest, root_spec_name, version
+        updated_manifest, root_spec_name, version, custom_root_projection
     )
 
     # We want all other projections to be of the form {name}/prX-Y/VERSION
@@ -127,9 +128,18 @@ def remove_potential_root_spec_git_version(manifest: dict[str, Any]) -> dict[str
 
 
 def update_root_spec_projection_version(
-    manifest: dict[str, Any], root_spec_name: str, root_spec_version: str
+    manifest: dict[str, Any], root_spec_name: str, root_spec_version: str, custom_root_projection: str | None = None
 ) -> dict[str, Any]:
-    updated_version: str = f"{{name}}/{root_spec_version}"
+
+    if custom_root_projection is not None and custom_root_projection != "":
+        projection_components = custom_root_projection.split("/", 1)
+
+        if len(projection_components) == 1:
+            updated_version: str = f"{{name}}/{root_spec_version}/{projection_components[0]}"
+        else:
+            updated_version: str = f"{{name}}/{root_spec_version}/{projection_components[1]}"
+    else:
+        updated_version: str = f"{{name}}/{root_spec_version}"
 
     manifest.setdefault("spack", {}).setdefault("modules", {}).setdefault("default", {}).setdefault("tcl", {}).setdefault("projections", {})
 
@@ -168,6 +178,13 @@ def parse_args(args: list[str]) -> argparse.Namespace:
         help="Version to be used for projections in the manifest",
     )
 
+    parser.add_argument(
+        "--custom-root-projection",
+        type=str,
+        required=False,
+        help="Custom projection string to be used for the root spec in the manifest",
+    )
+
     # This option is for the special case where the root spec defined at the repository level (a bundle with
     # a version that doesn't yet exist) is not the same as the root spec defined in the manifest (which could
     # be a regular package with a meaningful version). This is not recommended, but can be useful for special builds.
@@ -201,6 +218,7 @@ def main():
     injected_manifest: str = inject_prerelease_information(
         args.manifest,
         args.version,
+        args.custom_root_projection,
         args.keep_root_spec_intact,
         args.spack_packages_path,
     )
