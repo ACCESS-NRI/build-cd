@@ -10,6 +10,20 @@ from scripts.spack_manifest.getter import (
     Projections,
 )
 
+# For sequence definitions, we keep it in the flow-style format (i.e., [a, b, c]) rather than block style
+# as it is more compact for reserved definitions.
+class YamlExplicitFlowStyleSequence(list[str]):
+    pass
+
+def yaml_explicit_flow_style_sequence_representer(dumper, data):
+    """
+    Custom representer for YAML to ensure that some sequences are represented in flow style.
+    This is necessary for sequences that are used as definitions in spack manifests.
+    """
+    return dumper.represent_sequence("tag:yaml.org,2002:seq", data, flow_style=True)
+
+yaml.add_representer(YamlExplicitFlowStyleSequence, yaml_explicit_flow_style_sequence_representer)
+
 ##################
 # Main functions #
 ##################
@@ -36,9 +50,13 @@ def main():
         manifest=manifest_with_projections, root_spec=deployment_name, packages=packages
     )
 
+    finalized_manifest: dict[str, Any] = enforce_explicit_flow_style_definitions(
+        manifest_with_projections_and_includes
+    )
+
     # Output the modified manifest
     dumped_manifest: str = yaml.dump(
-        manifest_with_projections_and_includes,
+        finalized_manifest,
         default_flow_style=False,
         sort_keys=False,
     )
@@ -49,6 +67,22 @@ def main():
         with open(args.output, "w") as output_file:
             output_file.write(dumped_manifest)
 
+def enforce_explicit_flow_style_definitions(manifest: dict[str, Any]) -> dict[str, Any]:
+    """
+    Ensure that the 'definitions' section of the manifest is represented in flow style.
+    This is necessary for spack manifests to ensure that definitions are correctly interpreted.
+    """
+    if "spack" in manifest and "definitions" in manifest["spack"]:
+        definitions: list[dict[str, Any]] = manifest["spack"]["definitions"]
+        for i in range(len(definitions)):
+            definition = definitions[i]
+            if len(definition) > 0:
+                reserved_definition, reserved_value_list = list(definition.items())[0]
+
+                if reserved_definition.startswith("_"):
+                    manifest["spack"]["definitions"][i][reserved_definition] = YamlExplicitFlowStyleSequence(reserved_value_list)
+
+    return manifest
 
 def inject_projections(
     manifest: str, root_spec: str, packages: set[str]
