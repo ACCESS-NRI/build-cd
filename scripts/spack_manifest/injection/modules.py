@@ -4,7 +4,7 @@ import sys
 
 from typing import Any
 from scripts.spack_manifest.getter import (
-    RootSpec,
+    ReservedDefinitions,
     Packages,
     Includes,
     Projections,
@@ -25,14 +25,15 @@ def main():
         manifest: dict[str, Any] = yaml.safe_load(file)
 
     # Inject manifest with projections and includes
-    root_spec_name: str = RootSpec(manifest).get_name()
+
+    deployment_name: str = ReservedDefinitions(manifest).get("name")
 
     manifest_with_projections: dict[str, Any] = inject_projections(
-        manifest=manifest, root_spec=root_spec_name, packages=packages
+        manifest=manifest, root_spec=deployment_name, packages=packages
     )
 
     manifest_with_projections_and_includes: dict[str, Any] = inject_includes(
-        manifest=manifest_with_projections, root_spec=root_spec_name, packages=packages
+        manifest=manifest_with_projections, root_spec=deployment_name, packages=packages
     )
 
     # Output the modified manifest
@@ -124,18 +125,18 @@ def inject_includes(
 def generate_projection_for_root_spec_or_raise(
     manifest: dict[str, Any], root_spec_name: str
 ) -> dict[str, str]:
-    root_spec_getter = RootSpec(manifest)
+    reserved_definitions_getter = ReservedDefinitions(manifest)
 
-    root_spec_name_from_definition: str = root_spec_getter.get_name()
-    version = root_spec_getter.get_ref()
+    deployment_name_from_definition: str = reserved_definitions_getter.get("name")
+    version = reserved_definitions_getter.get("version")
 
-    if root_spec_name_from_definition != root_spec_name:
+    if deployment_name_from_definition != root_spec_name:
         raise ValueError(
-            f"Expected root spec name '{root_spec_name}' does not match the name in the root spec definition '{root_spec_name_from_definition}'. The --root-spec needs to be defined the same as the actual root spec."
+            f"Expected root spec name '{root_spec_name}' does not match the name in the _name reserved definition: '{deployment_name_from_definition}'. The --root-spec needs to be defined the same as the actual _name."
         )
 
     print(
-        f"Extracted version '{version}' from root spec definition '{root_spec_getter.get()}'"
+        f"Extracted version '{version}' from _version definition'"
     )
 
     # We don't add a hash to the root spec projection, as it is a unique deployment

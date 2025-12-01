@@ -1,5 +1,6 @@
 from typing import Any
 import re
+from unittest import case
 
 # from yaml import safe_load is loaded in the class methods from_file as that is the only place it is used
 
@@ -16,6 +17,68 @@ class NoSectionComponentError(Exception):
     pass
 
 
+class ReservedDefinitions:
+    def __init__(self, manifest: dict[str, Any]):
+        self.manifest: dict[str, Any] = manifest
+
+        self.reserved_definitions: list[dict[str, Any]] = (
+            self._get_reserved_definitions_from_manifest_or_raise()
+        )
+
+    def _get_reserved_definitions_from_manifest_or_raise(self) -> list[dict[str, Any]]:
+        definitions: list[dict[str, Any]] = self.manifest.get("spack", {}).get(
+            "definitions", []
+        )
+
+        if definitions == []:
+            raise NoSectionError(
+                f"spack.definitions section not found in the manifest."
+            )
+
+        # Turn something with the spack-specific structure:
+        # {'definitions': [
+        #   {'_name': ['access-om2']},
+        #   {'_version': ['2025.02.100']},
+        #   {'something': ['else']}
+        # ]}
+        # Into a much easier to parse:
+        # ['name': 'access-om2', 'version': '2025.02.100']
+        # Stripping out non-reserved definitions and unneeded single-element lists
+        reserved_definitions: dict[str, str] = {}
+        for definition in definitions:
+            if len(definition) > 0:
+                reserved_name, reserved_value_list = list(definition.items())[0]
+                if reserved_name.startswith("_") and len(reserved_value_list) > 0:
+                    reserved_name_no_underscore = reserved_name.lstrip("_")
+
+                    match reserved_name_no_underscore:
+                        # A bit of a strange case, but in future we may want to handle other reserved
+                        # definitions as lists rather than single strings
+                        case "name" | "version" | _:
+                            reserved_definitions[reserved_name_no_underscore] = (
+                                reserved_value_list[0]
+                            )
+
+        return reserved_definitions
+
+    @classmethod
+    def from_file(cls, manifest_path: str) -> "ReservedDefinitions":
+        from yaml import safe_load
+
+        with open(manifest_path, "r") as file:
+            manifest = safe_load(file)
+
+        return cls(manifest)
+
+    def get(self, definition: str) -> str:
+        if definition not in self.reserved_definitions:
+            raise NoSectionComponentError(
+                f"Reserved definition '{definition}' not found in the manifest spack.definitions section."
+            )
+
+        return self.reserved_definitions[definition]
+
+
 class RootSpec:
     def __init__(self, manifest: dict[str, Any]):
         self.manifest = manifest
@@ -23,7 +86,9 @@ class RootSpec:
         self.root_spec: str = self._get_root_spec_from_manifest_or_raise()
 
     def _get_root_spec_from_manifest_or_raise(self) -> str:
-        defs: list[dict[str, Any]] = self.manifest.get("spack", {}).get("definitions", [])
+        defs: list[dict[str, Any]] = self.manifest.get("spack", {}).get(
+            "definitions", []
+        )
         specs: list[str] = self.manifest.get("spack", {}).get("specs", [])
 
         # It's either in the multi-target format or the single target format, we just need to find which
@@ -170,7 +235,9 @@ class Packages:
         packages_with_versions_defined: list[str] = []
 
         for package_name, package_spec in self.packages.items():
-            if len(package_spec.get("require", {})) != 0 and package_spec["require"][0].startswith("@"):
+            if len(package_spec.get("require", {})) != 0 and package_spec["require"][
+                0
+            ].startswith("@"):
                 packages_with_versions_defined.append(package_name)
 
         return packages_with_versions_defined
@@ -189,7 +256,6 @@ class Packages:
             )
 
         return requirements[0]
-
 
     def get_package_requirements(self, name: str) -> list[str]:
         if name not in self.packages:
