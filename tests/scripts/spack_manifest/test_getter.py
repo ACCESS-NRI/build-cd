@@ -2,6 +2,7 @@ import pytest
 import yaml
 
 from scripts.spack_manifest.getter import (
+    ReservedDefinitions,
     RootSpec,
     Packages,
     Includes,
@@ -35,6 +36,55 @@ def manifest_from_file():
             },
         }
     }
+
+class TestReservedDefinitionsGetter:
+    @pytest.fixture
+    def manifest_with_reserved_definitions(self):
+        return {
+            "spack": {
+                "definitions": [
+                    {"_name": ["access-om2"]},
+                    {"_version": ["2025.11.000"]},
+                    {"OTHER_DEFINITION": ["some-value"]},
+                ]
+            }
+        }
+    def test___init___valid(self, manifest_with_reserved_definitions):
+
+        reserved_definitions_getter = ReservedDefinitions(manifest_with_reserved_definitions)
+
+        expected = {
+            "name": "access-om2",
+            "version": "2025.11.000",
+        }
+
+        assert (
+            reserved_definitions_getter.reserved_definitions == expected
+        ), "Reserved definitions should be correctly initialized from manifest."
+
+    def test___init___invalid_no_definitions_section(self):
+        manifest = {"spack": {}}
+
+        with pytest.raises(NoSectionError):
+            ReservedDefinitions(manifest)
+
+    def test_get__valid(self, manifest_with_reserved_definitions):
+
+        reserved_definitions_getter = ReservedDefinitions(manifest_with_reserved_definitions)
+        definition_value = reserved_definitions_getter.get("name")
+
+        expected = "access-om2"
+
+        assert (
+            definition_value == expected
+        ), "Reserved definitions should be correctly retrieved."
+
+    def test_get__invalid_no_definition(self, manifest_with_reserved_definitions):
+
+        reserved_definitions_getter = ReservedDefinitions(manifest_with_reserved_definitions)
+
+        with pytest.raises(NoSectionComponentError):
+            reserved_definitions_getter.get("nonexistent_definition")
 
 
 class TestRootSpecGetter:

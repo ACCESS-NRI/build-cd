@@ -4,8 +4,11 @@
 # configuration settings.
 spack:
   # add package specs to the `specs` list
+  definitions:
+  - _name: [access-om2]
+  - _version: [2024.03.0]
   specs:
-    - access-om2@git.2024.03.0=latest
+    - access-om2
   packages:
     cice5:
       require:

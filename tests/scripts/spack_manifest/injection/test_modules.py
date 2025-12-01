@@ -78,7 +78,7 @@ class TestParseArgs:
 class TestGenerateProjectionForRootSpecOrRaise:
 
     def test_generate_projection_for_root_spec_or_raise__valid_single_target(self):
-        manifest = {"spack": {"specs": ["access-om2@git.2025.05.000 +debug ~mpi"]}}
+        manifest = {"spack": {"definitions": [{"_name": ["access-om2"]}, {"_version": ["2025.05.000"]}],"specs": ["access-om2 +debug ~mpi"]}}
 
         projection = "access-om2"
         expected_version = {"access-om2": "{name}/2025.05.000"}
@@ -92,6 +92,8 @@ class TestGenerateProjectionForRootSpecOrRaise:
         manifest = {
             "spack": {
                 "definitions": [
+                    {"_name": ["access-om2"]},
+                    {"_version": ["2025.05.000"]},
                     {"ROOT_PACKAGE": ["access-om2@git.2025.05.000 +debug ~mpi"]}
                 ]
             }
@@ -108,7 +110,7 @@ class TestGenerateProjectionForRootSpecOrRaise:
     def test_generate_projection_for_root_spec_or_raise__single_target_no_version_defined(
         self,
     ):
-        manifest = {"spack": {"specs": ["access-om2"]}}
+        manifest = {"spack": {"definitions": [{"_name": ["access-om2"]}],"specs": ["access-om2"]}}
 
         projection = "access-om2"
 
@@ -128,7 +130,7 @@ class TestGenerateProjectionForRootSpecOrRaise:
     def test_generate_projection_for_root_spec_or_raise__single_target_wrong_projection(
         self,
     ):
-        manifest = {"spack": {"specs": ["access-om2@git.2025.05.000 +debug ~mpi"]}}
+        manifest = {"spack": {"definitions": [{"_name": ["access-om2"]}, {"_version": ["2025.05.000"]}],"specs": ["access-om2 +debug ~mpi"]}}
 
         projection = "wrong-projection"
 
@@ -141,7 +143,9 @@ class TestGenerateProjectionForRootSpecOrRaise:
         manifest = {
             "spack": {
                 "definitions": [
-                    {"ROOT_PACKAGE": ["access-om2@git.2025.05.000 +debug ~mpi"]}
+                    {"_name": ["access-om2"]},
+                    {"_version": ["2025.05.000"]},
+                    {"ROOT_PACKAGE": ["access-om2@git.2025.05.000 +debug ~mpi"]},
                 ]
             }
         }
@@ -206,7 +210,11 @@ class TestInjectProjections:
 
         expected_output = {
             "spack": {
-                "specs": ["access-om2@git.2024.03.0=latest"],
+                "definitions": [
+                    {"_name": ["access-om2"]},
+                    {"_version": ["2024.03.0"]},
+                ],
+                "specs": ["access-om2"],
                 "packages": {
                     "cice5": {"require": ["@git.2023.10.19=access-om2"]},
                     "mom5": {"require": ["@git.2023.11.09=access-om2"]},
