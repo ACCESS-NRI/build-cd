@@ -82,6 +82,7 @@ jobs:
         run: |
           echo "spack=$(jq --compact-output --raw-output '.spack' ./config/versions.json)" >> $GITHUB_OUTPUT
           echo "packages=$(jq --compact-output --raw-output '."access-spack-packages"' ./config/versions.json)" >> $GITHUB_OUTPUT
+          echo "custom-scopes=$(jq --compact-output --raw-output '."custom-scopes" // [] | join(" ")' ./config/versions.json)" >> $GITHUB_OUTPUT
 
       - name: Get ${{ inputs.deployment-target }} ${{ inputs.deployment-type }} Remote Paths
         id: path
@@ -205,8 +206,13 @@ jobs:
           spack env activate ${{ inputs.env-name }} --create --envfile ${{ vars.SPACK_YAML_LOCATION }}/${{ inputs.expected-root-spec-name }}-${{ github.run_id }}.spack.yaml
 
           # Finally, install the spack manifest
-          spack --debug install --fail-fast --fresh ${{ vars.SPACK_INSTALL_ADDITIONAL_ARGS }} || exit $?
-          spack module tcl refresh -y
+          spack --debug \
+            $(for s in ${{ steps.versions.outputs.custom-scopes }}; do echo -n "--custom-scope $s "; done) \
+            install --fail-fast --fresh ${{ vars.SPACK_INSTALL_ADDITIONAL_ARGS }} || exit $?
+
+          spack \
+            $(for s in ${{ steps.versions.outputs.custom-scopes }}; do echo -n "--custom-scope $s "; done) \
+            module tcl refresh -y
           EOT
 
       - name: Move spack logs
