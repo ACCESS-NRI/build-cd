@@ -307,7 +307,7 @@ jobs:
             ${{ secrets.USER }}@${{ secrets.HOST }}:${{ steps.path.outputs.spack-environment }}/root-spec-pkg-hash.${{ github.run_id }} \
             ./root-spec-pkg-hash.${{ github.run_id }}
 
-          echo "$(cat ./root-spec-pkg-hash.${{ github.run_id }})" >> $GITHUB_OUTPUT
+          echo "root-spec-pkg-hash=$(cat ./root-spec-pkg-hash.${{ github.run_id }})" >> $GITHUB_OUTPUT
           rm ./root-spec-pkg-hash.${{ github.run_id }}
 
       - name: Tar spack environment metadata
