@@ -186,6 +186,9 @@ jobs:
 
       - name: Deploy to ${{ inputs.deployment-target }} ${{ inputs.deployment-type }}
         id: deploy
+        env:
+          SCOPES: ${{ steps.versions.outputs.custom-scopes }}
+          SCOPES_PATH: ${{ steps.path.outputs.spack-config }}/custom/cd
         # ssh into deployment environment, create and activate the env, install the spack manifest.
         run: |
           ssh ${{ secrets.USER}}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
@@ -207,11 +210,11 @@ jobs:
 
           # Finally, install the spack manifest
           spack --debug \
-            $(for s in ${{ steps.versions.outputs.custom-scopes }}; do echo -n "--custom-scope $s "; done) \
+            $(for s in ${{ env.SCOPES }}; do echo -n "--custom-scope ${{ env.SCOPES_PATH }}/$s "; done) \
             install --fail-fast --fresh ${{ vars.SPACK_INSTALL_ADDITIONAL_ARGS }} || exit $?
 
           spack \
-            $(for s in ${{ steps.versions.outputs.custom-scopes }}; do echo -n "--custom-scope $s "; done) \
+            $(for s in ${{ env.SCOPES }}; do echo -n "--custom-scope ${{ env.SCOPES_PATH }}/$s "; done) \
             module tcl refresh -y
           EOT
 
