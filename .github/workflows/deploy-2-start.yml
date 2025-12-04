@@ -256,7 +256,7 @@ jobs:
             hash=$(spack find --format "{^${pkg}.hash}" /$root_spec_hash)
             version=$(spack find --format '{version}' /$hash)
             location=$(spack find --format '{prefix}' /$hash)
-            pkg_repo_url=$(spack python -c "import spack.spec; print(spack.spec.Spec('$pkg').package_class.git)")
+            pkg_repo_url=$(spack python -c "print(spack.repo.PATH.get_pkg_class('$pkg').git)")
 
             # We need to create a tmp output file as jq doesn't support in-place read/write
             jq \
