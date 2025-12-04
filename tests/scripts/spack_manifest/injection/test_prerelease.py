@@ -3,7 +3,6 @@ import pytest
 from scripts.spack_manifest.injection.prerelease import (
     inject_prerelease_information,
     add_prerelease_repos_section,
-    remove_potential_root_spec_git_version,
     update_root_spec_projection_version,
     add_namespace_to_other_projection_versions,
     parse_args
@@ -68,59 +67,6 @@ class TestUpdateRootSpecProjectionVersion:
         updated_manifest = update_root_spec_projection_version(manifest, root_spec_name, root_spec_version)
 
         assert updated_manifest["spack"]["modules"]["default"]["tcl"]["projections"][root_spec_name] == f"{{name}}/{root_spec_version}"
-
-class TestRemovePotentialRootSpecGitVersion:
-    def test_remove_potential_root_spec_git_version__valid_no_constraints(self):
-        manifest = {
-            "spack": {
-                "specs": [
-                    "access-om2@git.1.0.0"
-                ]
-            }
-        }
-
-        updated_manifest = remove_potential_root_spec_git_version(manifest)
-
-        assert updated_manifest["spack"]["specs"][0] == "access-om2"
-
-    def test_remove_potential_root_spec_git_version__valid_with_constraints_no_space(self):
-        manifest = {
-            "spack": {
-                "specs": [
-                    r"access-om2@git.1.0.0%compiler@2.0.0"
-                ]
-            }
-        }
-
-        updated_manifest = remove_potential_root_spec_git_version(manifest)
-
-        assert updated_manifest["spack"]["specs"][0] == f"access-om2 %compiler@2.0.0"
-
-    def test_remove_potential_root_spec_git_version__valid_with_constraints_with_space(self):
-        manifest = {
-            "spack": {
-                "specs": [
-                    r"access-om2@git.1.0.0 %compiler@2.0.0 +debug"
-                ]
-            }
-        }
-
-        updated_manifest = remove_potential_root_spec_git_version(manifest)
-
-        assert updated_manifest["spack"]["specs"][0] == f"access-om2 %compiler@2.0.0 +debug"
-
-    def test_remove_potential_root_spec_git_version__invalid_no_git_version(self):
-        manifest = {
-            "spack": {
-                "specs": [
-                    "access-om2@1.0.0"
-                ]
-            }
-        }
-
-        updated_manifest = dict(remove_potential_root_spec_git_version(manifest))
-
-        assert manifest == updated_manifest, "Manifest should remain unchanged if no git version is present"
 
 class TestAddPrereleaseReposSection:
     def test_add_prerelease_repos_section__valid(self):
