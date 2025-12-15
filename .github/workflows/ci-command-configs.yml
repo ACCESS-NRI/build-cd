@@ -174,7 +174,7 @@ jobs:
           git_commit_gpgsign: true
           git_tag_gpgsign: true
 
-      - name: Get previous deployments on in PR
+      - name: Get previous deployments in PR
         id: previous-deployments
         uses: access-nri/build-cd/.github/actions/get-pr-deployments@v7
         with:
