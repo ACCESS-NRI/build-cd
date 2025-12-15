@@ -39,6 +39,7 @@ def inject_prerelease_information(
     custom_root_projection: str | None = None,
     keep_root_spec_intact: bool = False,
     spack_packages_path: str | None = None,
+    spack_packages_version_sha: str | None = None,
 ) -> str:
     # In comparison to the projections script, this returns a string rather than a dict because we need to
     # add spack-specific, non-standard 'repo::' sections, which the yaml dumper does not support.
@@ -69,7 +70,7 @@ def inject_prerelease_information(
     if spack_packages_path:
         # Add the 'repo:' section for prerelease spack packages if provided
         updated_manifest = add_prerelease_repos_section(
-            updated_manifest, spack_packages_path
+            updated_manifest, spack_packages_path, spack_packages_version_sha
         )
 
     # Dump the current dict, and add the non-standard 'repo::' section
@@ -151,7 +152,7 @@ def update_root_spec_projection_version(
 
 
 def add_prerelease_repos_section(
-    manifest: dict[str, Any], spack_packages_path: str
+    manifest: dict[str, Any], spack_packages_path: str, spack_packages_version_sha: str | None = None
 ) -> dict[str, Any]:
 
     manifest.setdefault("spack", {}).setdefault("repos", {})
@@ -161,6 +162,9 @@ def add_prerelease_repos_section(
             "destination": spack_packages_path,
         }
     }
+
+    if spack_packages_version_sha:
+        manifest["spack"]["repos"]["access_spack_packages"]["commit"] = spack_packages_version_sha
 
     return manifest
 
@@ -208,6 +212,13 @@ def parse_args(args: list[str]) -> argparse.Namespace:
         help="Local path to a spack-packages repository that is added to the manifests repos section",
     )
 
+    parser.add_argument(
+        "--spack-packages-version-sha",
+        type=str,
+        required=False,
+        help="Git SHA of the spack-packages repository that is added to the manifests repos section",
+    )
+
     # Args dealing with outputs
     parser.add_argument(
         "--output",
@@ -228,6 +239,7 @@ def main():
         args.custom_root_projection,
         args.keep_root_spec_intact,
         args.spack_packages_path,
+        args.spack_packages_version_sha,
     )
 
     print(injected_manifest)

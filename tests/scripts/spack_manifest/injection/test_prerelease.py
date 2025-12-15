@@ -149,9 +149,10 @@ class TestInjectPrereleaseInformation:
         root_spec_version = "pr12-12"
         custom_root_projection = "2024.03.0"
         spack_packages_path = "/some/spack-packages"
+        spack_packages_version_sha = "e8713551c6eee57caf9603543e6dd6daf3c93922"
 
         updated_manifest_str: str = inject_prerelease_information(
-            manifest_path, root_spec_version, custom_root_projection, False, spack_packages_path
+            manifest_path, root_spec_version, custom_root_projection, spack_packages_path, spack_packages_version_sha
         )
 
         expected_manifest_path = "tests/scripts/spack_manifest/injection/outputs/expected.prerelease.spack.yaml"

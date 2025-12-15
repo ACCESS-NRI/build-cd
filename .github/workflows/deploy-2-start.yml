@@ -139,6 +139,13 @@ jobs:
             --packages "${{ steps.config-packages.outputs.packages-for-injection }}" \
             --output ../${{ inputs.spack-manifest-path }}
 
+      - name: Get SHA for access-spack-packages repository
+        id: packages-ref
+        uses: access-nri/actions/.github/actions/get-git-ref-info@main
+        with:
+          repository: ACCESS-NRI/access-spack-packages
+          ref: ${{ steps.versions.outputs.packages }}
+
       - name: Spack Manifest - Prerelease Injection
         if: inputs.deployment-type == 'Prerelease'
         # Modifies the name of the prerelease modulefile to the pr<number>-<deployment number>` style.
@@ -150,6 +157,8 @@ jobs:
             --manifest ../${{ inputs.spack-manifest-path }} \
             --version ${{ inputs.version }} \
             --spack-packages-path ${{ steps.path.outputs.spack-environment }}/access-spack-packages \
+            --spack-packages-version-sha ${{ steps.packages-ref.outputs.sha }} \
+            ${{ steps.modules-injection.outputs.custom-projection != '' && format('--custom-root-projection {0}', steps.modules-injection.outputs.custom-projection ) || ''}} \
             --output ../${{ inputs.spack-manifest-path }}
 
       - name: Copy ${{ inputs.spack-manifest-path }}
@@ -176,13 +185,6 @@ jobs:
           done
           EOT
 
-      - name: Get SHA for access-spack-packages repository
-        id: packages-ref
-        uses: access-nri/actions/.github/actions/get-git-ref-info@main
-        with:
-          repository: ACCESS-NRI/access-spack-packages
-          ref: ${{ steps.versions.outputs.packages }}
-
       - name: Deploy to ${{ inputs.deployment-target }} ${{ inputs.deployment-type }}
         id: deploy
         # ssh into deployment environment, create and activate the env, install the spack manifest.
@@ -203,9 +205,6 @@ jobs:
 
           # Create and activate environment
           spack env activate ${{ inputs.env-name }} --create --envfile ${{ vars.SPACK_YAML_LOCATION }}/${{ inputs.expected-root-spec-name }}-${{ github.run_id }}.spack.yaml
-
-          # Update access-spack-packages repository before installation
-          spack repo update access_spack_packages --commit ${{ steps.packages-ref.outputs.sha }}
 
           # Finally, install the spack manifest
           spack --debug install --fail-fast --fresh ${{ vars.SPACK_INSTALL_ADDITIONAL_ARGS }} || exit $?
