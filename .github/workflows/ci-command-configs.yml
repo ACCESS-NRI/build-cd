@@ -162,6 +162,22 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.configs-repo-token }}
 
+      - name: Checkout build-cd
+        uses: actions/checkout@v4
+        with:
+          repository: access-nri/build-cd
+          path: build-cd
+          ref: v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install Dependencies
+        run: pip install -q -q -r build-cd/scripts/model_config_manifest/requirements.txt
+
       - name: Import Commit-Signing Key
         uses: crazy-max/ghaction-import-gpg@01dd5d3ca463c7f10f7f4f7b4f177225ac661ee4  # v6.1.0
         with:
@@ -213,11 +229,21 @@ jobs:
               continue
             fi
 
-            # FIXME: This is Gadi-specific
             echo "Updating config.yaml in $pr_branch_name to use ${{ env.DEPLOYMENT_IDENTIFIER }}..."
-            yq -i '.modules.use += ["/g/data/vk83/prerelease/modules"]' caller-configs/config.yaml
-            yq -i '.modules.load |= map(sub("^${{ needs.setup.outputs.root-sbd }}/.*"; "${{ env.DEPLOYMENT_IDENTIFIER }}"))' caller-configs/config.yaml
-            yq -i '.manifest.reproduce.exe=false' caller-configs/config.yaml
+
+            # FIXME: This is Gadi-specific
+            # --manifest is still relative to the current working directory, unaffected by the custom PYTHONPATH
+            PYTHONPATH=build-cd python3 -m scripts.model_config_manifest.prerelease_update \
+              --manifest caller-configs/config.yaml \
+              --deployment-target Gadi \
+              --root-sbd ${{ needs.setup.outputs.root-sbd }} \
+              --module ${{ env.DEPLOYMENT_IDENTIFIER }}
+
+            if [ $? -ne 0 ]; then
+              echo "::error::Failed to update config.yaml in $pr_branch_name to use ${{ env.DEPLOYMENT_IDENTIFIER }}"
+              error=true
+              continue
+            fi
 
             echo "Committing and pushing changes..."
             git -C caller-configs diff
@@ -276,7 +302,7 @@ jobs:
           path: build-cd
 
       - name: Setup python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: pip
