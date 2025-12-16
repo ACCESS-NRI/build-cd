@@ -81,17 +81,20 @@ jobs:
 
           # Parse comment into command args
           comment='${{ github.event.comment.body }}'
-          command=$(head -n1 <<< "$comment")
+          read -r command <<< "$comment"
           args=${command#!update-configs}
 
           # Processing args
           # FIXME: Wouldn't handle positional args, if they were part of the command syntax
-          for arg in $args; do
-            case $arg in
-              profile=*) profile="${arg#profile=}" ;;
-              *) echo "::error::Unknown argument '$arg'. Usage: $USAGE"; exit 1;;
-            esac
-          done
+          # If there isn't anything after !update-configs, args will be empty (or erroneously spaces, which we strip)
+          if [ -n "${args// }" ]; then
+            for arg in $args; do
+              case $arg in
+                profile=*) profile="${arg#profile=}" ;;
+                *) echo "::error::Unknown argument '$arg'. Usage: $USAGE"; exit 1;;
+              esac
+            done
+          fi
 
           # Output processed args
           echo "profile=$profile" >> $GITHUB_OUTPUT
