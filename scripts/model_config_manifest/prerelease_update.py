@@ -65,7 +65,7 @@ def update_modules_load_section(
     modules_load: list[str] = manifest["modules"]["load"]
 
     # We remove all entries that start with the root_sbd to avoid conflicts with the existing release modules in the config.yaml
-    updated_modules_load = [prerelease_module] + [m for m in modules_load if not m.startswith(root_sbd)]
+    updated_modules_load = [prerelease_module] + [m for m in modules_load if not m.startswith(f"{root_sbd}/")]
 
     print(f"When updating modules.load, removed entries starting with '{root_sbd}' and added '{prerelease_module}' giving: {updated_modules_load}")
 
