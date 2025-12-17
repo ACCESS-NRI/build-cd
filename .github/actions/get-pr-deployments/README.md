@@ -1,6 +1,6 @@
-# Get Spack Manifest Information
+# Get PR Deployments
 
-Action that returns information about a Spack manifest file.
+Action that returns the number of deployments on a given PR branch.
 
 ## Inputs
 
