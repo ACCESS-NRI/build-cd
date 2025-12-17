@@ -128,11 +128,6 @@ jobs:
       - name: Read auto configs PR configuration
         id: read-config
         run: |
-          if [ ! -f caller/config/auto-configs-pr.json ]; then
-            echo "::error::File config/auto-configs-pr.json not found in ${{ github.repository }}, cannot automatically open configs PRs"
-            exit 1
-          fi
-
           if ! jq --exit-status '.profiles."${{ steps.parse.outputs.profile }}"' caller/config/auto-configs-pr.json; then
             echo "::error::Profile ${{ steps.parse.outputs.profile }} does not exist in config/auto-configs-pr.json at ref ${{ steps.pr.outputs.ref }}"
             exit 1
