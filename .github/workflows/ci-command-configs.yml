@@ -33,6 +33,7 @@ on:
 env:
   RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
   GH_TOKEN: ${{ github.token }}
+  PYTHON_VERSION: '3.11'
 jobs:
   setup:
     name: Setup
@@ -170,7 +171,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
 
       - name: Install Dependencies
@@ -302,7 +303,7 @@ jobs:
       - name: Setup python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
 
       - name: Install Jinja2
