@@ -147,3 +147,13 @@ It bumps the `spack.yaml` model version (of the form `YEAR.MONTH.MINOR`, where `
 This Comment Command deploys the current `HEAD` of the PR branch again.
 
 This is most useful for models that are using `@git.BRANCH` references for versions of model dependencies.
+
+### `!update-configs`
+
+```txt
+!update-configs [profile=PROFILE]
+```
+
+This Comment Command creates draft PRs to linked model configuration repositories, allowing quick testing of prerelease builds against different model configurations. 
+
+This command is informed by the MDRs `config/auto-configs-pr.json` file.
