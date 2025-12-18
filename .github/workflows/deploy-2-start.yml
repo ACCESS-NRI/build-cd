@@ -87,7 +87,7 @@ jobs:
 
       - name: Get ${{ inputs.deployment-target }} ${{ inputs.deployment-type }} Remote Paths
         id: path
-        uses: access-nri/build-cd/.github/actions/get-deploy-paths@v6
+        uses: access-nri/build-cd/.github/actions/get-deploy-paths@v7
         with:
           spack-installs-root-path: ${{ vars.SPACK_INSTALLS_ROOT_LOCATION }}
           spack-version: ${{ steps.versions.outputs.spack }}
@@ -96,7 +96,7 @@ jobs:
 
       - name: Get manifest info
         id: manifest
-        uses: access-nri/build-cd/.github/actions/get-spack-root-spec@v6
+        uses: access-nri/build-cd/.github/actions/get-spack-root-spec@v7
         with:
           spack-manifest-path: ${{ inputs.spack-manifest-path }}
 
