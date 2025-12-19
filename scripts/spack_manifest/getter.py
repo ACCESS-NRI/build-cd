@@ -25,7 +25,7 @@ class ReservedDefinitions:
             self._get_reserved_definitions_from_manifest_or_raise()
         )
 
-    def _get_reserved_definitions_from_manifest_or_raise(self) -> list[dict[str, Any]]:
+    def _get_reserved_definitions_from_manifest_or_raise(self) -> dict[str, Any]:
         definitions: list[dict[str, Any]] = self.manifest.get("spack", {}).get(
             "definitions", []
         )
@@ -42,22 +42,16 @@ class ReservedDefinitions:
         #   {'something': ['else']}
         # ]}
         # Into a much easier to parse:
-        # ['name': 'access-om2', 'version': '2025.02.100']
+        # {'name': 'access-om2', 'version': '2025.02.100'}
         # Stripping out non-reserved definitions and unneeded single-element lists
-        reserved_definitions: dict[str, str] = {}
+        reserved_definitions: dict[str, Any] = {}
         for definition in definitions:
             if len(definition) > 0:
                 reserved_name, reserved_value_list = list(definition.items())[0]
                 if reserved_name.startswith("_") and len(reserved_value_list) > 0:
                     reserved_name_no_underscore = reserved_name.lstrip("_")
-
-                    match reserved_name_no_underscore:
-                        # A bit of a strange case, but in future we may want to handle other reserved
-                        # definitions as lists rather than single strings
-                        case "name" | "version" | _:
-                            reserved_definitions[reserved_name_no_underscore] = (
-                                reserved_value_list[0]
-                            )
+                    # In future if we want to handle other reserved defs as lists, we can add a case statement here
+                    reserved_definitions[reserved_name_no_underscore] = reserved_value_list[0]
 
         return reserved_definitions
 
@@ -235,9 +229,7 @@ class Packages:
         packages_with_versions_defined: list[str] = []
 
         for package_name, package_spec in self.packages.items():
-            if len(package_spec.get("require", {})) != 0 and package_spec["require"][
-                0
-            ].startswith("@"):
+            if len(package_spec.get("require", {})) != 0 and package_spec["require"][0].startswith("@"):
                 packages_with_versions_defined.append(package_name)
 
         return packages_with_versions_defined
