@@ -259,6 +259,15 @@ jobs:
             location=$(spack find --format '{prefix}' /$hash)
             pkg_repo_url=$(spack python -c "print(spack.repo.PATH.get_pkg_class('$pkg').git)")
 
+            binaries=$(find $location -path "*/bin/*" -executable)
+            md5_entries=""
+            for binary in $binaries; do
+              md5sum $binary > $binary.md5
+              printf -v md5_entry '{"path": "%s", "md5": "%s"}' "$binary" "$(md5sum $binary | cut -d ' ' -f 1)"
+              md5_entries+="${md5_entry},"
+            done
+            md5_list="[${md5_entries%,}]"
+
             # We need to create a tmp output file as jq doesn't support in-place read/write
             jq \
               --arg p "$pkg" \
@@ -266,7 +275,15 @@ jobs:
               --arg h "$hash" \
               --arg l "$location" \
               --arg r "$pkg_repo_url" \
-              '. += [{"name": $p, "version": $v, "hash": $h, "location": $l, "url": $r}]' \
+              --argjson md5s "$md5_list" \
+              '. += [{
+                "name": $p,
+                "version": $v,
+                "hash": $h,
+                "location": $l,
+                "url": $r,
+                "md5s": $md5s
+              }]' \
               ${{ steps.path.outputs.spack-environment }}/build-db-pkgs.json > ${{ steps.path.outputs.spack-environment }}/build-db-pkgs.json.tmp
 
             mv -f ${{ steps.path.outputs.spack-environment }}/build-db-pkgs.json.tmp ${{ steps.path.outputs.spack-environment }}/build-db-pkgs.json
