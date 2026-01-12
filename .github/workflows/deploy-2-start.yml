@@ -75,7 +75,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: access-nri/build-cd
-          path: cd
+          path: build-cd
 
       - name: Get Versions From config/versions.json
         id: versions
@@ -115,7 +115,7 @@ jobs:
           cache: 'pip'
 
       - name: Install Injection Requirements
-        working-directory: cd
+        working-directory: build-cd
         run: python -m pip install -r scripts/spack_manifest/injection/requirements.txt
 
       - name: Spack Manifest - Get Provenance and Injection Packages
@@ -132,8 +132,8 @@ jobs:
 
       - name: Spack Manifest - Modules Injection
         # Injects relevant module projections and includes into the spack manifest so users don't have to
+        working-directory: build-cd
         run: |
-          cd cd
           python -m scripts.spack_manifest.injection.modules \
             --manifest ../${{ inputs.spack-manifest-path }} \
             --packages "${{ steps.config-packages.outputs.packages-for-injection }}" \
@@ -151,7 +151,7 @@ jobs:
         # Modifies the name of the prerelease modulefile to the pr<number>-<deployment number>` style.
         # Also removes the `@git.VERSION` specifier for Prereleases as it is a tag that doesn't yet exist.
         # Also adds a repos section that points to the prereleases specific spack-packages repo.
-        working-directory: cd
+        working-directory: build-cd
         run: |
           python -m scripts.spack_manifest.injection.prerelease \
             --manifest ../${{ inputs.spack-manifest-path }} \
