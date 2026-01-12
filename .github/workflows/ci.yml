@@ -122,29 +122,20 @@ jobs:
           echo "sha=$sha" >> $GITHUB_OUTPUT
           echo "base=$base" >> $GITHUB_OUTPUT
 
+      - name: Get previous PR deployments
+        id: previous-deploys
+        uses: access-nri/build-cd/.github/actions/get-pr-deployments@v7
+        with:
+          pr: ${{ inputs.pr }}
+
       - name: Branch metadata
         id: prerelease
-        # Essentially, count all the deployment entries that match the given branch, as well as
-        # all the `!redeploy` comments, to get the next deployment number.
-        # See https://docs.github.com/en/rest/deployments/deployments?apiVersion=2022-11-28#list-deployments
+        # Since the total number of deployments do not include the current deployment if it is a PR deployment,
+        # but !redeploy comments do, we need to increment the next deployment number by one if it is a PR deployment.
         run: |
-          # We --slurp the results because --paginate introduces potentially multiple array results
-          pr_deployments=$(gh api \
-              -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" \
-              --paginate --slurp \
-              /repos/${{ github.repository }}/deployments \
-            | jq '[select(.[][].ref == "${{ steps.pr.outputs.head }}")] | length'
-          )
-          comment_deployments=$(gh pr view ${{ inputs.pr }} --repo ${{ github.repository }} \
-            --json comments \
-            --jq '[.comments[] | select(.body | startswith("!redeploy"))] | length'
-          )
-
-          # Since the number of $pr_deployments do not include the current deployment (yet),
-          # but $comment_deployments do, we need to increment the next deployment number by one if it is a pr deployment.
           next_deployment_is_pr_deployment=${{ github.event_name == 'pull_request' && '1' || '0' }}
-          next_deployment_number=$((pr_deployments + comment_deployments + next_deployment_is_pr_deployment))
-          echo "Next Deployment Number is $pr_deployments + $comment_deployments + $next_deployment_is_pr_deployment = $next_deployment_number"
+          next_deployment_number=$((${{ steps.previous-deploys.outputs.deployments}} + next_deployment_is_pr_deployment))
+          echo "Next Deployment Number is ${{ steps.previous-deploys.outputs.deployments }} + $next_deployment_is_pr_deployment = $next_deployment_number"
           echo "next-deployment-number=$next_deployment_number" >> $GITHUB_OUTPUT
 
           version="pr${{ inputs.pr }}-$next_deployment_number"
