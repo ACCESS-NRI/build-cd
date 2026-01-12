@@ -132,8 +132,14 @@ jobs:
 
       - name: Spack Manifest - Modules Injection
         # Injects relevant module projections and includes into the spack manifest so users don't have to
-        working-directory: build-cd
+        id: modules-injection
+        working-directory: cd
         run: |
+          original_root_spec_projection=$(yq '.spack.modules.default.tcl.projections."${{ steps.manifest.outputs.root-spec-name }}"' ../${{ inputs.spack-manifest-path }})
+          if [[ "$original_root_spec_projection" != "null" ]]; then
+            echo "custom-projection=${original_root_spec_projection}" >> $GITHUB_OUTPUT
+          fi
+
           python -m scripts.spack_manifest.injection.modules \
             --manifest ../${{ inputs.spack-manifest-path }} \
             --packages "${{ steps.config-packages.outputs.packages-for-injection }}" \
