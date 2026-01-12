@@ -157,6 +157,11 @@ jobs:
     # A lot of outputs, versions for repositories are taken from different sources:
     #   Taken from central build-cd config/settings.json: spack (SHA), spack-config, builtin spack-packages
     #   Taken from caller config/versions.json: spack (branch), access-spack-packages
+    env:
+      # Paths prepended with actions/checkout path argument
+      mdr-config-versions-json-path: model/config/versions.json
+      mdr-config-packages-json-path: model/config/packages.json
+      build-cd-config-settings-json-path: build-cd/config/settings.json
     outputs:
       spack-version: ${{ steps.config-versions-refs.outputs.spack-branch }}
       spack-git-hash: ${{ steps.spack-sha.outputs.sha }}
@@ -184,20 +189,20 @@ jobs:
         with:
           schema-version: ${{ inputs.config-versions-schema-version }}
           schema-location: au.org.access-nri/model/deployment/config/versions
-          data-location: ./model/config/versions.json
+          data-location: ${{ env.mdr-config-versions-json-path }}
 
       - name: '${{ github.repository }}: Validate config/packages.json'
         uses: access-nri/schema/.github/actions/validate-with-schema@main
         with:
           schema-version: ${{ inputs.config-packages-schema-version }}
           schema-location: au.org.access-nri/model/deployment/config/packages
-          data-location: ./model/config/packages.json
+          data-location: ${{ env.mdr-config-packages-json-path }}
 
       - name: '${{ github.repository }}: Get repository refs from config/versions.json'
         id: config-versions-refs
         run: |
-          echo "spack-branch=$(jq --compact-output --raw-output '.spack' model/config/versions.json)" >> $GITHUB_OUTPUT
-          echo "access-spack-packages-ref=$(jq --compact-output --raw-output '."access-spack-packages"' model/config/versions.json)" >> $GITHUB_OUTPUT
+          echo "spack-branch=$(jq --compact-output --raw-output '.spack' ${{ env.mdr-config-versions-json-path}})" >> $GITHUB_OUTPUT
+          echo "access-spack-packages-ref=$(jq --compact-output --raw-output '."access-spack-packages"' ${{ env.mdr-config-versions-json-path }})" >> $GITHUB_OUTPUT
 
       - name: '${{ github.repository }}: Validate spack branch'
         id: spack-branch-check
@@ -218,13 +223,13 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: access-nri/build-cd
-          path: cd
+          path: build-cd
 
       - name: 'build-cd: Validate config/settings.json'
         id: settings
         uses: access-nri/build-cd/.github/actions/validate-deployment-settings@v8
         with:
-          settings-path: ./cd/config/settings.json
+          settings-path: ${{ env.build-cd-config-settings-json-path }}
           target: ${{ inputs.deployment-target }}
 
       - name: 'build-cd: Get repository refs from config/settings.json'
@@ -233,7 +238,7 @@ jobs:
           refs_for_deployment=$(jq \
               --arg spack_version "${{ steps.config-versions-refs.outputs.spack-branch }}" \
               '.deployment.${{ inputs.deployment-target }}.${{ inputs.deployment-type }}[$spack_version]' \
-              cd/config/settings.json
+              ${{ env.build-cd-config-settings-json-path }}
           )
 
           echo "$refs_for_deployment"
