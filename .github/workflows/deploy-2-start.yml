@@ -133,7 +133,7 @@ jobs:
       - name: Spack Manifest - Modules Injection
         # Injects relevant module projections and includes into the spack manifest so users don't have to
         id: modules-injection
-        working-directory: cd
+        working-directory: build-cd
         run: |
           original_root_spec_projection=$(yq '.spack.modules.default.tcl.projections."${{ steps.manifest.outputs.root-spec-name }}"' ../${{ inputs.spack-manifest-path }})
           if [[ "$original_root_spec_projection" != "null" ]]; then
