@@ -93,6 +93,12 @@ jobs:
           deployment-type: ${{ inputs.deployment-type }}
           spack-environment: ${{ inputs.env-name }}
 
+      - name: Get manifest info
+        id: manifest
+        uses: access-nri/build-cd/.github/actions/get-spack-root-spec@v8
+        with:
+          spack-manifest-path: ${{ inputs.spack-manifest-path }}
+
       - name: Setup SSH
         id: ssh
         uses: access-nri/actions/.github/actions/setup-ssh@main
