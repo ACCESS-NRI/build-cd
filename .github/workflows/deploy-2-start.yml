@@ -245,15 +245,23 @@ jobs:
           spack find --paths > ${{ steps.path.outputs.spack-environment }}/spack.location
 
           # output the root-spec-pkg-hash into a file that is accessible outside the ssh session
-          echo "root-spec-pkg-hash=$(spack find --format '{hash}' ${{ inputs.expected-root-spec-name }})" > ${{ steps.path.outputs.spack-environment }}/root-spec-pkg-hash.${{ github.run_id }}
+          # FIXME: We currently pick the first root spec, in the unsupported cases there are multiple root specs. See #333
+          root_spec_hashes=$(spack find --format '{hash}' ${{ inputs.expected-root-spec-name }})
+
+          if [ $(wc -l <<<"$root_spec_hashes") -gt 1 ]; then
+            echo "::warning::Multiple root specs found for ${{ inputs.expected-root-spec-name }}. Using the first one, as multiple root specs are currently unsupported."
+          fi
+
+          root_spec_hash=$(head -n 1 <<< "$root_spec_hashes")
+          echo "$root_spec_hash" > ${{ steps.path.outputs.spack-environment }}/root-spec-pkg-hash.${{ github.run_id }}
 
           # Get the information associated with the packages for the build database
           jq -n '[]' > ${{ steps.path.outputs.spack-environment }}/build-db-pkgs.json
 
           for pkg in ${{ steps.config-packages.outputs.packages-for-provenance }}; do
-            hash=$(spack find --format '{hash}' $pkg)
-            version=$(spack find --format '{version}' $pkg)
-            location=$(spack find --format '{prefix}' $pkg)
+            hash=$(spack find --format "{^${pkg}.hash}" /$root_spec_hash)
+            version=$(spack find --format '{version}' /$hash)
+            location=$(spack find --format '{prefix}' /$hash)
             pkg_repo_url=$(spack python -c "import spack.spec; print(spack.spec.Spec('$pkg').package_class.git)")
 
             # We need to create a tmp output file as jq doesn't support in-place read/write
@@ -278,7 +286,7 @@ jobs:
             ${{ secrets.USER }}@${{ secrets.HOST }}:${{ steps.path.outputs.spack-environment }}/root-spec-pkg-hash.${{ github.run_id }} \
             ./root-spec-pkg-hash.${{ github.run_id }}
 
-          echo "$(cat ./root-spec-pkg-hash.${{ github.run_id }})" >> $GITHUB_OUTPUT
+          echo "root-spec-pkg-hash=$(cat ./root-spec-pkg-hash.${{ github.run_id }})" >> $GITHUB_OUTPUT
           rm ./root-spec-pkg-hash.${{ github.run_id }}
 
       - name: Tar spack environment metadata
