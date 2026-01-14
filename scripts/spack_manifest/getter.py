@@ -1,6 +1,5 @@
 from typing import Any
 import re
-from unittest import case
 
 # from yaml import safe_load is loaded in the class methods from_file as that is the only place it is used
 
@@ -16,6 +15,51 @@ class NoSectionComponentError(Exception):
 
     pass
 
+class Specs:
+    def __init__(self, manifest: dict[str, Any]):
+        self.manifest = manifest
+
+        self.specs: list[str] = self._get_specs_from_manifest_or_raise()
+
+    def _get_specs_from_manifest_or_raise(self) -> list[str]:
+        defs: list[dict[str, Any]] = self.manifest.get("spack", {}).get(
+            "definitions", []
+        )
+        specs: list[str] = self.manifest.get("spack", {}).get("specs", [])
+
+        # It's either in the multi-target format or the single target format, we just need to find which
+        # The multi-target format is of the form:
+        # spack:
+        #   definitions:
+        #     - ROOT_PACKAGE: [access-om2@git.2025.05]
+        #     # ...
+        # FIXME: Multi-target-formatted specs only have the first one picked up. See ACCESS-NRI/build-cd#343
+        root_package_def = next(
+            (d["ROOT_PACKAGE"] for d in defs if "ROOT_PACKAGE" in d), []
+        )
+        if root_package_def != []:
+            return [root_package_def[0]]
+        elif len(specs) != 0:
+            return specs
+        else:
+            raise NoSectionError(
+                "No specs defined in the manifest spack.specs section for a single-target manifest."
+            )
+
+    @classmethod
+    def from_file(cls, manifest_path: str) -> "RootSpec":
+        from yaml import safe_load
+
+        with open(manifest_path, "r") as file:
+            manifest = safe_load(file)
+
+        return cls(manifest)
+
+    def get_specs(self) -> list[str]:
+        return self.specs
+
+    def get_specs_with_name(self, name: str) -> list[str]:
+        return [s for s in self.specs if s.startswith(name)]
 
 class ReservedDefinitions:
     def __init__(self, manifest: dict[str, Any]):
@@ -326,4 +370,14 @@ class Projections:
             .get("default", {})
             .get("tcl", {})
             .get("projections", {})
+        )
+
+    def get_projection_with_name(self, name: str) -> str | None:
+        return (
+            self.manifest.get("spack", {})
+            .get("modules", {})
+            .get("default", {})
+            .get("tcl", {})
+            .get("projections", {})
+            .get(name, None)
         )

@@ -132,14 +132,8 @@ jobs:
 
       - name: Spack Manifest - Modules Injection
         # Injects relevant module projections and includes into the spack manifest so users don't have to
-        id: modules-injection
         working-directory: build-cd
         run: |
-          original_root_spec_projection=$(yq '.spack.modules.default.tcl.projections."${{ steps.manifest.outputs.root-spec-name }}"' ../${{ inputs.spack-manifest-path }})
-          if [[ "$original_root_spec_projection" != "null" ]]; then
-            echo "custom-projection=${original_root_spec_projection}" >> $GITHUB_OUTPUT
-          fi
-
           python -m scripts.spack_manifest.injection.modules \
             --manifest ../${{ inputs.spack-manifest-path }} \
             --packages "${{ steps.config-packages.outputs.packages-for-injection }}" \
@@ -155,8 +149,7 @@ jobs:
       - name: Spack Manifest - Prerelease Injection
         if: inputs.deployment-type == 'Prerelease'
         # Modifies the name of the prerelease modulefile to the pr<number>-<deployment number>` style.
-        # Also removes the `@git.VERSION` specifier for Prereleases as it is a tag that doesn't yet exist.
-        # Also adds a repos section that points to the prereleases specific spack-packages repo.
+        # Also adds a repos section that points to the prereleases specific access-spack-packages repo.
         working-directory: build-cd
         run: |
           python -m scripts.spack_manifest.injection.prerelease \
@@ -164,7 +157,6 @@ jobs:
             --version ${{ inputs.version }} \
             --spack-packages-path ${{ steps.path.outputs.spack-environment }}/access-spack-packages \
             --spack-packages-version-sha ${{ steps.packages-ref.outputs.sha }} \
-            ${{ steps.modules-injection.outputs.custom-projection != '' && format('--custom-root-projection {0}', steps.modules-injection.outputs.custom-projection ) || ''}} \
             --output ../${{ inputs.spack-manifest-path }}
 
       - name: Copy ${{ inputs.spack-manifest-path }}

@@ -8,6 +8,7 @@ from scripts.spack_manifest.getter import (
     Packages,
     Includes,
     Projections,
+    Specs
 )
 
 # For sequence definitions, we keep it in the flow-style format (i.e., [a, b, c]) rather than block style
@@ -107,10 +108,10 @@ def inject_projections(
     # To start with, add the projections that are already defined in the manifest
     new_projections: dict[str, str] = dict(defined_projections_dict)
 
-    if root_spec not in defined_projections:
-        new_projections.update(
-            generate_projection_for_root_spec_or_raise(manifest, root_spec)
-        )
+    # if root_spec not in defined_projections:
+    new_projections.update(
+        generate_projection_for_root_spec_or_raise(manifest, root_spec, defined_projections_dict.get(root_spec))
+    )
 
     for projection in projections_to_generate:
         new_projections.update(
@@ -157,24 +158,41 @@ def inject_includes(
 
 
 def generate_projection_for_root_spec_or_raise(
-    manifest: dict[str, Any], root_spec_name: str
+    manifest: dict[str, Any],
+    root_spec_name: str,
+    root_spec_projection: str | None = None
 ) -> dict[str, str]:
     reserved_definitions_getter = ReservedDefinitions(manifest)
+    specs_getter = Specs(manifest)
 
-    deployment_name_from_definition: str = reserved_definitions_getter.get("name")
     version = reserved_definitions_getter.get("version")
-
-    if deployment_name_from_definition != root_spec_name:
-        raise ValueError(
-            f"Expected root spec name '{root_spec_name}' does not match the name in the _name reserved definition: '{deployment_name_from_definition}'. The --root-spec needs to be defined the same as the actual _name."
-        )
 
     print(
         f"Extracted version '{version}' from _version definition'"
     )
 
-    # We don't add a hash to the root spec projection, as it is a unique deployment
-    return {root_spec_name: f"{{name}}/{version}"}
+    if root_spec_projection:
+        # We have a custom projection defined for the root spec, so we need to respect that
+        projection_components = root_spec_projection.split("/", 1)
+
+        if len(projection_components) == 1:
+            updated_version: str = f"{{name}}/{version}/{projection_components[0]}"
+        else:
+            updated_version: str = f"{{name}}/{version}/{projection_components[1]}"
+
+        print(f"Root spec already had a projection ({root_spec_projection}) so we infix the the version ({version}) to give: {updated_version}")
+
+        return {root_spec_name: updated_version}
+
+    root_specs_in_speclist = len(specs_getter.get_specs_with_name(root_spec_name))
+
+    if root_specs_in_speclist == 0:
+        raise ValueError(f"No specs with name {root_spec_name} in speclist")
+    elif root_specs_in_speclist == 1:
+        return {root_spec_name: f"{{name}}/{version}"}
+    else:
+        # If there are multiple of the same root spec (for example, different variants housed under the same environment), we need to demarcate the modulefile with a spack package hash
+        return {root_spec_name: f"{{name}}/{version}/{{hash:7}}"}
 
 
 def generate_projection_for_package_or_raise(
