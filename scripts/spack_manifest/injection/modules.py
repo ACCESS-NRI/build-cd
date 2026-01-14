@@ -34,7 +34,7 @@ def main():
     # Get inputs
     args = parse_args(sys.argv[1:])
 
-    packages: set[str] = set(args.packages.split())
+    packages: set[str] = set(args.packages.split(","))
 
     with open(args.manifest, "r") as file:
         manifest: dict[str, Any] = yaml.safe_load(file)
@@ -237,7 +237,7 @@ def parse_args(args: list[str]) -> argparse.Namespace:
         "--packages",
         type=str,
         required=True,
-        help="List of space-separated packages (excluding the root spec) to be considered for projection injection",
+        help="List of comma-separated packages (excluding the root spec) to be considered for projection injection",
     )
 
     parser.add_argument(
@@ -248,12 +248,6 @@ def parse_args(args: list[str]) -> argparse.Namespace:
     )
 
     parsed_args = parser.parse_args(args)
-
-    # Verifying that --packages are space-separated, which is a bit different from the usual comma-separated lists
-    if "," in parsed_args.packages:
-        raise ValueError(
-            "The --packages argument must be a space-separated list of package names."
-        )
 
     return parsed_args
 

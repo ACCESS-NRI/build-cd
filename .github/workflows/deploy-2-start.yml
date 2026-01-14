@@ -121,7 +121,7 @@ jobs:
       - name: Spack Manifest - Get Provenance and Injection Packages
         id: config-packages
         run: |
-          packages_for_injection=$(jq -cr '.provenance + .injection | join(" ")' config/packages.json)
+          packages_for_injection=$(jq -cr '.provenance + .injection | join(",")' config/packages.json)
           packages_for_provenance=$(jq -cr '.provenance | join(" ")' config/packages.json)
 
           echo "Packages to be injected: $packages_for_injection"
@@ -136,7 +136,7 @@ jobs:
         run: |
           python -m scripts.spack_manifest.injection.modules \
             --manifest ../${{ inputs.spack-manifest-path }} \
-            --packages "${{ steps.config-packages.outputs.packages-for-injection }}" \
+            --packages ${{ steps.config-packages.outputs.packages-for-injection }} \
             --output ../${{ inputs.spack-manifest-path }}
 
       - name: Get SHA for access-spack-packages repository
