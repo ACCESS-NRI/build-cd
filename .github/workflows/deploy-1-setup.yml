@@ -302,6 +302,17 @@ jobs:
         with:
           spack-manifest-path: ${{ inputs.spack-manifest-path }}
 
+      - name: Disallow multi-spec Releases
+        if: inputs.deployment-type == 'Release'
+        # FIXME: Once the necessary infrastructure/guidance is in place, remove this step. See ACCESS-NRI/build-cd#344
+        run: |
+          root_specs=$(yq '.spack.specs | select(.[] == "${{ steps.current.outputs.deployment-name }}*") | length' ${{ inputs.spack-manifest-path }})
+
+          if [ "$root_specs" -gt 1 ]; then
+            echo "::error::We don't yet support multiple root specs with the same package name. Contact the Model Release Team for information."
+            exit 1
+          fi
+
       - name: Checkout base (${{ inputs.prerelease-compare-ref }}) spack manifest
         if: inputs.deployment-type != 'Release'
         continue-on-error: true
