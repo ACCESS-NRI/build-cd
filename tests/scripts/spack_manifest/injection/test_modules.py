@@ -37,13 +37,13 @@ class TestParseArgs:
             "--manifest",
             "tests/scripts/spack_manifest/injection/inputs/spack.yaml",
             "--packages",
-            "mom5 cice5 libaccessom2"
+            "mom5,cice5,libaccessom2"
         ]
 
         parsed_args = parse_args(args)
 
         assert parsed_args.manifest == "tests/scripts/spack_manifest/injection/inputs/spack.yaml"
-        assert parsed_args.packages == "mom5 cice5 libaccessom2"
+        assert parsed_args.packages == "mom5,cice5,libaccessom2"
         assert parsed_args.output is None, "Output should be None when not specified."
 
 
@@ -54,25 +54,14 @@ class TestParseArgs:
             "--output",
             "output.yaml",
             "--packages",
-            "mom5 cice5 libaccessom2"
+            "mom5,cice5,libaccessom2"
         ]
 
         parsed_args = parse_args(args)
 
         assert parsed_args.manifest == "tests/scripts/spack_manifest/injection/inputs/spack.yaml"
         assert parsed_args.output == "output.yaml"
-        assert parsed_args.packages == "mom5 cice5 libaccessom2"
-
-    def test_parse_args__invalid_comma_separated_packages(self):
-        args = [
-            "--manifest",
-            "tests/scripts/spack_manifest/injection/inputs/spack.yaml",
-            "--packages",
-            "mom5,cice5,libaccessom2"
-        ]
-
-        with pytest.raises(ValueError):
-            parse_args(args)
+        assert parsed_args.packages == "mom5,cice5,libaccessom2"
 
 
 class TestGenerateProjectionForRootSpecOrRaise:

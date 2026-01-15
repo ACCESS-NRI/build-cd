@@ -7,6 +7,7 @@ from scripts.spack_manifest.getter import (
     Packages,
     Includes,
     Projections,
+    Specs,
     NoSectionError,
     NoSectionComponentError,
 )
@@ -498,3 +499,41 @@ class TestIncludesGetter:
         assert (
             result == expected
         ), "Manifest without a modules section should return an empty set."
+
+
+class TestSpecsGetter:
+    @pytest.mark.parametrize(
+        "specs",
+        [
+            ["access-om2"],  # Single root spec
+            ["access-om2 +var", "access-om2 ~var"]  # Multiple root specs
+        ]
+    )
+    def test_get_specs__valid(self, specs):
+        manifest = {"spack": {"specs": specs}}
+
+        assert Specs(manifest).get_specs() == specs, "Should return all specs"
+
+    @pytest.mark.parametrize(
+        "specs,expected",
+        [
+            (["access-om2", "access-om3"], ["access-om2"]),  # Single root spec
+            (["access-om2 +var", "access-om2 ~var", "access-om3"], ["access-om2 +var", "access-om2 ~var"])  # Multiple root specs
+        ]
+    )
+    def test_get_specs_with_name__exist(self, specs, expected):
+        manifest = {"spack": {"specs": specs}}
+
+        assert Specs(manifest).get_specs_with_name("access-om2") == expected, "Should return specs with the given name"
+
+    @pytest.mark.parametrize(
+        "specs",
+        [
+            ["access-om3"],
+            ["access-om3 +var", "access-om3 ~var"]
+        ]
+    )
+    def test_get_specs_with_name__no_exist(self, specs):
+        manifest = {"spack": {"specs": specs}}
+
+        assert Specs(manifest).get_specs_with_name("access-om2") == [], "Should return no specs"

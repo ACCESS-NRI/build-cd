@@ -46,7 +46,7 @@ spack:
         - libaccessom2
         - oasis3-mct
         projections:
-          access-om2: '{name}/pr12-12/2024.03.0'
+          access-om2: '{name}/pr12-12'
           mom5: 'access-om2/dependencies/pr12-12/{name}/2023.11.09-{hash:7}'
   repos:
     access_spack_packages:
