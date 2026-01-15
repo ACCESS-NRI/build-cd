@@ -18,43 +18,35 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Clone build-cd script location
+      uses: actions/checkout@v4
+      with:
+        repository: access-nri/build-cd
+        path: ${{ github.workspace }}/getter-script
+
+    - name: Get Current Directory
+      id: script
+      # We need to store the current working directory so we can re-construct the inputs.spack-manifest-path, as we run
+      # the script from the build-cd directory
+      shell: bash
+      run: |
+        pwd=$(pwd)
+        echo "Action PWD: $pwd"
+        echo "pwd=$pwd" >> $GITHUB_OUTPUT
+
     - name: Get reserved definitions
       id: defs
-      shell: bash
-      # Converts an array of spack definitions into a simpler object of
-      # only reserved definitions and their values, for later processing.
-      # From:
-      #   spack:
-      #     definitions:
-      #       - _name: [test-model]
-      #       - _version: [1.0.0]
-      #       - compilers: [gcc@10.2.0, intel@2025.10.0]
-      # To:
-      #   _name: test-model
-      #   _version: 1.0.0
+      env:
+        PYTHONPATH: ${{ github.workspace }}/getter-script
+      shell: python
       run: |
-        reserved_definitions=$(yq '.spack.definitions[] | to_entries[] | select(.key == "_*") | {(.key): (.value[0])}' ${{ inputs.spack-manifest-path }})
+        from scripts.spack_manifest.getter import ReservedDefinitions
+        import os
 
-        if [ -z "$reserved_definitions" ]; then
-          echo "::error::No reserved definitions found in spack manifest - some of them are required for deployment"
-          exit 1
-        fi
+        defs = ReservedDefinitions.from_file("${{ steps.script.outputs.pwd }}/${{ inputs.spack-manifest-path }}")
+        name = defs.get("name")
+        version = defs.get("version")
 
-        name=$(yq "._name" <<< "$reserved_definitions")
-        if [["$name" == "null" ]]; then
-          echo "::error::No deployment name (_name) found in spack manifest reserved definitions"
-          exit 1
-        fi
-
-        version=$(yq "._version" <<< "$reserved_definitions")
-        if [["$version" == "null" ]]; then
-          echo "::error::No deployment version (_version) found in spack manifest reserved definitions"
-          exit 1
-        fi
-
-        echo "Given reserved definitions:"
-        echo "$reserved_definitions"
-        echo "We have extracted name: $name, and version: $version"
-
-        echo "name=$name" >> $GITHUB_OUTPUT
-        echo "version=$version" >> $GITHUB_OUTPUT
+        with open(os.environ['GITHUB_OUTPUT'], 'a') as o:
+          o.write(f"name={name}\n")
+          o.write(f"version={version}\n")
