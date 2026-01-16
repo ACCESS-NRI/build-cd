@@ -235,71 +235,22 @@ jobs:
           echo "DEPLOYMENT_TARGET exported as $DEPLOYMENT_TARGET"
 
           . ${{ steps.path.outputs.spack-config }}/spack-enable.bash
-          spack env activate ${{ inputs.env-name }}
-
-          spack find --paths > ${{ steps.path.outputs.spack-environment }}/spack.location
-
-          # output the root-spec-pkg-hash into a file that is accessible outside the ssh session
-          # FIXME: We currently pick the first root spec, in the unsupported cases there are multiple root specs. See #333
-          root_spec_hashes=$(spack find --format '{hash}' ${{ inputs.expected-root-spec-name }})
-
-          if [ $(wc -l <<<"$root_spec_hashes") -gt 1 ]; then
-            echo "::warning::Multiple root specs found for ${{ inputs.expected-root-spec-name }}. Using the first one, as multiple root specs are currently unsupported."
-          fi
-
-          root_spec_hash=$(head -n 1 <<< "$root_spec_hashes")
-          echo "$root_spec_hash" > ${{ steps.path.outputs.spack-environment }}/root-spec-pkg-hash.${{ github.run_id }}
-
-          # Get the information associated with the packages for the build database
-          jq -n '[]' > ${{ steps.path.outputs.spack-environment }}/build-db-pkgs.json
-
-          for pkg in ${{ steps.config-packages.outputs.packages-for-provenance }}; do
-            hash=$(spack find --format "{^${pkg}.hash}" /$root_spec_hash)
-            version=$(spack find --format '{version}' /$hash)
-            location=$(spack find --format '{prefix}' /$hash)
-            pkg_repo_url=$(spack python -c "print(spack.repo.PATH.get_pkg_class('$pkg').git)")
-
-            binaries=$(find $location -path "*/bin/*" -executable)
-            md5_entries=""
-            for binary in $binaries; do
-              md5sum $binary > $binary.md5
-              printf -v md5_entry '{"path": "%s", "md5": "%s"}' "$binary" "$(md5sum $binary | cut -d ' ' -f 1)"
-              md5_entries+="${md5_entry},"
-            done
-            md5_list="[${md5_entries%,}]"
-
-            # We need to create a tmp output file as jq doesn't support in-place read/write
-            jq \
-              --arg p "$pkg" \
-              --arg v "$version" \
-              --arg h "$hash" \
-              --arg l "$location" \
-              --arg r "$pkg_repo_url" \
-              --argjson md5s "$md5_list" \
-              '. += [{
-                "name": $p,
-                "version": $v,
-                "hash": $h,
-                "location": $l,
-                "url": $r,
-                "md5s": $md5s
-              }]' \
-              ${{ steps.path.outputs.spack-environment }}/build-db-pkgs.json > ${{ steps.path.outputs.spack-environment }}/build-db-pkgs.json.tmp
-
-            mv -f ${{ steps.path.outputs.spack-environment }}/build-db-pkgs.json.tmp ${{ steps.path.outputs.spack-environment }}/build-db-pkgs.json
-          done
-
-          spack env deactivate
+          # FIXME: How do we get this script onto the target? How do we deal with concurrent access issues? Put it in the environment as well?
+          ./scripts/release_provenance/get_data_from_deployment.py \
+            --environment ${{ steps.path.outputs.spack-environment }} \
+            --deployment-name ${{ inputs.expected-root-spec-name }} \
+            --packages ${{ steps.config-packages.outputs.packages-for-provenance }}
+            --output ${{ steps.path.outputs.spack-environment }}
           EOT
 
           # Output root spec package hash from ssh session
           rsync -e 'ssh -i ${{ steps.ssh.outputs.private-key-path }}' \
             --remove-source-files \
-            ${{ secrets.USER }}@${{ secrets.HOST }}:${{ steps.path.outputs.spack-environment }}/root-spec-pkg-hash.${{ github.run_id }} \
-            ./root-spec-pkg-hash.${{ github.run_id }}
+            ${{ secrets.USER }}@${{ secrets.HOST }}:${{ steps.path.outputs.spack-environment }}/root-spec-pkg-hash.txt \
+            ./root-spec-pkg-hash.txt
 
-          echo "root-spec-pkg-hash=$(cat ./root-spec-pkg-hash.${{ github.run_id }})" >> $GITHUB_OUTPUT
-          rm ./root-spec-pkg-hash.${{ github.run_id }}
+          echo "root-spec-pkg-hash=$(cat ./root-spec-pkg-hash.txt)" >> $GITHUB_OUTPUT
+          rm ./root-spec-pkg-hash.txt
 
       - name: Tar spack environment metadata
         # We want to attempt to tar up the .spack-env directory even if the install fails, so we can save inodes.
