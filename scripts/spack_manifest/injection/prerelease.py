@@ -11,40 +11,23 @@ from scripts.spack_manifest.getter import (
     Projections,
     Specs
 )
+from scripts.spack_manifest.injection.yaml_representer import (
+    YamlExplicitFlowStyleSequence,
+    YamlExplicitQuotedString,
+    yaml_explicit_flow_style_sequence_representer,
+    yaml_explicit_quoted_string_representer,
+    enforce_explicit_flow_style_definitions
+)
 
 
-# PyYaml by default dumps unquoted strings if they look unambiguous, and quoted strings otherwise.
-# PyYaml dumps '{name}/prX-Y' as a quoted str as it has '{' at the front and causes ambiguity
-# But 'ROOT_SPEC/.dependencies/prX-Y/VERSION-{hash:7}' is dumped as an unquoted str as it is unambiguous
-# So we need to wrap projections in a custom class that forces PyYaml to dump them as quoted strings.
-class YamlExplicitQuotedString(str):
-    pass
-
-def yaml_explicit_quoted_string_representer(dumper, data):
-    """
-    Custom representer for YAML to ensure that some strings are quoted explicitly.
-    This is necessary for strings that are used as projections in spack manifests.
-    """
-    return dumper.represent_scalar("tag:yaml.org,2002:str", data, style="'")
-
-# For sequence definitions, we keep it in the flow-style format (i.e., [a, b, c]) rather than block style
-# as it is more compact for reserved definitions.
-class YamlExplicitFlowStyleSequence(list[str]):
-    pass
-
-def yaml_explicit_flow_style_sequence_representer(dumper, data):
-    """
-    Custom representer for YAML to ensure that some sequences are represented in flow style.
-    This is necessary for sequences that are used as definitions in spack manifests.
-    """
-    return dumper.represent_sequence("tag:yaml.org,2002:seq", data, flow_style=True)
-
-
+# The yaml representer sometimes dumps ambiguous strings in the case of projections like `{name}/...` as unquoted strings,
+# which is not handled by spack very well.
 yaml.add_representer(YamlExplicitQuotedString, yaml_explicit_quoted_string_representer)
+
+# We represent reserved definitions as in flow-style sequences (eg. `[a]` rather than `- a`), so it is more compact.
 yaml.add_representer(YamlExplicitFlowStyleSequence, yaml_explicit_flow_style_sequence_representer)
 
 ### Actual methods begin here ###
-
 
 def inject_prerelease_information(
     manifest_path: str,
@@ -89,22 +72,6 @@ def inject_prerelease_information(
 
     return manifest_str
 
-def enforce_explicit_flow_style_definitions(manifest: dict[str, Any]) -> dict[str, Any]:
-    """
-    Ensure that the 'definitions' section of the manifest is represented in flow style.
-    This is necessary for spack manifests to ensure that definitions are correctly interpreted.
-    """
-    if "spack" in manifest and "definitions" in manifest["spack"]:
-        definitions: list[dict[str, Any]] = manifest["spack"]["definitions"]
-        for i in range(len(definitions)):
-            definition = definitions[i]
-            if len(definition) > 0:
-                reserved_definition, reserved_value_list = list(definition.items())[0]
-
-                if reserved_definition.startswith("_"):
-                    manifest["spack"]["definitions"][i][reserved_definition] = YamlExplicitFlowStyleSequence(reserved_value_list)
-
-    return manifest
 
 def add_namespace_to_other_projection_versions(
     manifest: dict[str, Any], root_spec_name: str, version: str
