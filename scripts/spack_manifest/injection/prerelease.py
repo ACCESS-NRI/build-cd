@@ -7,37 +7,31 @@ from typing import Any
 from copy import deepcopy
 
 from scripts.spack_manifest.getter import (
-    RootSpec,
+    ReservedDefinitions,
     Projections,
+    Specs
+)
+from scripts.spack_manifest.injection.yaml_representer import (
+    YamlExplicitFlowStyleSequence,
+    YamlExplicitQuotedString,
+    yaml_explicit_flow_style_sequence_representer,
+    yaml_explicit_quoted_string_representer,
+    enforce_explicit_flow_style_definitions
 )
 
 
-# PyYaml by default dumps unquoted strings if they look unambiguous, and quoted strings otherwise.
-# PyYaml dumps '{name}/prX-Y' as a quoted str as it has '{' at the front and causes ambiguity
-# But 'ROOT_SPEC/.dependencies/prX-Y/VERSION-{hash:7}' is dumped as an unquoted str as it is unambiguous
-# So we need to wrap projections in a custom class that forces PyYaml to dump them as quoted strings.
-class YamlExplicitQuotedString(str):
-    pass
-
-
-def yaml_explicit_quoted_string_representer(dumper, data):
-    """
-    Custom representer for YAML to ensure that some strings are quoted explicitly.
-    This is necessary for strings that are used as projections in spack manifests.
-    """
-    return dumper.represent_scalar("tag:yaml.org,2002:str", data, style="'")
-
-
+# The yaml representer sometimes dumps ambiguous strings in the case of projections like `{name}/...` as unquoted strings,
+# which is not handled by spack very well.
 yaml.add_representer(YamlExplicitQuotedString, yaml_explicit_quoted_string_representer)
 
-### Actual methods begin here ###
+# We represent reserved definitions as in flow-style sequences (eg. `[a]` rather than `- a`), so it is more compact.
+yaml.add_representer(YamlExplicitFlowStyleSequence, yaml_explicit_flow_style_sequence_representer)
 
+### Actual methods begin here ###
 
 def inject_prerelease_information(
     manifest_path: str,
     version: str,
-    custom_root_projection: str | None = None,
-    keep_root_spec_intact: bool = False,
     spack_packages_path: str | None = None,
     spack_packages_version_sha: str | None = None,
 ) -> str:
@@ -46,20 +40,16 @@ def inject_prerelease_information(
     with open(manifest_path, "r") as manifest_file:
         manifest: dict[str, Any] = yaml.safe_load(manifest_file)
 
-    root_spec_from_manifest = RootSpec(manifest)
-    root_spec_name = root_spec_from_manifest.get_name()
+    reserved_definitions_from_manifest = ReservedDefinitions(manifest)
+    root_spec_name = reserved_definitions_from_manifest.get("name")
 
     updated_manifest: dict[str, Any] = deepcopy(manifest)
 
-    # Remove @git.VERSION information from the root spec, since it will be a tag that does not yet exist for prereleases
-    # This does not include versions of the form @VERSION, which are the hallmark of software deployment repositories,
-    # or builds that explicitly ask to keep_root_spec_intact.
-    if not keep_root_spec_intact:
-        updated_manifest = remove_potential_root_spec_git_version(manifest)
-
-    # We want the root spec projection to be of the form {name}/prX-Y
+    # We want the root spec projection to be of the form {name}/prX-Y for single specs, and
+    # {name}/prX-Y/DEMARCATOR for multiple specs, so we don't have modulefile clashes.
+    # The DEMARCATOR can be a custom projection, or {hash:7} if not supplied.
     updated_manifest = update_root_spec_projection_version(
-        updated_manifest, root_spec_name, version, custom_root_projection
+        updated_manifest, root_spec_name, version
     )
 
     # We want all other projections to be of the form {name}/prX-Y/VERSION
@@ -72,6 +62,8 @@ def inject_prerelease_information(
         updated_manifest = add_prerelease_repos_section(
             updated_manifest, spack_packages_path, spack_packages_version_sha
         )
+
+    updated_manifest = enforce_explicit_flow_style_definitions(updated_manifest)
 
     # Dump the current dict, and add the non-standard 'repo::' section
     manifest_str: str = yaml.dump(
@@ -110,43 +102,32 @@ def add_namespace_to_other_projection_versions(
     return manifest
 
 
-def remove_potential_root_spec_git_version(manifest: dict[str, Any]) -> dict[str, Any]:
-    """
-    Remove the version information from the root spec in the manifest.
-    This is necessary for prerelease deployments where the version may not yet exist.
-    """
-    root_spec_from_manifest = RootSpec(manifest)
-    name = root_spec_from_manifest.get_name()
-    constraints = root_spec_from_manifest.get_non_version_constraints()
-
-    if root_spec_from_manifest.has_git_ref():
-        # Remove the @git version and then add later contraints back
-        manifest["spack"]["specs"][0] = f"{name} {constraints}".strip()
-    else:
-        print(
-            f"The root spec '{name}' does not have a git ref, so no changes are made."
-        )
-
-    return manifest
-
-
 def update_root_spec_projection_version(
-    manifest: dict[str, Any], root_spec_name: str, root_spec_version: str, custom_root_projection: str | None = None
+    manifest: dict[str, Any], root_spec_name: str, deployment_version: str
 ) -> dict[str, Any]:
-
-    if custom_root_projection is not None and custom_root_projection != "":
-        projection_components = custom_root_projection.split("/", 1)
-
-        if len(projection_components) == 1:
-            updated_version: str = f"{{name}}/{root_spec_version}/{projection_components[0]}"
-        else:
-            updated_version: str = f"{{name}}/{root_spec_version}/{projection_components[1]}"
-    else:
-        updated_version: str = f"{{name}}/{root_spec_version}"
-
     manifest.setdefault("spack", {}).setdefault("modules", {}).setdefault("default", {}).setdefault("tcl", {}).setdefault("projections", {})
 
-    manifest["spack"]["modules"]["default"]["tcl"]["projections"][root_spec_name] = updated_version
+    current_root_projection = Projections(manifest).get_projection_with_name(root_spec_name)
+    number_of_root_specs_in_speclist = len(Specs(manifest).get_specs_with_name(root_spec_name))
+
+    if current_root_projection:
+        # Essentially - replace the original version infix with the prX-Y style, and add back the custom suffix if there was one.
+        # For example:
+        #   {name}/2025.12.000 -> {name}/prX-Y
+        #   {name}/2025.12.000/{variant.x} -> {name}/prX-Y/{variant.x}
+        new_root_projection = re.sub(r"(.+?/)[^/]+(/.+)?", fr"\1{deployment_version}\2", current_root_projection)
+
+        if number_of_root_specs_in_speclist > 1 and re.match(fr"^.+?/{deployment_version}$", new_root_projection):
+            # If there are multiple of the same root spec, we need to demarcate them somehow if there was no custom suffix given.
+            # We use a short package hash as the demarcator if no custom suffix was given.
+            new_root_projection += "/{hash:7}"
+    else:
+        if number_of_root_specs_in_speclist == 1:
+            new_root_projection = f'{{name}}/{deployment_version}'
+        else:
+            new_root_projection = f'{{name}}/{deployment_version}/{{hash:7}}'
+
+    manifest["spack"]["modules"]["default"]["tcl"]["projections"][root_spec_name] = new_root_projection
 
     return manifest
 
@@ -190,22 +171,6 @@ def parse_args(args: list[str]) -> argparse.Namespace:
     )
 
     parser.add_argument(
-        "--custom-root-projection",
-        type=str,
-        required=False,
-        help="Custom projection string to be used for the root spec in the manifest",
-    )
-
-    # This option is for the special case where the root spec defined at the repository level (a bundle with
-    # a version that doesn't yet exist) is not the same as the root spec defined in the manifest (which could
-    # be a regular package with a meaningful version). This is not recommended, but can be useful for special builds.
-    parser.add_argument(
-        "--keep-root-spec-intact",
-        action="store_true",
-        help="If set, the root spec will not be modified to remove git version information.",
-    )
-
-    parser.add_argument(
         "--spack-packages-path",
         type=str,
         required=False,
@@ -236,8 +201,6 @@ def main():
     injected_manifest: str = inject_prerelease_information(
         args.manifest,
         args.version,
-        args.custom_root_projection,
-        args.keep_root_spec_intact,
         args.spack_packages_path,
         args.spack_packages_version_sha,
     )

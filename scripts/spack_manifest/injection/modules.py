@@ -4,11 +4,20 @@ import sys
 
 from typing import Any
 from scripts.spack_manifest.getter import (
-    RootSpec,
+    ReservedDefinitions,
     Packages,
     Includes,
     Projections,
+    Specs
 )
+from scripts.spack_manifest.injection.yaml_representer import (
+    YamlExplicitFlowStyleSequence,
+    yaml_explicit_flow_style_sequence_representer,
+    enforce_explicit_flow_style_definitions
+)
+
+# We represent reserved definitions as in flow-style sequences (eg. `[a]` rather than `- a`), so it is more compact.
+yaml.add_representer(YamlExplicitFlowStyleSequence, yaml_explicit_flow_style_sequence_representer)
 
 ##################
 # Main functions #
@@ -19,25 +28,30 @@ def main():
     # Get inputs
     args = parse_args(sys.argv[1:])
 
-    packages: set[str] = set(args.packages.split())
+    packages: set[str] = set(args.packages.split(","))
 
     with open(args.manifest, "r") as file:
         manifest: dict[str, Any] = yaml.safe_load(file)
 
     # Inject manifest with projections and includes
-    root_spec_name: str = RootSpec(manifest).get_name()
+
+    deployment_name: str = ReservedDefinitions(manifest).get("name")
 
     manifest_with_projections: dict[str, Any] = inject_projections(
-        manifest=manifest, root_spec=root_spec_name, packages=packages
+        manifest=manifest, root_spec=deployment_name, packages=packages
     )
 
     manifest_with_projections_and_includes: dict[str, Any] = inject_includes(
-        manifest=manifest_with_projections, root_spec=root_spec_name, packages=packages
+        manifest=manifest_with_projections, root_spec=deployment_name, packages=packages
+    )
+
+    finalized_manifest: dict[str, Any] = enforce_explicit_flow_style_definitions(
+        manifest_with_projections_and_includes
     )
 
     # Output the modified manifest
     dumped_manifest: str = yaml.dump(
-        manifest_with_projections_and_includes,
+        finalized_manifest,
         default_flow_style=False,
         sort_keys=False,
     )
@@ -47,7 +61,6 @@ def main():
     if args.output:
         with open(args.output, "w") as output_file:
             output_file.write(dumped_manifest)
-
 
 def inject_projections(
     manifest: str, root_spec: str, packages: set[str]
@@ -72,10 +85,9 @@ def inject_projections(
     # To start with, add the projections that are already defined in the manifest
     new_projections: dict[str, str] = dict(defined_projections_dict)
 
-    if root_spec not in defined_projections:
-        new_projections.update(
-            generate_projection_for_root_spec_or_raise(manifest, root_spec)
-        )
+    new_projections.update(
+        generate_projection_for_root_spec_or_raise(manifest, root_spec, defined_projections_dict.get(root_spec))
+    )
 
     for projection in projections_to_generate:
         new_projections.update(
@@ -122,24 +134,41 @@ def inject_includes(
 
 
 def generate_projection_for_root_spec_or_raise(
-    manifest: dict[str, Any], root_spec_name: str
+    manifest: dict[str, Any],
+    root_spec_name: str,
+    root_spec_projection: str | None = None
 ) -> dict[str, str]:
-    root_spec_getter = RootSpec(manifest)
+    reserved_definitions_getter = ReservedDefinitions(manifest)
+    specs_getter = Specs(manifest)
 
-    root_spec_name_from_definition: str = root_spec_getter.get_name()
-    version = root_spec_getter.get_ref()
-
-    if root_spec_name_from_definition != root_spec_name:
-        raise ValueError(
-            f"Expected root spec name '{root_spec_name}' does not match the name in the root spec definition '{root_spec_name_from_definition}'. The --root-spec needs to be defined the same as the actual root spec."
-        )
+    version = reserved_definitions_getter.get("version")
 
     print(
-        f"Extracted version '{version}' from root spec definition '{root_spec_getter.get()}'"
+        f"Extracted version '{version}' from _version definition'"
     )
 
-    # We don't add a hash to the root spec projection, as it is a unique deployment
-    return {root_spec_name: f"{{name}}/{version}"}
+    if root_spec_projection:
+        # We have a custom projection defined for the root spec, so we need to respect that
+        projection_components = root_spec_projection.split("/", 1)
+
+        if len(projection_components) == 1:
+            updated_version: str = f"{{name}}/{version}/{projection_components[0]}"
+        else:
+            updated_version: str = f"{{name}}/{version}/{projection_components[1]}"
+
+        print(f"Root spec already had a projection ({root_spec_projection}) so we infix the the version ({version}) to give: {updated_version}")
+
+        return {root_spec_name: updated_version}
+
+    root_specs_in_speclist = len(specs_getter.get_specs_with_name(root_spec_name))
+
+    if root_specs_in_speclist == 0:
+        raise ValueError(f"No specs with name {root_spec_name} in speclist")
+    elif root_specs_in_speclist == 1:
+        return {root_spec_name: f"{{name}}/{version}"}
+    else:
+        # If there are multiple of the same root spec (for example, different variants housed under the same environment), we need to demarcate the modulefile with a spack package hash
+        return {root_spec_name: f"{{name}}/{version}/{{hash:7}}"}
 
 
 def generate_projection_for_package_or_raise(
@@ -184,7 +213,7 @@ def parse_args(args: list[str]) -> argparse.Namespace:
         "--packages",
         type=str,
         required=True,
-        help="List of space-separated packages (excluding the root spec) to be considered for projection injection",
+        help="List of comma-separated packages (excluding the root spec) to be considered for projection injection",
     )
 
     parser.add_argument(
@@ -195,12 +224,6 @@ def parse_args(args: list[str]) -> argparse.Namespace:
     )
 
     parsed_args = parser.parse_args(args)
-
-    # Verifying that --packages are space-separated, which is a bit different from the usual comma-separated lists
-    if "," in parsed_args.packages:
-        raise ValueError(
-            "The --packages argument must be a space-separated list of package names."
-        )
 
     return parsed_args
 

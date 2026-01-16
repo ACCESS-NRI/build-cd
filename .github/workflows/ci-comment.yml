@@ -73,7 +73,7 @@ jobs:
 
       - name: Original version
         id: original
-        uses: access-nri/build-cd/.github/actions/get-spack-root-spec@v8
+        uses: access-nri/build-cd/.github/actions/get-spack-manifest@v8
 
       - name: Setup
         id: setup
@@ -99,11 +99,11 @@ jobs:
               echo "version=${tag_date}" >> $GITHUB_OUTPUT
               echo "bump=major" >> $GITHUB_OUTPUT
             else
-              echo "version=${{ steps.original.outputs.root-spec-ref }}" >> $GITHUB_OUTPUT
+              echo "version=${{ steps.original.outputs.deployment-version }}" >> $GITHUB_OUTPUT
               echo "bump=current" >> $GITHUB_OUTPUT
             fi
           elif [[ "${{ contains(github.event.comment.body, 'minor')}}" == "true" ]]; then
-            echo "version=${{ steps.original.outputs.root-spec-ref }}" >> $GITHUB_OUTPUT
+            echo "version=${{ steps.original.outputs.deployment-version }}" >> $GITHUB_OUTPUT
             echo "bump=minor" >> $GITHUB_OUTPUT
           else
             echo "::warning::Usage: `!bump [major|minor]`, got `${{ github.event.comment.body }}`"
@@ -131,22 +131,17 @@ jobs:
           git_tag_gpgsign: true
 
       - name: Update, Commit and Push the Bump
-        env:
-          # If the root spec contained an '=VERSION' segment, we want to add that back to the updated root spec, too
-          OPTIONAL_VERSION: ${{ steps.original.outputs.root-spec-version != '' && format('={0}', steps.original.outputs.root-spec-version) || '' }}
         run: |
-          updated_spec="${{ needs.defaults.outputs.root-sbd }}@git.${{ steps.bump.outputs.after }}${{ env.OPTIONAL_VERSION }}"
-          yq -i "${{ steps.original.outputs.yq-root-spec }} = \"$updated_spec\"" spack.yaml
-          yq -i '${{ env.SPACK_YAML_MODEL_PROJECTION_YQ }} = "{name}/${{ steps.bump.outputs.after }}"' spack.yaml
+          yq -i '.spack.definitions[]._version[0] = "${{ steps.bump.outputs.after }}"' spack.yaml
           git add spack.yaml
-          git commit -m "spack.yaml: Updated ${{ needs.defaults.outputs.root-sbd }} package version from ${{ steps.original.outputs.root-spec-ref }} to ${{ steps.bump.outputs.after }}"
+          git commit -m "spack.yaml: Updated deployment version from ${{ steps.original.outputs.deployment-version }} to ${{ steps.bump.outputs.after }}"
           git push
 
       - name: Success Notifier
         uses: access-nri/actions/.github/actions/pr-comment@main
         with:
           comment: |
-            :white_check_mark: Version bumped from `${{ steps.original.outputs.root-spec-ref }}` to `${{ steps.bump.outputs.after }}` :white_check_mark:
+            :white_check_mark: Version bumped from `${{ steps.original.outputs.deployment-version }}` to `${{ steps.bump.outputs.after }}` :white_check_mark:
 
       - name: Failure Notifier
         if: failure()

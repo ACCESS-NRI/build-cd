@@ -114,19 +114,19 @@ jobs:
           target: ${{ matrix.target }}
           error-level: error
 
-  get-root-spec-ref:
-    name: Get root spec ref
+  get-deployment-version:
+    name: Get Deployment Version
     runs-on: ubuntu-latest
     needs:
       - verify-settings
     outputs:
-      root-spec-ref: ${{ steps.tag.outputs.root-spec-ref }}
+      version: ${{ steps.manifest.outputs.deployment-version }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Get root spec ref
-        id: tag
-        uses: access-nri/build-cd/.github/actions/get-spack-root-spec@v8
+      - name: Get Deployment Version
+        id: manifest
+        uses: access-nri/build-cd/.github/actions/get-spack-manifest@v8
         with:
           spack-manifest-path: ${{ inputs.spack-manifest-path }}
 
@@ -135,7 +135,7 @@ jobs:
     if: inputs.tag-deployment
     runs-on: ubuntu-latest
     needs:
-      - get-root-spec-ref
+      - get-deployment-version
     permissions:
       contents: write
     steps:
@@ -155,13 +155,8 @@ jobs:
 
       - name: Push Tag
         env:
-          TAG: ${{ needs.get-root-spec-ref.outputs.root-spec-ref }}
+          TAG: ${{ needs.get-deployment-version.outputs.version }}
         run: |
-          if [[ "${{ env.TAG }}" == "latest" ]]; then
-            echo "::error::The version 'latest' is reserved for a spack package that moves often and cannot be used as a release tag. Reset the 'main' or 'backport' branch, reopen the merged PR, and update the version."
-            exit 1
-          fi
-
           git tag ${{ env.TAG }} -m "Deployment of ${{ inputs.model }} ${{ env.TAG }} via build-cd 'cd.yml' workflow"
           git push --tags
 
@@ -169,13 +164,13 @@ jobs:
     name: Deploy Release
     needs:
       - defaults
-      - get-root-spec-ref
+      - get-deployment-version
       - push-tag
     # Pushing tags is optional if we are doing a non-model deployment
     if: >-
       always() &&
       needs.defaults.result == 'success' &&
-      needs.get-root-spec-ref.result == 'success' &&
+      needs.get-deployment-version.result == 'success' &&
       (needs.push-tag.result == 'success' || needs.push-tag.result == 'skipped')
     strategy:
       matrix:
@@ -185,7 +180,7 @@ jobs:
       deployment-target: ${{ matrix.target }}
       deployment-ref: ${{ github.ref_name }}
       deployment-type: Release
-      deployment-version: ${{ needs.get-root-spec-ref.outputs.root-spec-ref }}
+      deployment-version: ${{ needs.get-deployment-version.outputs.version }}
       spack-manifest-path: ${{ inputs.spack-manifest-path }}
       expected-root-spec-name: ${{ needs.defaults.outputs.root-sbd }}
       spack-manifest-schema-path: ${{ inputs.spack-manifest-schema-path }}
@@ -204,7 +199,7 @@ jobs:
     if: inputs.tag-deployment
     needs:
       - defaults
-      - get-root-spec-ref
+      - get-deployment-version
       - push-tag
       - deploy-release
     runs-on: ubuntu-latest
@@ -245,7 +240,7 @@ jobs:
         id: release-body
         env:
           J2_MODEL: ${{ inputs.model }}
-          J2_VERSION: ${{ needs.get-root-spec-ref.outputs.root-spec-ref }}
+          J2_VERSION: ${{ needs.get-deployment-version.outputs.version }}
           J2_ROOT_SBD: ${{ needs.defaults.outputs.root-sbd }}
         run: |
           python -m scripts.jinja_template.render_deployment_info \
@@ -256,8 +251,8 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@69320dbe05506a9a39fc8ae11030b214ec2d1f87  # v2.0.5
         with:
-          tag_name: ${{ needs.get-root-spec-ref.outputs.root-spec-ref }}
-          name: ${{ inputs.model}} ${{ needs.get-root-spec-ref.outputs.root-spec-ref }}
+          tag_name: ${{ needs.get-deployment-version.outputs.version }}
+          name: ${{ inputs.model}} ${{ needs.get-deployment-version.outputs.version }}
           body_path: ${{ env.TEMPLATED_RELEASE_BODY_PATH }}
           generate_release_notes: true
           fail_on_unmatched_files: true
