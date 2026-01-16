@@ -31,7 +31,7 @@ class Specs:
         # The multi-target format is of the form:
         # spack:
         #   definitions:
-        #     - ROOT_PACKAGE: [access-om2@git.2025.05]
+        #     - ROOT_PACKAGE: [access-om2]
         #     # ...
         # FIXME: Multi-target-formatted specs only have the first one picked up. See ACCESS-NRI/build-cd#343
         root_package_def = next(

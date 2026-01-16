@@ -111,8 +111,6 @@ def update_root_spec_projection_version(
     number_of_root_specs_in_speclist = len(Specs(manifest).get_specs_with_name(root_spec_name))
 
     if current_root_projection:
-        new_root_projection = f'{{name}}/{deployment_version}'
-
         # Essentially - replace the original version infix with the prX-Y style, and add back the custom suffix if there was one.
         # For example:
         #   {name}/2025.12.000 -> {name}/prX-Y

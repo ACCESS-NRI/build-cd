@@ -132,7 +132,7 @@ jobs:
 
       - name: Update, Commit and Push the Bump
         run: |
-          yq -i '.spack.definitions[]._name[0] = "${{ steps.bump.outputs.after }}"' spack.yaml
+          yq -i '.spack.definitions[]._version[0] = "${{ steps.bump.outputs.after }}"' spack.yaml
           git add spack.yaml
           git commit -m "spack.yaml: Updated deployment version from ${{ steps.original.outputs.deployment-version }} to ${{ steps.bump.outputs.after }}"
           git push
