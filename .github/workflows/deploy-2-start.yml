@@ -210,11 +210,11 @@ jobs:
 
           # Finally, install the spack manifest
           spack --debug \
-            $(for s in ${{ env.SCOPES }}; do echo -n "--custom-scope=${{ env.SCOPES_PATH }}/$s "; done) \
+            $(for s in ${{ env.SCOPES }}; do echo -n "--config-scope=${{ env.SCOPES_PATH }}/$s "; done) \
             install --fail-fast --fresh ${{ vars.SPACK_INSTALL_ADDITIONAL_ARGS }} || exit $?
 
           spack \
-            $(for s in ${{ env.SCOPES }}; do echo -n "--custom-scope=${{ env.SCOPES_PATH }}/$s "; done) \
+            $(for s in ${{ env.SCOPES }}; do echo -n "--config-scope=${{ env.SCOPES_PATH }}/$s "; done) \
             module tcl refresh -y
           EOT
 
