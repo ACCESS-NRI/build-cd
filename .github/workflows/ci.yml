@@ -15,17 +15,6 @@ on:
         type: string
         required: true
         description: The model that is being tested and deployed
-      root-sbd:
-        type: string
-        required: false
-        # default: The ${{ inputs.model }} above
-        description: |
-          The name of the root Spack Bundle Definition, if it is different from the model name.
-          This is often a package named similarly in ACCESS-NRI/spack-packages.
-      pr:
-        type: string
-        required: true
-        description: The pull request number that will be deployed as a prerelease
       spack-manifest-path:
         type: string
         required: false
@@ -68,17 +57,17 @@ on:
   #     - edited
 env:
   RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+  PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
 jobs:
-  defaults:
-    name: Set Defaults
-    # Unfortunately, you can't set a dynamic default value based on `inputs` yet.
-    # We also set the PR and branch metadata here because it's used in multiple places,
+  init:
+    name: Setup CI
+    # We set the PR and branch metadata here because it's used in multiple places,
     # including the deploy reusable workflow, which can't access the `env` context.
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ github.token }}
     outputs:
-      root-sbd: ${{ steps.root-sbd.outputs.default }}
+      deployment-name: ${{ steps.manifest.outputs.deployment-name }}
       head-ref: ${{ steps.pr.outputs.head }}
       head-sha: ${{ steps.pr.outputs.sha }}
       base-ref: ${{ steps.pr.outputs.base }}
@@ -86,21 +75,12 @@ jobs:
       prerelease-version: ${{ steps.prerelease.outputs.version }}
       targets: ${{ steps.target.outputs.valid-targets }}
     steps:
-      - name: root-sbd default
-        id: root-sbd
-        run: |
-          if [[ "${{ inputs.root-sbd }}" == "" ]]; then
-            echo "default=${{ inputs.model }}" >> $GITHUB_OUTPUT
-          else
-            echo "default=${{ inputs.root-sbd }}" >> $GITHUB_OUTPUT
-          fi
-
       - name: PR metadata
         id: pr
         run: |
-          pr_metadata=$(gh pr view ${{ inputs.pr }} --repo ${{ github.repository }} --json headRefName,headRefOid,baseRefName)
+          pr_metadata=$(gh pr view ${{ env.PR_NUMBER }} --repo ${{ github.repository }} --json headRefName,headRefOid,baseRefName)
           if [ -z "$pr_metadata" ]; then
-            echo "::error::Failed to get PR ${{ inputs.pr }} metadata."
+            echo "::error::Failed to get PR ${{ env.PR_NUMBER }} metadata."
             exit 1
           fi
 
@@ -117,7 +97,7 @@ jobs:
             '$pr.baseRefName'
           )
 
-          echo "PR ${{ inputs.pr }} with '$head' ('$sha') -> '$base'"
+          echo "PR ${{ env.PR_NUMBER }} with '$head' ('$sha') -> '$base'"
           echo "head=$head" >> $GITHUB_OUTPUT
           echo "sha=$sha" >> $GITHUB_OUTPUT
           echo "base=$base" >> $GITHUB_OUTPUT
@@ -126,7 +106,7 @@ jobs:
         id: previous-deploys
         uses: access-nri/build-cd/.github/actions/get-pr-deployments@v7
         with:
-          pr: ${{ inputs.pr }}
+          pr: ${{ env.PR_NUMBER }}
 
       - name: Branch metadata
         id: prerelease
@@ -138,7 +118,7 @@ jobs:
           echo "Next Deployment Number is ${{ steps.previous-deploys.outputs.deployments }} + $next_deployment_is_pr_deployment = $next_deployment_number"
           echo "next-deployment-number=$next_deployment_number" >> $GITHUB_OUTPUT
 
-          version="pr${{ inputs.pr }}-$next_deployment_number"
+          version="pr${{ env.PR_NUMBER }}-$next_deployment_number"
           echo "Prerelease version will be $version"
           echo "version=$version" >> $GITHUB_OUTPUT
 
@@ -148,11 +128,21 @@ jobs:
         with:
           targets: ${{ vars.PRERELEASE_DEPLOYMENT_TARGETS }}
 
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.pr.outputs.head }}
+
+      - name: Get Deployment Name from Spack Manifest
+        id: manifest
+        uses: access-nri/build-cd/.github/actions/get-spack-manifest@v8
+        with:
+          spack-manifest-path: ${{ inputs.spack-manifest-path }}
+
   redeploy-pre:
     name: '!redeploy Pending'
     if: github.event_name == 'issue_comment' && startsWith(github.event.comment.body, '!redeploy')
     needs:
-      - defaults
+      - init
     runs-on: ubuntu-latest
     permissions:
       statuses: write
@@ -188,38 +178,38 @@ jobs:
         # We don't want to use history expansion (the '!')
         shell: bash +H {0}
         run: |
-          echo 'context=!redeploy Number ${{ needs.defaults.outputs.next-deployment-number }}' >> $GITHUB_OUTPUT
+          echo 'context=!redeploy Number ${{ needs.init.outputs.next-deployment-number }}' >> $GITHUB_OUTPUT
           echo 'description=Redeploy Prerelease' >> $GITHUB_OUTPUT
 
       - name: Set Commit Status Pending
         uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f  # v2.0.1
         with:
           status: pending
-          sha: ${{ needs.defaults.outputs.head-sha }}
+          sha: ${{ needs.init.outputs.head-sha }}
           context: ${{ steps.commit-status-args.outputs.context }}
           description: ${{ steps.commit-status-args.outputs.description }}
 
   deploy:
     name: Deploy
     needs:
-      - defaults
+      - init
     strategy:
       fail-fast: false
       matrix:
         # Example: ['Gadi', 'Setonix', ...]
-        target: ${{ fromJson(needs.defaults.outputs.targets) }}
+        target: ${{ fromJson(needs.init.outputs.targets) }}
     uses: access-nri/build-cd/.github/workflows/deploy-1-setup.yml@v8
     with:
       deployment-target: ${{ matrix.target }}
-      deployment-ref: ${{ needs.defaults.outputs.head-ref }}
+      deployment-ref: ${{ needs.init.outputs.head-ref }}
       deployment-type: Prerelease
       # The prerelease looks like: `pr<pull request number>-<number of deployments of pull request>`.
       # Ex. Pull Request #12 with 2 deployments on branch -> `pr12-2`.
       # Note that for multi-target prereleases, they share the same deployment number.
-      deployment-version: ${{ needs.defaults.outputs.prerelease-version }}
-      prerelease-compare-ref: ${{ needs.defaults.outputs.base-ref }}
+      deployment-version: ${{ needs.init.outputs.prerelease-version }}
+      prerelease-compare-ref: ${{ needs.init.outputs.base-ref }}
       spack-manifest-path: ${{ inputs.spack-manifest-path }}
-      expected-root-spec-name: ${{ needs.defaults.outputs.root-sbd }}
+      expected-root-spec-name: ${{ needs.init.outputs.deployment-name }}
       # Pass versions and paths for schemas into the deploy workflow
       spack-manifest-schema-path: ${{ inputs.spack-manifest-schema-path }}
       spack-manifest-schema-version: ${{ inputs.spack-manifest-schema-version }}
@@ -234,7 +224,7 @@ jobs:
     # failed, skipped, cancelled redeploy = failure commit status
     if: always() && needs.redeploy-pre.result == 'success'
     needs:
-      - defaults  # to get access to the head-sha
+      - init  # to get access to the head-sha
       - redeploy-pre  # to get the initial commit status context and description
       - deploy  # to get the overall status of this workflow
     runs-on: ubuntu-latest
@@ -252,7 +242,7 @@ jobs:
         uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f  # v2.0.1
         with:
           status: ${{ needs.deploy.result == 'success' && 'success' || 'failure' }}
-          sha: ${{ needs.defaults.outputs.head-sha }}
+          sha: ${{ needs.init.outputs.head-sha }}
           context: ${{ needs.redeploy-pre.outputs.commit-status-context }}
           description: ${{ needs.redeploy-pre.outputs.commit-status-description }}
 
@@ -260,7 +250,7 @@ jobs:
     name: Post-Deploy Notifier
     if: always()
     needs:
-      - defaults  # so we can access `inputs.root-sbd` that could have defaulted to `inputs.model`
+      - init  # so we can access `inputs.root-sbd` that could have defaulted to `inputs.model`
       - deploy  # so we can access deployment information such as versions used, status of deployments, etc.
     runs-on: ubuntu-latest
     permissions:
@@ -311,11 +301,11 @@ jobs:
         # Creates a comment of the form: https://github.com/ACCESS-NRI/ACCESS-TEST/pull/15#issuecomment-2558675980
         env:
           J2_MODEL: ${{ inputs.model }}
-          J2_PRERELEASE_VERSION: ${{ needs.defaults.outputs.prerelease-version }}
-          J2_ROOT_SBD: ${{ needs.defaults.outputs.root-sbd }}
+          J2_PRERELEASE_VERSION: ${{ needs.init.outputs.prerelease-version }}
+          J2_ROOT_SBD: ${{ needs.init.outputs.deployment-name }}
           J2_DEPLOYMENT_ERRORS: ${{ steps.deployment-rollup.outputs.errors }}
           J2_CONFIG_ERRORS: ${{ steps.config-rollup.outputs.errors }}
-          J2_HEAD_SHA: ${{ needs.defaults.outputs.head-sha }}
+          J2_HEAD_SHA: ${{ needs.init.outputs.head-sha }}
           J2_RUN_URL: ${{ env.RUN_URL }}
           J2_SPACK_MANIFEST_PATH: ${{ inputs.spack-manifest-path }}
         run: |
@@ -336,9 +326,9 @@ jobs:
           PR_BODY_PATH: ./body.txt
           PR_BODY_PATH_UPDATED: ./updated.body.txt
           PRERELEASE_SECTION_REGEX: "^:rocket: .* :rocket:$"
-          PRERELEASE_SECTION: ":rocket: The latest prerelease `${{ needs.defaults.outputs.root-sbd }}/${{ needs.defaults.outputs.prerelease-version }}` at ${{ needs.defaults.outputs.head-sha }} is here: ${{ steps.comment.outputs.comment-link }} :rocket:"
+          PRERELEASE_SECTION: ":rocket: The latest prerelease `${{ needs.init.outputs.deployment-name }}/${{ needs.init.outputs.prerelease-version }}` at ${{ needs.init.outputs.head-sha }} is here: ${{ steps.comment.outputs.comment-link }} :rocket:"
         run: |
-          gh pr view ${{ inputs.pr }} --repo ${{ github.repository }} --json body --jq .body > ${{ env.PR_BODY_PATH }}
+          gh pr view ${{ env.PR_NUMBER }} --repo ${{ github.repository }} --json body --jq .body > ${{ env.PR_BODY_PATH }}
 
           # `awk` is a series of `CONDITION { ACTION }` pairs. No 'CONDITION' means 'TRUE', no '{ ACTION }' means 'print'.
           if grep -q '${{ env.PRERELEASE_SECTION_REGEX }}' ${{ env.PR_BODY_PATH }}; then  # there is an existing prerelease section
@@ -354,4 +344,4 @@ jobs:
 
           cat ${{ env.PR_BODY_PATH_UPDATED }}
 
-          gh pr edit ${{ inputs.pr }} --repo ${{ github.repository }} --body-file ${{ env.PR_BODY_PATH_UPDATED }}
+          gh pr edit ${{ env.PR_NUMBER }} --repo ${{ github.repository }} --body-file ${{ env.PR_BODY_PATH_UPDATED }}
