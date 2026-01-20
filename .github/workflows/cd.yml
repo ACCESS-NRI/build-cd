@@ -9,14 +9,7 @@ on:
       model:
         type: string
         required: true
-        description: The model that is being tested and deployed
-      root-sbd:
-        type: string
-        required: false
-        # default: The ${{ inputs.model }} above
-        description: |
-          The name of the root Spack Bundle Definition, if it is different from the model name.
-          This is often a package named similarly in ACCESS-NRI/spack-packages.
+        description: The human-readable model name that is being tested and deployed
       spack-manifest-path:
         type: string
         required: false
@@ -72,22 +65,20 @@ env:
   METADATA_PATH: /opt/metadata
   OUTPUTS_PATH: /opt/outputs
 jobs:
-  defaults:
-    name: Set Defaults
-    # Unfortunately, you can't set a dynamic default value based on `inputs` yet
+  init:
+    name: Initialize Deployment
     runs-on: ubuntu-latest
     outputs:
-      root-sbd: ${{ steps.root-sbd.outputs.default }}
+      deployment-name: ${{ steps.manifest.outputs.deployment-name }}
       targets: ${{ steps.target.outputs.valid-targets }}
     steps:
-      - name: root-sbd
-        id: root-sbd
-        run: |
-          if [ -z "${{ inputs.root-sbd }}" ]; then
-            echo "default=${{ inputs.model }}" >> $GITHUB_OUTPUT
-          else
-            echo "default=${{ inputs.root-sbd }}" >> $GITHUB_OUTPUT
-          fi
+      - uses: actions/checkout@v4
+
+      - name: Get manifest
+        id: manifest
+        uses: access-nri/build-cd/.github.actions/get-spack-manifest@v8
+        with:
+          spack-manifest-path: ${{ inputs.spack-manifest-path }}
 
       - name: Generate Deployment Target Matrix
         id: target
@@ -99,10 +90,10 @@ jobs:
     name: Verify Deployment Settings
     runs-on: ubuntu-latest
     needs:
-      - defaults
+      - init
     strategy:
       matrix:
-        target: ${{ fromJson(needs.defaults.outputs.targets) }}
+        target: ${{ fromJson(needs.init.outputs.targets) }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -163,18 +154,18 @@ jobs:
   deploy-release:
     name: Deploy Release
     needs:
-      - defaults
+      - init
       - get-deployment-version
       - push-tag
     # Pushing tags is optional if we are doing a non-model deployment
     if: >-
       always() &&
-      needs.defaults.result == 'success' &&
+      needs.init.result == 'success' &&
       needs.get-deployment-version.result == 'success' &&
       (needs.push-tag.result == 'success' || needs.push-tag.result == 'skipped')
     strategy:
       matrix:
-        target: ${{ fromJson(needs.defaults.outputs.targets) }}
+        target: ${{ fromJson(needs.init.outputs.targets) }}
     uses: access-nri/build-cd/.github/workflows/deploy-1-setup.yml@v8
     with:
       deployment-target: ${{ matrix.target }}
@@ -182,7 +173,7 @@ jobs:
       deployment-type: Release
       deployment-version: ${{ needs.get-deployment-version.outputs.version }}
       spack-manifest-path: ${{ inputs.spack-manifest-path }}
-      expected-root-spec-name: ${{ needs.defaults.outputs.root-sbd }}
+      expected-root-spec-name: ${{ needs.init.outputs.deployment-name }}
       spack-manifest-schema-path: ${{ inputs.spack-manifest-schema-path }}
       spack-manifest-schema-version: ${{ inputs.spack-manifest-schema-version }}
       config-versions-schema-version: ${{ inputs.config-versions-schema-version }}
@@ -198,7 +189,7 @@ jobs:
     name: Create Release
     if: inputs.tag-deployment
     needs:
-      - defaults
+      - init
       - get-deployment-version
       - push-tag
       - deploy-release
@@ -241,7 +232,7 @@ jobs:
         env:
           J2_MODEL: ${{ inputs.model }}
           J2_VERSION: ${{ needs.get-deployment-version.outputs.version }}
-          J2_ROOT_SBD: ${{ needs.defaults.outputs.root-sbd }}
+          J2_ROOT_SBD: ${{ needs.init.outputs.deployment-name }}
         run: |
           python -m scripts.jinja_template.render_deployment_info \
             --template scripts/jinja_template/templates/release-body.md.j2 \
@@ -265,7 +256,7 @@ jobs:
     name: Build DB Metadata Upload
     if: inputs.tag-deployment && inputs.upload-to-build-db
     needs:
-      - defaults
+      - init
       - deploy-release
       - release
     runs-on: ubuntu-latest
@@ -308,7 +299,7 @@ jobs:
         run: |
           python -m scripts.release_provenance.tracking_services_data \
             --repository ${{ github.repository }} \
-            --root-spec ${{ needs.defaults.outputs.root-sbd }} \
+            --root-spec ${{ needs.init.outputs.deployment-name }} \
             --deployment-outputs ${{ env.OUTPUTS_PATH }} \
             --metadata-outputs ${{ env.METADATA_PATH }} \
             --upload
