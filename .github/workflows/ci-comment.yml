@@ -5,8 +5,6 @@ run-name: ${{ inputs.model }} Comment Command
 # permissions.contents:write
 # permissions.pull-requests:write
 
-# FIXME: We don't support any !bump from a spack manifest that is not in the default ./spack.yaml location.
-
 on:
   workflow_call:
     inputs:
@@ -14,14 +12,11 @@ on:
         type: string
         required: true
         description: The model that is being tested and deployed
-      root-sbd:
+      spack-manifest-path:
         type: string
         required: false
-        # The equivalent default is set in the defaults job below.
-        # default: ${{ inputs.model }}
-        description: |
-          The name of the root Spack Bundle Definition, if it is different from the model name.
-          This is often a package named similarly in ACCESS-NRI/spack-packages.
+        default: spack.yaml
+        description: Path the the spack manifest in the caller
   # Callers usually have the trigger:
   # issue_comment:
   #   types:
@@ -30,34 +25,15 @@ on:
 env:
   RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 jobs:
-  defaults:
-    name: Set Defaults
-    # Unfortunately, you can't set a dynamic default value based on `inputs` yet.
-    runs-on: ubuntu-latest
-    outputs:
-      root-sbd: ${{ steps.root-sbd.outputs.default }}
-    steps:
-      - name: root-sbd default
-        id: root-sbd
-        run: |
-          if [[ "${{ inputs.root-sbd }}" == "" ]]; then
-            echo "default=${{ inputs.model }}" >> $GITHUB_OUTPUT
-          else
-            echo "default=${{ inputs.root-sbd }}" >> $GITHUB_OUTPUT
-          fi
-
   bump-version:
     name: Bump spack.yaml
     if: github.event.issue.pull_request && startsWith(github.event.comment.body, '!bump')
-    needs:
-      - defaults
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
       contents: write
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      SPACK_YAML_MODEL_PROJECTION_YQ: .spack.modules.default.tcl.projections.${{ needs.defaults.outputs.root-sbd }}
     steps:
       - name: Get branch from issue
         id: issue
@@ -74,6 +50,8 @@ jobs:
       - name: Original version
         id: original
         uses: access-nri/build-cd/.github/actions/get-spack-manifest@v8
+        with:
+          spack-manifest-path: ${{ inputs.spack-manifest-path }}
 
       - name: Setup
         id: setup
@@ -132,20 +110,20 @@ jobs:
 
       - name: Update, Commit and Push the Bump
         run: |
-          yq -i '.spack.definitions[]._version[0] = "${{ steps.bump.outputs.after }}"' spack.yaml
-          git add spack.yaml
-          git commit -m "spack.yaml: Updated deployment version from ${{ steps.original.outputs.deployment-version }} to ${{ steps.bump.outputs.after }}"
+          yq -i '.spack.definitions[]._version[0] = "${{ steps.bump.outputs.after }}"' ${{ inputs.spack-manifest-path }}
+          git add ${{ inputs.spack-manifest-path }}
+          git commit -m "${{ inputs.spack-manifest-path }}: Updated deployment version from ${{ steps.original.outputs.deployment-version }} to ${{ steps.bump.outputs.after }}"
           git push
 
       - name: Success Notifier
         uses: access-nri/actions/.github/actions/pr-comment@main
         with:
           comment: |
-            :white_check_mark: Version bumped from `${{ steps.original.outputs.deployment-version }}` to `${{ steps.bump.outputs.after }}` :white_check_mark:
+            :white_check_mark: ${{ inputs.spack-manifest-path }} version bumped from `${{ steps.original.outputs.deployment-version }}` to `${{ steps.bump.outputs.after }}` :white_check_mark:
 
       - name: Failure Notifier
         if: failure()
         uses: access-nri/actions/.github/actions/pr-comment@main
         with:
           comment: |
-            :x: Failed to bump version or commit changes, see ${{ env.RUN_URL }} :x:
+            :x: Failed to bump version or commit changes to ${{ inputs.spack-manifest-path }}, see ${{ env.RUN_URL }} :x:
