@@ -82,6 +82,7 @@ jobs:
         run: |
           echo "spack=$(jq --compact-output --raw-output '.spack' ./config/versions.json)" >> $GITHUB_OUTPUT
           echo "packages=$(jq --compact-output --raw-output '."access-spack-packages"' ./config/versions.json)" >> $GITHUB_OUTPUT
+          echo "custom-scopes=$(jq --compact-output --raw-output '."custom-scopes" // [] | join(" ")' ./config/versions.json)" >> $GITHUB_OUTPUT
 
       - name: Get ${{ inputs.deployment-target }} ${{ inputs.deployment-type }} Remote Paths
         id: path
@@ -92,12 +93,6 @@ jobs:
           deployment-target: ${{ inputs.deployment-target }}
           deployment-type: ${{ inputs.deployment-type }}
           spack-environment: ${{ inputs.env-name }}
-
-      - name: Get manifest info
-        id: manifest
-        uses: access-nri/build-cd/.github/actions/get-spack-root-spec@v8
-        with:
-          spack-manifest-path: ${{ inputs.spack-manifest-path }}
 
       - name: Setup SSH
         id: ssh
@@ -185,6 +180,9 @@ jobs:
 
       - name: Deploy to ${{ inputs.deployment-target }} ${{ inputs.deployment-type }}
         id: deploy
+        env:
+          SCOPES: ${{ steps.versions.outputs.custom-scopes }}
+          SCOPES_PATH: ${{ steps.path.outputs.spack-config }}/custom/cd
         # ssh into deployment environment, create and activate the env, install the spack manifest.
         run: |
           ssh ${{ secrets.USER}}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
@@ -205,8 +203,13 @@ jobs:
           spack env activate ${{ inputs.env-name }} --create --envfile ${{ vars.SPACK_YAML_LOCATION }}/${{ inputs.expected-root-spec-name }}-${{ github.run_id }}.spack.yaml
 
           # Finally, install the spack manifest
-          spack --debug install --fail-fast --fresh ${{ vars.SPACK_INSTALL_ADDITIONAL_ARGS }} || exit $?
-          spack module tcl refresh -y
+          spack --debug \
+            $(for s in ${{ env.SCOPES }}; do echo -n "--config-scope=${{ env.SCOPES_PATH }}/$s "; done) \
+            install --fail-fast --fresh ${{ vars.SPACK_INSTALL_ADDITIONAL_ARGS }} || exit $?
+
+          spack \
+            $(for s in ${{ env.SCOPES }}; do echo -n "--config-scope=${{ env.SCOPES_PATH }}/$s "; done) \
+            module tcl refresh -y
           EOT
 
       - name: Move spack logs
