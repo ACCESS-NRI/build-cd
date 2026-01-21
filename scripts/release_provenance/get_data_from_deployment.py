@@ -106,9 +106,9 @@ def generate_md5s_for_package_binaries(package: spack.spec.Spec) -> List[Dict[st
     ]
 
     for executable in executables:
-        with open(executable, 'rb') as executable_file, open(executable.with_suffix(executable.suffix + ".md5"), 'w') as md5:
-            hash = hashlib.file_digest(executable_file, 'md5').hexdigest()
-            md5.write(hash)
+        with open(executable, 'rb') as executable_file, open(executable.with_suffix(executable.suffix + ".md5"), 'w') as md5_file:
+            hash = hashlib.md5(executable_file.read()).hexdigest()
+            md5_file.write(hash)
 
         md5s.append({
             "path": str(executable),
