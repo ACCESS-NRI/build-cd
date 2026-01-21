@@ -76,7 +76,7 @@ jobs:
 
       - name: Get manifest
         id: manifest
-        uses: access-nri/build-cd/.github.actions/get-spack-manifest@v8
+        uses: access-nri/build-cd/.github/actions/get-spack-manifest@v8
         with:
           spack-manifest-path: ${{ inputs.spack-manifest-path }}
 
