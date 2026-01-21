@@ -1,10 +1,11 @@
-#!/usr/bin/env spack python
+#!/usr/bin/env spack-python
 import sys
 import argparse
 import json
 import os.path
 import hashlib
-from typing import Any
+# Need to import these as spack python is on 3.6, before __future__ annotations or typing improvements
+from typing import Any, List, Dict
 
 import spack.environment
 import spack.cmd
@@ -13,19 +14,19 @@ import spack.spec
 
 def main():
     args = parse_args(sys.argv[1:])
-    packages: list[str] = args.packages.split(",")
+    packages: List[str] = args.packages.split(",")
 
     # Activate the spack environment so we can get relevant specs for this deployment
     spack_env = activate_spack_environment(args.environment)
 
     # Get paths for all packages in the environment, output as a spack.location file
-    all_specs: list[spack.spec.Spec] = spack_env.all_specs()
+    all_specs: List[spack.spec.Spec] = spack_env.all_specs()
 
     with open(os.path.join(args.output, "spack.location"), 'w') as f:
         spack.cmd.display_specs(all_specs, paths=True, output=f)
 
     # Get spack root specs in the environment
-    root_specs: list[spack.spec.Spec] = [spec for spec in all_specs if spec.satisfies(args.deployment_name)]
+    root_specs: List[spack.spec.Spec] = [spec for spec in all_specs if spec.satisfies(args.deployment_name)]
 
     if len(root_specs) == 0:
         raise RuntimeError("There are no root specs matching the deployment name in the environment")
@@ -39,7 +40,7 @@ def main():
         f.write(root_spec.format('{hash}'))
 
     # Generate package metadata for the specified packages
-    packages_metadata: list[dict[str, Any]] = generate_packages_metadata(packages, root_spec)
+    packages_metadata: List[Dict[str, Any]] = generate_packages_metadata(packages, root_spec)
 
     print(packages_metadata)
 
@@ -57,11 +58,11 @@ def activate_spack_environment(spack_env_path: str) -> spack.environment.Environ
     return spack_env
 
 
-def generate_packages_metadata(package_names: list[str], root_spec: spack.spec.Spec) -> list[dict[str, Any]]:
-    metadata: list[dict[str, Any]] = []
+def generate_packages_metadata(package_names: List[str], root_spec: spack.spec.Spec) -> List[Dict[str, Any]]:
+    metadata: List[Dict[str, Any]] = []
 
     for package_name in package_names:
-        root_spec_deps: list[spack.spec.Spec] = root_spec.dependencies(name=package_name)
+        root_spec_deps: List[spack.spec.Spec] = root_spec.dependencies(name=package_name)
 
         if len(root_spec_deps) > 1:
             raise RuntimeError(f"Multiple dependencies found for package {package_name} in root spec {root_spec}. Cannot uniquely identify package.")
@@ -88,8 +89,8 @@ def generate_packages_metadata(package_names: list[str], root_spec: spack.spec.S
     return metadata
 
 
-def generate_md5s_for_package_binaries(package: spack.spec.Spec) -> list[dict[str, str]]:
-    md5s: list[dict[str, str]] = []
+def generate_md5s_for_package_binaries(package: spack.spec.Spec) -> List[Dict[str, str]]:
+    md5s: List[Dict[str, str]] = []
 
     bin_dir = os.path.join(package.prefix, "bin")
 
@@ -116,7 +117,7 @@ def generate_md5s_for_package_binaries(package: spack.spec.Spec) -> list[dict[st
     return md5s
 
 
-def parse_args(args: list[str]) -> argparse.Namespace:
+def parse_args(args: List[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Script for generating package build metadata for tracking services release provenance database."
     )
