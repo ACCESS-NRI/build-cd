@@ -18,10 +18,10 @@ on:
       spack-manifest-path:
         type: string
         required: false
-        default: ./spack.yaml
+        default: spack.yaml
         description: |
           The Spack manifest path relative to the caller repository that will be used for the deployment.
-          This is usually `./spack.yaml`, but can be overridden if needed.
+          This is usually `spack.yaml`, but can be overridden if needed.
       spack-manifest-schema-path:
         type: string
         required: false

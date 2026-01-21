@@ -4,7 +4,7 @@ author: Tommy Gatti
 inputs:
   spack-manifest-path:
     required: false
-    default: ./spack.yaml
+    default: spack.yaml
     description: The path to the spack manifest file
 outputs:
   deployment-name:

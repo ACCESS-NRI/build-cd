@@ -9,7 +9,7 @@ Action that returns information about a Spack manifest file.
 
 | Name | Type | Description | Required | Default | Example |
 | ---- | ---- | ----------- | -------- | ------- | ------- |
-| `spack-manifest-path` | `string` | The path to the spack manifest file | `false` | `"./spack.yaml"` | `"./some/other.spack.yaml"` |
+| `spack-manifest-path` | `string` | The path to the spack manifest file | `false` | `"spack.yaml"` | `"./some/other.spack.yaml"` |
 
 ## Outputs
 
@@ -31,7 +31,7 @@ jobs:
       - id: spec
         uses: access-nri/build-cd/.github/actions/get-spack-manifest@vX  # for some version `vX`
         with:
-          spack-manifest-path: ./spack.yaml
+          spack-manifest-path: spack.yaml
 
       - run: |
           echo "Deploying ${{ steps.spec.outputs.deployment-name }} at ${{ steps.spec.outputs.deployment-version }}"

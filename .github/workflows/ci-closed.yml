@@ -12,7 +12,7 @@ on:
       spack-manifest-path:
         type: string
         required: false
-        default: ./spack.yaml
+        default: spack.yaml
   # Callers usually have the trigger:
   # pull_request:
   #   types:
