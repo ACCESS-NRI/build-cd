@@ -229,7 +229,7 @@ jobs:
         id: metadata
         # Get the metadata from the spack environment regarding build database packages
         run: |
-          rsync -e 'ssh -i ${{ steps.ssh.outputs.private-key-path }}' \
+          rsync --perms -e 'ssh -i ${{ steps.ssh.outputs.private-key-path }}' \
             cd/scripts/release_provenance/get_data_from_deployment.py \
             ${{ secrets.USER }}@${{ secrets.HOST }}:${{ steps.path.outputs.spack-environment }}/
 
