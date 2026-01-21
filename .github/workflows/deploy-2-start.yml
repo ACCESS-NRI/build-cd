@@ -229,14 +229,17 @@ jobs:
         id: metadata
         # Get the metadata from the spack environment regarding build database packages
         run: |
+          rsync -e 'ssh -i ${{ steps.ssh.outputs.private-key-path }}' \
+            cd/scripts/release_provenance/get_data_from_deployment.py \
+            ${{ secrets.USER }}@${{ secrets.HOST }}:${{ steps.path.outputs.spack-environment }}/
+
           ssh ${{ secrets.USER }}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
           # Export vars.DEPLOYMENT_TARGET
           export DEPLOYMENT_TARGET="${{ vars.DEPLOYMENT_TARGET }}"
           echo "DEPLOYMENT_TARGET exported as $DEPLOYMENT_TARGET"
 
           . ${{ steps.path.outputs.spack-config }}/spack-enable.bash
-          # FIXME: How do we get this script onto the target? How do we deal with concurrent access issues? Put it in the environment as well?
-          ./scripts/release_provenance/get_data_from_deployment.py \
+          ./${{ steps.path.outputs.spack-environment }}/get_data_from_deployment.py \
             --environment ${{ steps.path.outputs.spack-environment }} \
             --deployment-name ${{ inputs.expected-root-spec-name }} \
             --packages ${{ steps.config-packages.outputs.packages-for-provenance }}
