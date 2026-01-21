@@ -2,8 +2,9 @@
 import sys
 import argparse
 import json
-import os.path
 import hashlib
+import os
+from pathlib import Path
 # Need to import these as spack python is on 3.6, before __future__ annotations or typing improvements
 from typing import Any, List, Dict
 
@@ -15,6 +16,7 @@ import spack.spec
 def main():
     args = parse_args(sys.argv[1:])
     packages: List[str] = args.packages.split(",")
+    output_path = Path(args.output)
 
     # Activate the spack environment so we can get relevant specs for this deployment
     spack_env = activate_spack_environment(args.environment)
@@ -22,7 +24,7 @@ def main():
     # Get paths for all packages in the environment, output as a spack.location file
     all_specs: List[spack.spec.Spec] = spack_env.all_specs()
 
-    with open(os.path.join(args.output, "spack.location"), 'w') as f:
+    with open(output_path / "spack.location", 'w') as f:
         spack.cmd.display_specs(all_specs, paths=True, output=f)
 
     # Get spack root specs in the environment
@@ -36,7 +38,7 @@ def main():
         if len(root_specs) > 1:
             print(f"Multiple root specs ({root_specs}) in one manifest detected. Taking the first one as the release database doesn't support multiple.")
 
-    with open(os.path.join(args.output, "root-spec-pkg-hash.txt"), 'w') as f:
+    with open(output_path / "root-spec-pkg-hash.txt", 'w') as f:
         f.write(root_spec.format('{hash}'))
 
     # Generate package metadata for the specified packages
@@ -44,7 +46,7 @@ def main():
 
     print(packages_metadata)
 
-    with open(os.path.join(args.output, "build-db-pkgs.json"), 'w') as f:
+    with open(output_path / "build-db-pkgs.json", 'w') as f:
         json.dump(packages_metadata, f)
 
 def activate_spack_environment(spack_env_path: str) -> spack.environment.Environment:
@@ -92,25 +94,24 @@ def generate_packages_metadata(package_names: List[str], root_spec: spack.spec.S
 def generate_md5s_for_package_binaries(package: spack.spec.Spec) -> List[Dict[str, str]]:
     md5s: List[Dict[str, str]] = []
 
-    bin_dir = os.path.join(package.prefix, "bin")
+    bin_path = Path(package.prefix) / "bin"
 
-    if not os.path.exists(bin_dir):
+    if not bin_path.exists():
         return md5s
 
-    # TODO: Check if this gives the appropriate path
     executables = [
-        path
-        for path in os.listdir(bin_dir)
-        if os.path.isfile(path) and os.access(path, os.X_OK)
+        executable
+        for executable in bin_path.rglob('*')
+        if executable.is_file() and os.access(executable, os.X_OK)
     ]
 
     for executable in executables:
-        with open(executable, 'rb') as binary, open(executable + ".md5", 'w') as md5:
-            hash = hashlib.file_digest(binary, 'md5').hexdigest()
+        with open(executable, 'rb') as executable_file, open(executable + ".md5", 'w') as md5:
+            hash = hashlib.file_digest(executable_file, 'md5').hexdigest()
             md5.write(hash)
 
         md5s.append({
-            "path": executable,
+            "path": str(executable),
             "md5": hash
         })
 
