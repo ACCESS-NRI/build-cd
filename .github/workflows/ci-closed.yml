@@ -1,5 +1,5 @@
 name: PR Closed Cleanup
-run-name: ${{ inputs.model }} PR Closed Cleanup
+run-name: PR Closed Cleanup
 # Remove prereleases that were part of a closed PR, so we save space
 # on our deployment targets. If needed, one can still get the
 # spack.yaml as part of the closed PR and revive it themselves.
@@ -9,10 +9,10 @@ run-name: ${{ inputs.model }} PR Closed Cleanup
 on:
   workflow_call:
     inputs:
-      root-sbd:
+      spack-manifest-path:
         type: string
-        required: true
-        description: The model package name that is going to be removed
+        required: false
+        default: spack.yaml
   # Callers usually have the trigger:
   # pull_request:
   #   types:
@@ -31,10 +31,19 @@ jobs:
       version-pattern: ${{ steps.version.outputs.pattern }}
       targets: ${{ steps.target.outputs.valid-targets }}
     steps:
+      - name: Get data from ${{ github.repository }}
+        uses: actions/checkout@v4
+
+      - name: Get Deployment Name
+        id: manifest
+        uses: access-nri/build-cd/.github/actions/get-spack-manifest@v8
+        with:
+          spack-manifest-path: ${{ inputs.spack-manifest-path }}
+
       - name: Get Version Pattern
         id: version
         # For example, `access-om3-pr12-*`
-        run: echo "pattern=${{ inputs.root-sbd }}-pr${{ github.event.pull_request.number }}-*" >> $GITHUB_OUTPUT
+        run: echo "pattern=${{ steps.manifest.outputs.deployment-name }}-pr${{ github.event.pull_request.number }}-*" >> $GITHUB_OUTPUT
 
       - name: Generate Deployment Target Matrix
         id: target
@@ -52,7 +61,7 @@ jobs:
       fail-fast: false
     uses: access-nri/build-cd/.github/workflows/undeploy-1-start.yml@v8
     with:
-      version-pattern: ${{ inputs.root-sbd }}-pr${{ github.event.pull_request.number }}-*
+      version-pattern: ${{ needs.setup.outputs.version-pattern }}
       target: ${{ matrix.target }}
       type: Prerelease
     secrets: inherit

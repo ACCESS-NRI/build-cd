@@ -1,7 +1,7 @@
 {
   "model_name": "ACCESS-ISSM",
   "model_deployment_repository": "https://github.com/ACCESS-NRI/ACCESS-ISSM",
-  "model_deployment_repository_spack_manifest_path": "./spack.yaml",
+  "model_deployment_repository_spack_manifest_path": "spack.yaml",
   "spack_version": "0.22",
   "spack_git_hash": "ee9a10e5cafdcd3224b436d3f477a73ef8669b4b",
   "spack_config_version": "2024.11.27",
