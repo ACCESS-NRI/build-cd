@@ -131,7 +131,7 @@ jobs:
         run: |
           python -m scripts.spack_manifest.injection.modules \
             --manifest ../${{ inputs.spack-manifest-path }} \
-            --packages ${{ steps.config-packages.outputs.packages-for-injection }} \
+            --packages "${{ steps.config-packages.outputs.packages-for-injection }}" \
             --output ../${{ inputs.spack-manifest-path }}
 
       - name: Get SHA for access-spack-packages repository
