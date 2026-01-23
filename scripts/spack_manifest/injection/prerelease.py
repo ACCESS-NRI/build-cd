@@ -114,10 +114,18 @@ def update_root_spec_projection_version(
         # Essentially - replace the original version infix with the prX-Y style, and add back the custom suffix if there was one.
         # For example:
         #   {name}/2025.12.000 -> {name}/prX-Y
+        #   system-tools/{name}/2025.12.000 -> system-tools/{name}/prX-Y
         #   {name}/2025.12.000/{variant.x} -> {name}/prX-Y/{variant.x}
-        new_root_projection = re.sub(r"(.+?/)[^/]+(/.+)?", fr"\1{deployment_version}\2", current_root_projection)
+        new_root_projection_pattern = re.compile(
+            r"""
+            ^(.*\{name\}/)[^/]+  # Pre-infix section - like {name} or system-tools/{name}
+            (/.+)?$              # Post-infix section - like /{variants.x}
+            """,
+            re.VERBOSE
+        )
+        new_root_projection = re.sub(new_root_projection_pattern, fr"\1{deployment_version}\2", current_root_projection)
 
-        if number_of_root_specs_in_speclist > 1 and re.match(fr"^.+?/{deployment_version}$", new_root_projection):
+        if number_of_root_specs_in_speclist > 1 and re.match(fr"^.+/{deployment_version}$", new_root_projection):
             # If there are multiple of the same root spec, we need to demarcate them somehow if there was no custom suffix given.
             # We use a short package hash as the demarcator if no custom suffix was given.
             new_root_projection += "/{hash:7}"

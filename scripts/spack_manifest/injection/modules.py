@@ -1,6 +1,7 @@
 import argparse
 import yaml
 import sys
+import re
 
 from typing import Any
 from scripts.spack_manifest.getter import (
@@ -28,7 +29,7 @@ def main():
     # Get inputs
     args = parse_args(sys.argv[1:])
 
-    packages: set[str] = set(args.packages.split(","))
+    packages: set[str] = set(args.packages.split(",") if args.packages != '' else [])
 
     with open(args.manifest, "r") as file:
         manifest: dict[str, Any] = yaml.safe_load(file)
@@ -86,7 +87,7 @@ def inject_projections(
     new_projections: dict[str, str] = dict(defined_projections_dict)
 
     new_projections.update(
-        generate_projection_for_root_spec_or_raise(manifest, root_spec, defined_projections_dict.get(root_spec))
+        generate_projection_for_root_spec_or_raise(manifest, root_spec, defined_projections_dict.get(root_spec, ''))
     )
 
     for projection in projections_to_generate:
@@ -136,7 +137,7 @@ def inject_includes(
 def generate_projection_for_root_spec_or_raise(
     manifest: dict[str, Any],
     root_spec_name: str,
-    root_spec_projection: str | None = None
+    root_spec_projection: str = ''
 ) -> dict[str, str]:
     reserved_definitions_getter = ReservedDefinitions(manifest)
     specs_getter = Specs(manifest)
@@ -147,19 +148,29 @@ def generate_projection_for_root_spec_or_raise(
         f"Extracted version '{version}' from _version definition'"
     )
 
-    if root_spec_projection:
-        # We have a custom projection defined for the root spec, so we need to respect that
-        projection_components = root_spec_projection.split("/", 1)
+    # Essentially we're looking to infix the version between {name} and what comes after, if there exists a projection.
+    module_projection_pattern = re.compile(
+        r"""
+        ^(.*\{name\}[^\/]*?)  # First group - Either '{name}' (most common) or a prefix like 'system-tools/{name}' (for SDRs)
+        (?:\/(.+))?$          # Optional second group - Rest of the projection after '{name}/', if given. Used for variants/descriptors in modulefile names
+        """,
+        re.VERBOSE
+    )
 
-        if len(projection_components) == 1:
-            updated_version: str = f"{{name}}/{version}/{projection_components[0]}"
-        else:
-            updated_version: str = f"{{name}}/{version}/{projection_components[1]}"
+    projection_components: re.Match | None = re.match(module_projection_pattern, root_spec_projection)
+
+    # If there is a root spec projection and it is well-formed, we need to infix the version
+    if projection_components:
+        # We have a custom projection defined for the root spec, so we need to respect that
+        projection_groups: tuple[str] = projection_components.groups()
+
+        updated_version: str = f"{projection_groups[0]}/{version}" + (f"/{projection_groups[1]}" if projection_groups[1] else "")
 
         print(f"Root spec already had a projection ({root_spec_projection}) so we infix the the version ({version}) to give: {updated_version}")
 
         return {root_spec_name: updated_version}
 
+    # Otherwise, we need to construct a projection from scratch
     root_specs_in_speclist = len(specs_getter.get_specs_with_name(root_spec_name))
 
     if root_specs_in_speclist == 0:
