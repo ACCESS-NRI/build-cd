@@ -179,3 +179,5 @@ jobs:
             else
               echo "::notice::Unchanged: ${{ inputs.deployment-environment }} ${{ inputs.spack-type }} $version builtin-spack-packages left at $current_head_commit"
             fi
+          done <<< "${{ steps.builtin-spack-packages.outputs.updates }}"
+          EOT
