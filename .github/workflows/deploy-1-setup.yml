@@ -106,14 +106,22 @@ on:
     #     value: ${{ jobs.check-config.outputs.spack-config-git-hash }}
     #     description: |
     #       Git hash of the 'access-nri/spack-config' repository at the specified version.
-    #   spack-packages-version:
-    #     value: ${{ jobs.check-config.outputs.spack-packages-version }}
+    #   builtin-spack-packages-version:
+    #     value: ${{ jobs.check-config.outputs.builtin-spack-packages-version }}
     #     description: |
-    #       Git ref of 'access-nri/spack-packages' that is used to reference custom packages in spack.
-    #   spack-packages-git-hash:
-    #     value: ${{ jobs.check-config.outputs.spack-packages-git-hash }}
+    #       Git ref of 'spack/spack-packages' that is used to reference builtin packages in spack.
+    #   builtin-spack-packages-git-hash:
+    #     value: ${{ jobs.check-config.outputs.builtin-spack-packages-git-hash }}
     #     description: |
-    #       Git hash of the 'access-nri/spack-packages' repository at the specified version.
+    #       Git hash of the 'spack/spack-packages' repository at the specified version.
+    #   access-spack-packages-version:
+    #     value: ${{ jobs.check-config.outputs.access-spack-packages-version }}
+    #     description: |
+    #       Git ref of 'access-nri/access-spack-packages' that is used to reference custom packages in spack.
+    #   access-spack-packages-git-hash:
+    #     value: ${{ jobs.check-config.outputs.access-spack-packages-git-hash }}
+    #     description: |
+    #       Git hash of the 'access-nri/access-spack-packages' repository at the specified version.
     #   release-deployment-version:
     #     value: ${{ jobs.check-spack-yaml.outputs.release }}
     #     description: |
@@ -146,79 +154,119 @@ jobs:
   check-config:
     name: '${{ inputs.deployment-target }}: Check Config'
     runs-on: ubuntu-latest
+    # A lot of outputs, versions for repositories are taken from different sources:
+    #   Taken from central build-cd config/settings.json: spack (SHA), spack-config, builtin spack-packages
+    #   Taken from caller config/versions.json: spack (branch), access-spack-packages
+    env:
+      # Paths prepended with actions/checkout path argument
+      mdr-config-versions-json-path: model/config/versions.json
+      mdr-config-packages-json-path: model/config/packages.json
+      build-cd-config-settings-json-path: build-cd/config/settings.json
     outputs:
-      spack-version: ${{ steps.spack.outputs.version }}
-      spack-git-hash: ${{ steps.spack.outputs.git-hash }}
-      spack-packages-version: ${{ steps.spack-packages.outputs.version }}
-      spack-packages-git-hash: ${{ steps.spack-packages.outputs.git-hash }}
-      spack-config-version:  ${{ steps.spack-config.outputs.version }}
-      spack-config-git-hash: ${{ steps.spack-config.outputs.git-hash }}
+      spack-version: ${{ steps.config-versions-refs.outputs.spack-branch }}
+      spack-git-hash: ${{ steps.spack-sha.outputs.sha }}
+
+      builtin-spack-packages-version: ${{ steps.config-settings-refs.outputs.builtin-spack-packages-ref }}
+      builtin-spack-packages-git-hash: ${{ steps.builtin-spack-packages-sha.outputs.sha }}
+
+      access-spack-packages-version: ${{ steps.config-versions-refs.outputs.access-spack-packages-ref }}
+      access-spack-packages-git-hash: ${{ steps.access-spack-packages-sha.outputs.sha }}
+
+      spack-config-version:  ${{ steps.config-settings-refs.outputs.spack-config-ref }}
+      spack-config-git-hash: ${{ steps.spack-config-sha.outputs.sha }}
+
       config-settings-failures: ${{ steps.settings.outputs.failures }}
     steps:
-      - name: Checkout ${{ github.repository }} Config
+      # Validate the caller repository's config files and versions
+      - name: '${{ github.repository }}: Checkout ${{ github.repository }} Config'
         uses: actions/checkout@v4
         with:
           path: model
           ref: ${{ inputs.deployment-ref }}
 
-      - name: Validate ${{ github.repository }} config/versions.json
+      - name: '${{ github.repository }}: Validate config/versions.json'
         uses: access-nri/schema/.github/actions/validate-with-schema@main
         with:
           schema-version: ${{ inputs.config-versions-schema-version }}
           schema-location: au.org.access-nri/model/deployment/config/versions
-          data-location: ./model/config/versions.json
+          data-location: ${{ env.mdr-config-versions-json-path }}
 
-      - name: Validate ${{ github.repository }} config/packages.json
+      - name: '${{ github.repository }}: Validate config/packages.json'
         uses: access-nri/schema/.github/actions/validate-with-schema@main
         with:
           schema-version: ${{ inputs.config-packages-schema-version }}
           schema-location: au.org.access-nri/model/deployment/config/packages
-          data-location: ./model/config/packages.json
+          data-location: ${{ env.mdr-config-packages-json-path }}
 
-      - name: Validate spack-packages version
-        id: spack-packages
-        uses: access-nri/build-cd/.github/actions/validate-repo-version@v7
+      - name: '${{ github.repository }}: Get repository refs from config/versions.json'
+        id: config-versions-refs
+        run: |
+          echo "spack-branch=$(jq --compact-output --raw-output '.spack' ${{ env.mdr-config-versions-json-path}})" >> $GITHUB_OUTPUT
+          echo "access-spack-packages-ref=$(jq --compact-output --raw-output '."access-spack-packages"' ${{ env.mdr-config-versions-json-path }})" >> $GITHUB_OUTPUT
+
+      - name: '${{ github.repository }}: Validate spack branch'
+        id: spack-branch-check
+        uses: access-nri/actions/.github/actions/get-git-ref-info@main
         with:
-          repo-to-check: spack-packages
-          pr: ${{ inputs.deployment-ref }}
+          repository: ACCESS-NRI/spack
+          ref: releases/v${{ steps.config-versions-refs.outputs.spack-branch }}
 
-      - name: Validate spack version
-        id: spack
-        uses: access-nri/build-cd/.github/actions/validate-repo-version@v7
+      - name: '${{ github.repository }}: Get access-spack-packages SHA'
+        id: access-spack-packages-sha
+        uses: access-nri/actions/.github/actions/get-git-ref-info@main
         with:
-          repo-to-check: spack
-          pr: ${{ inputs.deployment-ref }}
+          repository: ACCESS-NRI/access-spack-packages
+          ref: ${{ steps.config-versions-refs.outputs.access-spack-packages-ref }}
 
-      - name: Checkout build-cd Config
+      # Validate the build-cd repository's config/settings.json for the deployment target
+      - name: 'build-cd: Checkout build-cd Config'
         uses: actions/checkout@v4
         with:
           repository: access-nri/build-cd
-          path: cd
+          path: build-cd
 
-      - name: Get spack-config version
-        id: spack-config
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          version=$(jq --compact-output --raw-output \
-              --arg spack_version "${{ steps.spack.outputs.version }}" \
-              '.deployment.${{ inputs.deployment-target }}.${{ inputs.deployment-type }}[$spack_version]."spack-config"' cd/config/settings.json
-          )
-          echo $version
-          echo "version=$version" >> $GITHUB_OUTPUT
-
-          git_hash=$(gh api /repos/access-nri/spack-config/tags \
-            | jq --compact-output --raw-output --arg v "$version" '.[] | select(.name == $v) | .commit.sha'
-          )
-          echo $git_hash
-          echo "git-hash=$git_hash" >> $GITHUB_OUTPUT
-
-      - name: Validate build-cd config/settings.json
+      - name: 'build-cd: Validate config/settings.json'
         id: settings
-        uses: access-nri/build-cd/.github/actions/validate-deployment-settings@v7
+        uses: access-nri/build-cd/.github/actions/validate-deployment-settings@v8
         with:
-          settings-path: ./cd/config/settings.json
+          settings-path: ${{ env.build-cd-config-settings-json-path }}
           target: ${{ inputs.deployment-target }}
+
+      - name: 'build-cd: Get repository refs from config/settings.json'
+        id: config-settings-refs
+        run: |
+          refs_for_deployment=$(jq \
+              --arg spack_version "${{ steps.config-versions-refs.outputs.spack-branch }}" \
+              '.deployment.${{ inputs.deployment-target }}.${{ inputs.deployment-type }}[$spack_version]' \
+              ${{ env.build-cd-config-settings-json-path }}
+          )
+
+          echo "$refs_for_deployment"
+
+          echo "spack-ref=$(jq --compact-output --raw-output '.spack' <<< "$refs_for_deployment")" >> $GITHUB_OUTPUT
+          echo "spack-config-ref=$(jq --compact-output --raw-output '."spack-config"' <<< "$refs_for_deployment")" >> $GITHUB_OUTPUT
+          echo "builtin-spack-packages-ref=$(jq --compact-output --raw-output '."builtin-spack-packages"' <<< "$refs_for_deployment")" >> $GITHUB_OUTPUT
+
+      - name: 'build-cd: Get spack SHA'
+        id: spack-sha
+        uses: access-nri/actions/.github/actions/get-git-ref-info@main
+        with:
+          repository: ACCESS-NRI/spack
+          ref: ${{ steps.config-settings-refs.outputs.spack-ref }}
+
+      - name: 'build-cd: Get spack-config SHA'
+        id: spack-config-sha
+        uses: access-nri/actions/.github/actions/get-git-ref-info@main
+        with:
+          repository: ACCESS-NRI/spack-config
+          ref: ${{ steps.config-settings-refs.outputs.spack-config-ref }}
+
+      - name: 'build-cd: Get builtin spack-packages SHA'
+        id: builtin-spack-packages-sha
+        uses: access-nri/actions/.github/actions/get-git-ref-info@main
+        with:
+          repository: spack/spack-packages
+          ref: ${{ steps.config-settings-refs.outputs.builtin-spack-packages-ref }}
 
   check-spack-yaml:
     name: '${{ inputs.deployment-target }}: Check Spack Manifest'
@@ -231,7 +279,7 @@ jobs:
       pull-requests: write
     outputs:
       # Release version of the deployment. Inferred if not given in inputs.deployment-version
-      release: ${{ steps.current.outputs.root-spec-ref }}
+      release: ${{ steps.current.outputs.deployment-version }}
       # Spack env name in form <model>-<version>
       spack-env-name: ${{ steps.get-env-name.outputs.env-name }}
     steps:
@@ -250,21 +298,19 @@ jobs:
 
       - name: Get current (${{ inputs.deployment-ref }}) root spec version
         id: current
-        uses: access-nri/build-cd/.github/actions/get-spack-root-spec@v7
+        uses: access-nri/build-cd/.github/actions/get-spack-manifest@v8
         with:
           spack-manifest-path: ${{ inputs.spack-manifest-path }}
 
-      - name: Check root spec usage
-        if: env.IS_NOT_DRAFT == 'true' || inputs.deployment-type == 'Release'
+      - name: Disallow multi-spec Releases
+        if: inputs.deployment-type == 'Release'
+        # FIXME: Once the necessary infrastructure/guidance is in place, remove this step. See ACCESS-NRI/build-cd#344
         run: |
-          if [[ "${{ steps.current.outputs.root-spec-ref }}" == "latest" ]]; then
-              echo "::error::The '@latest' version string is not allowed in non-draft PRs. It is reserved for a spack package that moves often and cannot be used as a future release tag"
-              exit 1
-          fi
+          root_specs=$(yq '.spack.specs | select(.[] == "${{ steps.current.outputs.deployment-name }}*") | length' ${{ inputs.spack-manifest-path }})
 
-          if [[ "${{ inputs.expected-root-spec-name }}" != "${{ steps.current.outputs.root-spec-name }}" ]]; then
-              echo "::error::The root spec in the spack manifest (${{ steps.current.outputs.root-spec-name }}) cannot be different from the expected root spec (${{ inputs.expected-root-spec-name }}) in non-Draft PRs."
-              exit 1
+          if [ "$root_specs" -gt 1 ]; then
+            echo "::error::We don't yet support multiple root specs with the same package name. Contact the Model Release Team for information."
+            exit 1
           fi
 
       - name: Checkout base (${{ inputs.prerelease-compare-ref }}) spack manifest
@@ -289,7 +335,7 @@ jobs:
       - name: Get base root spec version
         id: base
         if: inputs.deployment-type != 'Release' && steps.checkout-base-spack.outcome != 'failure'
-        uses: access-nri/build-cd/.github/actions/get-spack-root-spec@v7
+        uses: access-nri/build-cd/.github/actions/get-spack-manifest@v8
         with:
           spack-manifest-path: ${{ inputs.spack-manifest-path }}
 
@@ -300,7 +346,7 @@ jobs:
         if: inputs.deployment-type != 'Release' && steps.checkout-base-spack.outcome != 'failure' && env.IS_NOT_DRAFT == 'true'
         id: version-modified
         run: |
-          if [[ "${{ steps.base.outputs.root-spec-ref }}" == "${{ steps.current.outputs.root-spec-ref }}" ]]; then
+          if [[ "${{ steps.base.outputs.deployment-version }}" == "${{ steps.current.outputs.deployment-version }}" ]]; then
               echo "::warning::The version string in ${{ inputs.spack-manifest-path }} hasn't been modified in this PR, but needs to be before merging."
               exit 1
           fi
@@ -330,7 +376,7 @@ jobs:
     needs:
       - check-config  # Verify configuration information is correct
       - check-spack-yaml  # Verify spack manifest information is correct
-    uses: access-nri/build-cd/.github/workflows/deploy-2-start.yml@v7
+    uses: access-nri/build-cd/.github/workflows/deploy-2-start.yml@v8
     with:
       ref: ${{ inputs.deployment-ref }}
       version: ${{ inputs.deployment-version }}
@@ -369,8 +415,10 @@ jobs:
             spack_git_hash: "${{ needs.check-config.outputs.spack-git-hash }}",
             spack_config_version: "${{ needs.check-config.outputs.spack-config-version }}",
             spack_config_git_hash: "${{ needs.check-config.outputs.spack-config-git-hash }}",
-            spack_packages_version: "${{ needs.check-config.outputs.spack-packages-version }}",
-            spack_packages_git_hash: "${{ needs.check-config.outputs.spack-packages-git-hash }}",
+            builtin_spack_packages_version: "${{ needs.check-config.outputs.builtin-spack-packages-version }}",
+            builtin_spack_packages_git_hash: "${{ needs.check-config.outputs.builtin-spack-packages-git-hash }}",
+            access_spack_packages_version: "${{ needs.check-config.outputs.access-spack-packages-version }}",
+            access_spack_packages_git_hash: "${{ needs.check-config.outputs.access-spack-packages-git-hash }}",
             ci_configuration_check_failure: ${{ needs.check-config.outputs.config-settings-failures != '' }},
             release_deployment_version: "${{ needs.check-spack-yaml.outputs.release }}",
             spack_environment_name: "${{ needs.check-spack-yaml.outputs.spack-env-name }}",

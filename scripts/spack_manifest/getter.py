@@ -15,6 +15,107 @@ class NoSectionComponentError(Exception):
 
     pass
 
+class Specs:
+    def __init__(self, manifest: dict[str, Any]):
+        self.manifest = manifest
+
+        self.specs: list[str] = self._get_specs_from_manifest_or_raise()
+
+    def _get_specs_from_manifest_or_raise(self) -> list[str]:
+        defs: list[dict[str, Any]] = self.manifest.get("spack", {}).get(
+            "definitions", []
+        )
+        specs: list[str] = self.manifest.get("spack", {}).get("specs", [])
+
+        # It's either in the multi-target format or the single target format, we just need to find which
+        # The multi-target format is of the form:
+        # spack:
+        #   definitions:
+        #     - ROOT_PACKAGE: [access-om2]
+        #     # ...
+        # FIXME: Multi-target-formatted specs only have the first one picked up. See ACCESS-NRI/build-cd#343
+        root_package_def = next(
+            (d["ROOT_PACKAGE"] for d in defs if "ROOT_PACKAGE" in d), []
+        )
+        if root_package_def != []:
+            return [root_package_def[0]]
+        elif len(specs) != 0:
+            return specs
+        else:
+            raise NoSectionError(
+                "No specs defined in the manifest spack.specs section for a single-target manifest."
+            )
+
+    @classmethod
+    def from_file(cls, manifest_path: str) -> "RootSpec":
+        from yaml import safe_load
+
+        with open(manifest_path, "r") as file:
+            manifest = safe_load(file)
+
+        return cls(manifest)
+
+    def get_specs(self) -> list[str]:
+        return self.specs
+
+    def get_specs_with_name(self, name: str) -> list[str]:
+        return [s for s in self.specs if s.startswith(name)]
+
+class ReservedDefinitions:
+    def __init__(self, manifest: dict[str, Any]):
+        self.manifest: dict[str, Any] = manifest
+
+        self.reserved_definitions: list[dict[str, Any]] = (
+            self._get_reserved_definitions_from_manifest_or_raise()
+        )
+
+    def _get_reserved_definitions_from_manifest_or_raise(self) -> dict[str, Any]:
+        definitions: list[dict[str, Any]] = self.manifest.get("spack", {}).get(
+            "definitions", []
+        )
+
+        if definitions == []:
+            raise NoSectionError(
+                f"spack.definitions section not found in the manifest."
+            )
+
+        # Turn something with the spack-specific structure:
+        # {'definitions': [
+        #   {'_name': ['access-om2']},
+        #   {'_version': ['2025.02.100']},
+        #   {'something': ['else']}
+        # ]}
+        # Into a much easier to parse:
+        # {'name': 'access-om2', 'version': '2025.02.100'}
+        # Stripping out non-reserved definitions and unneeded single-element lists
+        reserved_definitions: dict[str, Any] = {}
+        for definition in definitions:
+            if len(definition) > 0:
+                reserved_name, reserved_value_list = list(definition.items())[0]
+                if reserved_name.startswith("_") and len(reserved_value_list) > 0:
+                    reserved_name_no_underscore = reserved_name.lstrip("_")
+                    # In future if we want to handle other reserved defs as lists, we can add a case statement here
+                    reserved_definitions[reserved_name_no_underscore] = reserved_value_list[0]
+
+        return reserved_definitions
+
+    @classmethod
+    def from_file(cls, manifest_path: str) -> "ReservedDefinitions":
+        from yaml import safe_load
+
+        with open(manifest_path, "r") as file:
+            manifest = safe_load(file)
+
+        return cls(manifest)
+
+    def get(self, definition: str) -> str:
+        if definition not in self.reserved_definitions:
+            raise NoSectionComponentError(
+                f"Reserved definition '{definition}' not found in the manifest spack.definitions section."
+            )
+
+        return self.reserved_definitions[definition]
+
 
 class RootSpec:
     def __init__(self, manifest: dict[str, Any]):
@@ -23,7 +124,9 @@ class RootSpec:
         self.root_spec: str = self._get_root_spec_from_manifest_or_raise()
 
     def _get_root_spec_from_manifest_or_raise(self) -> str:
-        defs: list[dict[str, Any]] = self.manifest.get("spack", {}).get("definitions", [])
+        defs: list[dict[str, Any]] = self.manifest.get("spack", {}).get(
+            "definitions", []
+        )
         specs: list[str] = self.manifest.get("spack", {}).get("specs", [])
 
         # It's either in the multi-target format or the single target format, we just need to find which
@@ -190,7 +293,6 @@ class Packages:
 
         return requirements[0]
 
-
     def get_package_requirements(self, name: str) -> list[str]:
         if name not in self.packages:
             raise NoSectionComponentError(
@@ -268,4 +370,14 @@ class Projections:
             .get("default", {})
             .get("tcl", {})
             .get("projections", {})
+        )
+
+    def get_projection_with_name(self, name: str) -> str | None:
+        return (
+            self.manifest.get("spack", {})
+            .get("modules", {})
+            .get("default", {})
+            .get("tcl", {})
+            .get("projections", {})
+            .get(name, None)
         )

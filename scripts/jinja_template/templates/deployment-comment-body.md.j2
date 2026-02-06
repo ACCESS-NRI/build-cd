@@ -31,11 +31,12 @@ Due to inode-saving measures, one will have to manually untar the environment me
 <summary>Configuration Information</summary>
 
 This Prerelease is deployed using:
-* `access-nri/spack` on branch [`{{ deployment.spack_version }}`](https://github.com/ACCESS-NRI/spack/tree/releases/v{{ deployment.spack_version }})
-* `access-nri/spack-packages` version [`{{ deployment.spack_packages_version }}`](https://github.com/ACCESS-NRI/spack-packages/releases/tag/{{ deployment.spack_packages_version }})
-* `access-nri/spack-config` version [`{{ deployment.spack_config_version }}`](https://github.com/ACCESS-NRI/spack-config/releases/tag/{{ deployment.spack_config_version }})
+* `access-nri/spack` on branch [`{{ deployment.spack_version }}`](https://github.com/ACCESS-NRI/spack/tree/{{ deployment.spack_git_hash }})
+* `spack/spack-packages` version [`{{ deployment.builtin_spack_packages_version }}`](https://github.com/spack/spack-packages/tree/{{ deployment.builtin_spack_packages_git_hash }})
+* `access-nri/access-spack-packages` version [`{{ deployment.access_spack_packages_version }}`](https://github.com/ACCESS-NRI/access-spack-packages/tree/{{ deployment.access_spack_packages_git_hash }})
+* `access-nri/spack-config` version [`{{ deployment.spack_config_version }}`](https://github.com/ACCESS-NRI/spack-config/tree/{{ deployment.spack_config_git_hash }})
 
-If the above was not what was expected, commit changes to `config/versions.json` in this PR.
+If the above was not what was expected, commit changes to `config/versions.json` in this PR, or propose changes to `build-cd`s `config/settings.json`.
 
 </details>
 

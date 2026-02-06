@@ -118,7 +118,7 @@ class TestFormatTrackingServicesHeader():
 class TestFormatTelemetryOfModel():
 
     @patch("scripts.release_provenance.tracking_services_data._get_release_data_of_model_or_raise")
-    def test__format_telemetry_of_model_1_0_0__valid(self, release_data_mock):
+    def test__format_telemetry_of_model__valid(self, release_data_mock):
         expected_telemetry = {
             "model.name": "ACCESS-OM3",
             "model.deployment_repository_url": "https://github.com/ACCESS-NRI/ACCESS-OM3",
@@ -135,25 +135,25 @@ class TestFormatTelemetryOfModel():
             "html_url": "https://github.com/ACCESS-NRI/ACCESS-OM3/releases/tag/2025.01.2",
         }
 
-        actual_telemetry = _format_telemetry_of_model("ACCESS-NRI/ACCESS-OM3", Path("tests/scripts/release_provenance/inputs/1-0-0/deploy-access-om3-outputs.Gadi"))
+        actual_telemetry = _format_telemetry_of_model("ACCESS-NRI/ACCESS-OM3", Path("tests/scripts/release_provenance/inputs/deploy-access-om3-outputs.Gadi"))
 
         assert actual_telemetry == expected_telemetry, f"Expected {expected_telemetry}, but got {actual_telemetry}"
 
     @patch("scripts.release_provenance.tracking_services_data.requests.get", autospec=True)
-    def test__format_telemetry_of_model_1_0_0__invalid_repo(self, requests_mock):
+    def test__format_telemetry_of_model__invalid_repo(self, requests_mock):
 
         # Mock the response of the requests.get call to simulate an invalid repository
         requests_mock.return_value = Mock(status_code=404)
 
         with pytest.raises(ValueError):
-            _format_telemetry_of_model("invalid-repo", Path("tests/scripts/release_provenance/inputs/1-0-0/deploy-access-om3-outputs.Gadi"))
+            _format_telemetry_of_model("invalid-repo", Path("tests/scripts/release_provenance/inputs/deploy-access-om3-outputs.Gadi"))
 
-    def test__format_telemetry_of_model_1_0_0__invalid_file(self):
+    def test__format_telemetry_of_model_invalid_file(self):
         with pytest.raises(FileNotFoundError):
             _format_telemetry_of_model("ACCESS-NRI/ACCESS-OM3", Path("invalid-file-path"))
 
 class TestFormatTelemetryOfDeploymentTarget():
-    def test__format_telemetry_of_deployment_target_1_0_0__valid_with_no_components(self):
+    def test__format_telemetry_of_deployment_target___valid_with_no_components(self):
         # Removing the components from the expected telemetry as that is tested in TestFormatTelemetryOfModelComponents
         expected_telemetry_without_components = {
             "deployment_target.name": "Gadi",
@@ -161,8 +161,10 @@ class TestFormatTelemetryOfDeploymentTarget():
             "deployment_target.spack_git_hash": "qwerty",
             "deployment_target.spack_config_version": "2025.02.2",
             "deployment_target.spack_config_git_hash": "asdfg",
-            "deployment_target.spack_packages_version": "2025.03.002",
-            "deployment_target.spack_packages_git_hash": "zxcvb",
+            "deployment_target.builtin_spack_packages_version": "2025.03.002",
+            "deployment_target.builtin_spack_packages_git_hash": "zxcvb",
+            "deployment_target.access_spack_packages_version": "2025.10.000",
+            "deployment_target.access_spack_packages_git_hash": "asdfg",
             "deployment_target.module_use_location": "/g/data/vk83/modules",
 
             "spack_model.name": "access-om3",
@@ -170,13 +172,13 @@ class TestFormatTelemetryOfDeploymentTarget():
             "spack_model.module_load_command": "access-om3/2025.01.2",
         }
 
-        actual_telemetry = _format_telemetry_of_deployment_target("access-om3", "Gadi", Path("tests/scripts/release_provenance/inputs/1-0-0/deploy-access-om3-outputs.Gadi"), Path("tests/scripts/release_provenance/inputs/1-0-0/deploy-access-test-metadata.Gadi"))
+        actual_telemetry = _format_telemetry_of_deployment_target("access-om3", "Gadi", Path("tests/scripts/release_provenance/inputs/deploy-access-om3-outputs.Gadi"), Path("tests/scripts/release_provenance/inputs/deploy-access-test-metadata.Gadi"))
         actual_telemetry_without_components = {k: v for k, v in actual_telemetry.items() if k not in ["spack_model_components"]}
 
         assert actual_telemetry_without_components == expected_telemetry_without_components, f"Without components, expected {expected_telemetry_without_components}, but got {actual_telemetry_without_components}"
 
 class TestFormatTelemetryOfModelComponents():
-    def test__format_telemetry_of_model_components_1_0_0__valid(self):
+    def test__format_telemetry_of_model_components__valid(self):
         expected_telemetry = [
             {
                 "name": "access-test-component",
@@ -187,7 +189,7 @@ class TestFormatTelemetryOfModelComponents():
             },
         ]
 
-        actual_telemetry = _format_telemetry_of_model_components("Gadi", Path("tests/scripts/release_provenance/inputs/1-0-0/deploy-access-test-metadata.Gadi"))
+        actual_telemetry = _format_telemetry_of_model_components("Gadi", Path("tests/scripts/release_provenance/inputs/deploy-access-test-metadata.Gadi"))
 
         assert actual_telemetry == expected_telemetry, f"Expected {expected_telemetry}, but got {actual_telemetry}"
 

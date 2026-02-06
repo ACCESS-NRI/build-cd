@@ -2,18 +2,15 @@ name: Configs
 on:
   workflow_call:
     inputs:
+      spack-manifest-path:
+        type: string
+        required: false
+        default: spack.yaml
+        description: Path to the spack manifest in the model deployment repository
       model:
         type: string
         required: true
         description: The model that is being tested and deployed
-      root-sbd:
-        type: string
-        required: false
-        # The equivalent default is set in the defaults job below.
-        # default: ${{ inputs.model }}
-        description: |
-          The name of the root Spack Bundle Definition, if it is different from the model name.
-          This is often a package named similarly in ACCESS-NRI/spack-packages.
       auto-configs-pr-schema-version:
         type: string
         required: true
@@ -41,8 +38,8 @@ jobs:
     # and read configuration information from the caller repository.
     runs-on: ubuntu-latest
     outputs:
-      # Value for the defaulted root-sbd if not provided
-      root-sbd: ${{ steps.defaults.outputs.root-sbd }}
+      # Deployment Name for the spack manifest - corresponds to the root spec
+      deployment-name: ${{ steps.manifest.outputs.deployment-name }}
       # Caller PR branch ref
       pr-branch: ${{ steps.pr.outputs.ref }}
       # The profile to use from the MDRs config/auto-configs-pr.json
@@ -104,15 +101,6 @@ jobs:
           # Output processed args
           echo "profile=$profile" >> $GITHUB_OUTPUT
 
-      - name: Set defaults
-        id: defaults
-        run: |
-          if [[ "${{ inputs.root-sbd }}" == "" ]]; then
-            echo "root-sbd=${{ inputs.model }}" >> $GITHUB_OUTPUT
-          else
-            echo "root-sbd=${{ inputs.root-sbd }}" >> $GITHUB_OUTPUT
-          fi
-
       - name: Get caller repository ref
         id: pr
         # We need to find the PR ref of the caller repository explicitly, as this workflow trigger (issue_comment) is in the context of the default branch
@@ -122,26 +110,25 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ steps.pr.outputs.ref }}
-          path: caller
 
       - name: Validate auto configs PR configuration
         uses: access-nri/schema/.github/actions/validate-with-schema@main
         with:
           schema-version: ${{ inputs.auto-configs-pr-schema-version }}
           schema-location: au.org.access-nri/model/deployment/config/auto-configs-pr
-          data-location: caller/config/auto-configs-pr.json
+          data-location: config/auto-configs-pr.json
 
       - name: Read auto configs PR configuration
         id: read-config
         run: |
-          if ! jq --exit-status '.profiles."${{ steps.parse.outputs.profile }}"' caller/config/auto-configs-pr.json; then
+          if ! jq --exit-status '.profiles."${{ steps.parse.outputs.profile }}"' config/auto-configs-pr.json; then
             echo "::error::Profile ${{ steps.parse.outputs.profile }} does not exist in config/auto-configs-pr.json at ref ${{ steps.pr.outputs.ref }}"
             exit 1
           fi
 
-          configs=$(jq -cr '.profiles."${{ steps.parse.outputs.profile }}".configs | keys' caller/config/auto-configs-pr.json)
-          configs_formatted=$(jq -cr '.profiles."${{ steps.parse.outputs.profile }}".configs | keys | join(" ")' caller/config/auto-configs-pr.json)
-          configs_repo=$(jq -cr '.profiles."${{ steps.parse.outputs.profile }}".configs_repo' caller/config/auto-configs-pr.json)
+          configs=$(jq -cr '.profiles."${{ steps.parse.outputs.profile }}".configs | keys' config/auto-configs-pr.json)
+          configs_formatted=$(jq -cr '.profiles."${{ steps.parse.outputs.profile }}".configs | keys | join(" ")' config/auto-configs-pr.json)
+          configs_repo=$(jq -cr '.profiles."${{ steps.parse.outputs.profile }}".configs_repo' config/auto-configs-pr.json)
 
           echo "$configs"
           echo "$configs_formatted"
@@ -150,6 +137,12 @@ jobs:
           echo "configs=$configs" >> $GITHUB_OUTPUT
           echo "configs-formatted=$configs_formatted" >> $GITHUB_OUTPUT
           echo "configs-repo=$configs_repo" >> $GITHUB_OUTPUT
+
+      - name: Get caller deployment name
+        id: manifest
+        uses: access-nri/build-cd/.github/actions/get-spack-manifest@v8
+        with:
+          spack-manifest-path: ${{ inputs.spack-manifest-path }}
 
   update-configs:
     name: Update
@@ -223,7 +216,7 @@ jobs:
       - name: Open PR
         id: open-pr
         env:
-          DEPLOYMENT_IDENTIFIER: ${{ needs.setup.outputs.root-sbd }}/pr${{ github.event.issue.number }}-${{ steps.previous-deployments.outputs.deployments }}
+          DEPLOYMENT_IDENTIFIER: ${{ needs.setup.outputs.deployment-name }}/pr${{ github.event.issue.number }}-${{ steps.previous-deployments.outputs.deployments }}
         run: |
           pr_branch_name="auto/pr${{ github.event.issue.number }}-${{ steps.previous-deployments.outputs.deployments }}/${{ env.CONFIG }}"
 
@@ -250,7 +243,7 @@ jobs:
           PYTHONPATH=build-cd python3 -m scripts.model_config_manifest.prerelease_update \
             --manifest caller-configs/config.yaml \
             --deployment-target Gadi \
-            --root-sbd ${{ needs.setup.outputs.root-sbd }} \
+            --root-sbd ${{ needs.setup.outputs.deployment-name }} \
             --module ${{ env.DEPLOYMENT_IDENTIFIER }}
 
           echo "Committing and pushing changes..."

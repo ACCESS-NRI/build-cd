@@ -61,8 +61,6 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ inputs.deployment-target }} ${{ inputs.deployment-type }}
     outputs:
-      packages-version: ${{ steps.versions.outputs.packages }}
-      config-version: ${{ steps.versions.outputs.config }}
       spack-location: ${{ steps.location.outputs.spack }}
       modules-location: ${{ steps.location.outputs.modules }}
       root-spec-pkg-hash: ${{ steps.metadata.outputs.root-spec-pkg-hash }}
@@ -77,28 +75,24 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: access-nri/build-cd
-          path: cd
+          path: build-cd
 
       - name: Get Versions From config/versions.json
         id: versions
         run: |
           echo "spack=$(jq --compact-output --raw-output '.spack' ./config/versions.json)" >> $GITHUB_OUTPUT
-          echo "packages=$(jq --compact-output --raw-output '."spack-packages"' ./config/versions.json)" >> $GITHUB_OUTPUT
+          echo "packages=$(jq --compact-output --raw-output '."access-spack-packages"' ./config/versions.json)" >> $GITHUB_OUTPUT
+          echo "custom-scopes=$(jq --compact-output --raw-output '."custom-scopes" // [] | join(" ")' ./config/versions.json)" >> $GITHUB_OUTPUT
 
       - name: Get ${{ inputs.deployment-target }} ${{ inputs.deployment-type }} Remote Paths
         id: path
-        uses: access-nri/build-cd/.github/actions/get-deploy-paths@v7
+        uses: access-nri/build-cd/.github/actions/get-deploy-paths@v8
         with:
           spack-installs-root-path: ${{ vars.SPACK_INSTALLS_ROOT_LOCATION }}
           spack-version: ${{ steps.versions.outputs.spack }}
-          deployment-environment: ${{ inputs.deployment-target }} ${{ inputs.deployment-type }}
+          deployment-target: ${{ inputs.deployment-target }}
+          deployment-type: ${{ inputs.deployment-type }}
           spack-environment: ${{ inputs.env-name }}
-
-      - name: Get manifest info
-        id: manifest
-        uses: access-nri/build-cd/.github/actions/get-spack-root-spec@v7
-        with:
-          spack-manifest-path: ${{ inputs.spack-manifest-path }}
 
       - name: Setup SSH
         id: ssh
@@ -116,13 +110,13 @@ jobs:
           cache: 'pip'
 
       - name: Install Injection Requirements
-        working-directory: cd
+        working-directory: build-cd
         run: python -m pip install -r scripts/spack_manifest/injection/requirements.txt
 
       - name: Spack Manifest - Get Provenance and Injection Packages
         id: config-packages
         run: |
-          packages_for_injection=$(jq -cr '.provenance + .injection | join(" ")' config/packages.json)
+          packages_for_injection=$(jq -cr '.provenance + .injection | join(",")' config/packages.json)
           packages_for_provenance=$(jq -cr '.provenance | join(" ")' config/packages.json)
 
           echo "Packages to be injected: $packages_for_injection"
@@ -133,31 +127,31 @@ jobs:
 
       - name: Spack Manifest - Modules Injection
         # Injects relevant module projections and includes into the spack manifest so users don't have to
-        id: modules-injection
-        working-directory: cd
+        working-directory: build-cd
         run: |
-          original_root_spec_projection=$(yq '.spack.modules.default.tcl.projections."${{ steps.manifest.outputs.root-spec-name }}"' ../${{ inputs.spack-manifest-path }})
-          if [[ "$original_root_spec_projection" != "null" ]]; then
-            echo "custom-projection=${original_root_spec_projection}" >> $GITHUB_OUTPUT
-          fi
-
           python -m scripts.spack_manifest.injection.modules \
             --manifest ../${{ inputs.spack-manifest-path }} \
             --packages "${{ steps.config-packages.outputs.packages-for-injection }}" \
             --output ../${{ inputs.spack-manifest-path }}
 
+      - name: Get SHA for access-spack-packages repository
+        id: packages-ref
+        uses: access-nri/actions/.github/actions/get-git-ref-info@main
+        with:
+          repository: ACCESS-NRI/access-spack-packages
+          ref: ${{ steps.versions.outputs.packages }}
+
       - name: Spack Manifest - Prerelease Injection
         if: inputs.deployment-type == 'Prerelease'
         # Modifies the name of the prerelease modulefile to the pr<number>-<deployment number>` style.
-        # Also removes the `@git.VERSION` specifier for Prereleases as it is a tag that doesn't yet exist.
-        # Also adds a repos section that points to the prereleases specific spack-packages repo.
-        working-directory: cd
+        # Also adds a repos section that points to the prereleases specific access-spack-packages repo.
+        working-directory: build-cd
         run: |
           python -m scripts.spack_manifest.injection.prerelease \
             --manifest ../${{ inputs.spack-manifest-path }} \
             --version ${{ inputs.version }} \
-            ${{ steps.modules-injection.outputs.custom-projection != '' && format('--custom-root-projection {0}', steps.modules-injection.outputs.custom-projection ) || ''}} \
-            --spack-packages-path ${{ steps.path.outputs.spack-packages }} \
+            --spack-packages-path ${{ steps.path.outputs.spack-environment }}/access-spack-packages \
+            --spack-packages-version-sha ${{ steps.packages-ref.outputs.sha }} \
             --output ../${{ inputs.spack-manifest-path }}
 
       - name: Copy ${{ inputs.spack-manifest-path }}
@@ -184,37 +178,11 @@ jobs:
           done
           EOT
 
-      - name: Update spack-packages repository
-        run: |
-          ssh ${{ secrets.USER}}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
-          # Check that a suitable spack-packages location exists
-          if [ ! -d '${{ steps.path.outputs.spack-packages-root }}' ]; then
-            echo '::error::spack-packages does not exist in ${{ steps.path.outputs.root }} for ${{ inputs.deployment-target }} ${{ inputs.deployment-type}}'
-            exit 1
-          fi
-
-          # In the case of a Prerelease, we need to create a new instance of spack-packages per commit, so there is no concurrent access problems.
-          if [ ! -d '${{ steps.path.outputs.spack-packages }}' ]; then
-            echo 'Creating spack-packages instance for ${{ inputs.env-name }} under ${{ steps.path.outputs.spack-packages }}'
-            mkdir -p ${{ steps.path.outputs.spack-packages }}
-            git clone https://github.com/ACCESS-NRI/spack-packages.git '${{ steps.path.outputs.spack-packages }}'
-          fi
-
-          cd ${{ steps.path.outputs.spack-packages }} || exit 1
-
-          git fetch --all --tags
-
-          if git ls-remote --exit-code --heads origin ${{ steps.versions.outputs.packages }}; then  # If the ref is a branch
-            echo "Checking out the branch at the latest commit"
-            git checkout -B ${{ steps.versions.outputs.packages }} origin/${{ steps.versions.outputs.packages }}
-          else  # checkout the tag/commit
-            echo "Checking out the tag/commit"
-            git checkout ${{ steps.versions.outputs.packages }}
-          fi
-          EOT
-
       - name: Deploy to ${{ inputs.deployment-target }} ${{ inputs.deployment-type }}
         id: deploy
+        env:
+          SCOPES: ${{ steps.versions.outputs.custom-scopes }}
+          SCOPES_PATH: ${{ steps.path.outputs.spack-config }}/custom/cd
         # ssh into deployment environment, create and activate the env, install the spack manifest.
         run: |
           ssh ${{ secrets.USER}}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
@@ -231,11 +199,17 @@ jobs:
           # Enable spack
           . ${{ steps.path.outputs.spack-config }}/spack-enable.bash
 
-          # Create environment and build model
-          spack env create ${{ inputs.env-name }} ${{ vars.SPACK_YAML_LOCATION }}/${{ inputs.expected-root-spec-name }}-${{ github.run_id }}.spack.yaml
-          spack env activate ${{ inputs.env-name }}
-          spack --debug install --fail-fast --fresh ${{ vars.SPACK_INSTALL_ADDITIONAL_ARGS }} || exit $?
-          spack module tcl refresh -y
+          # Create and activate environment
+          spack env activate ${{ inputs.env-name }} --create --envfile ${{ vars.SPACK_YAML_LOCATION }}/${{ inputs.expected-root-spec-name }}-${{ github.run_id }}.spack.yaml
+
+          # Finally, install the spack manifest
+          spack --debug \
+            $(for s in ${{ env.SCOPES }}; do echo -n "--config-scope=${{ env.SCOPES_PATH }}/$s "; done) \
+            install --fail-fast --fresh ${{ vars.SPACK_INSTALL_ADDITIONAL_ARGS }} || exit $?
+
+          spack \
+            $(for s in ${{ env.SCOPES }}; do echo -n "--config-scope=${{ env.SCOPES_PATH }}/$s "; done) \
+            module tcl refresh -y
           EOT
 
       - name: Move spack logs
@@ -283,7 +257,7 @@ jobs:
             hash=$(spack find --format "{^${pkg}.hash}" /$root_spec_hash)
             version=$(spack find --format '{version}' /$hash)
             location=$(spack find --format '{prefix}' /$hash)
-            pkg_repo_url=$(spack python -c "import spack.spec; print(spack.spec.Spec('$pkg').package_class.git)")
+            pkg_repo_url=$(spack python -c "print(spack.repo.PATH.get_pkg_class('$pkg').git)")
 
             # We need to create a tmp output file as jq doesn't support in-place read/write
             jq \

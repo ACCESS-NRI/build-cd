@@ -1,4 +1,7 @@
 spack:
+  definitions:
+  - _name: [access-om2]
+  - _version: [2024.03.0]
   specs:
   - access-om2
   packages:
@@ -43,8 +46,10 @@ spack:
         - libaccessom2
         - oasis3-mct
         projections:
-          access-om2: '{name}/pr12-12/2024.03.0'
+          access-om2: '{name}/pr12-12'
           mom5: 'access-om2/dependencies/pr12-12/{name}/2023.11.09-{hash:7}'
-  repos::
-  - /some/spack-packages
-  - $spack/var/spack/repos/builtin
+  repos:
+    access_spack_packages:
+      git: https://github.com/ACCESS-NRI/access-spack-packages.git
+      destination: /some/spack-packages
+      commit: e8713551c6eee57caf9603543e6dd6daf3c93922
