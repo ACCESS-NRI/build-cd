@@ -78,6 +78,7 @@ jobs:
         with:
           repository: access-nri/build-cd
           path: cd
+          ref: v7
 
       - name: Get Versions From config/versions.json
         id: versions

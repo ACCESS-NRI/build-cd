@@ -273,6 +273,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: access-nri/build-cd
+          ref: v7
 
       - name: Download matrix deployment outputs
         uses: actions/download-artifact@v4

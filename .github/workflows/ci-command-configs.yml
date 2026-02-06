@@ -314,6 +314,7 @@ jobs:
         with:
           repository: access-nri/build-cd
           path: build-cd
+          ref: v7
 
       - name: Download PR URL Artifacts
         uses: actions/download-artifact@v6
