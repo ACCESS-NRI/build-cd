@@ -11,6 +11,7 @@ from typing import Any, List, Dict
 import spack.environment
 import spack.cmd
 import spack.spec
+import spack.repo
 
 
 def main():
@@ -74,8 +75,7 @@ def generate_packages_metadata(package_names: List[str], root_spec: spack.spec.S
         package_hash: str  = package.format('{hash}')
         package_version: str = package.format('{version}')
         package_location: str = package.format('{prefix}')
-        # TODO: This is unsupported in spack > 1.0 - use spack.repo.PATH.get_pkg_class('$pkg').git)"
-        package_repo_url: str = package.package_class.git
+        package_repo_url: str =  spack.repo.PATH.get_pkg_class(package_name).git
 
         md5s_of_binaries = generate_md5s_for_package_binaries(package)
 
