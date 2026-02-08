@@ -65,12 +65,11 @@ def generate_packages_metadata(package_names: List[str], root_spec: spack.spec.S
     metadata: List[Dict[str, Any]] = []
 
     for package_name in package_names:
-        root_spec_deps: List[spack.spec.Spec] = root_spec.dependencies(name=package_name)
-
-        if len(root_spec_deps) > 1:
-            raise RuntimeError(f"Multiple dependencies found for package {package_name} in root spec {root_spec}. Cannot uniquely identify package.")
-
-        package: spack.spec.Spec = root_spec_deps[0]
+        try:
+            package: spack.spec.Spec = root_spec[package_name]
+        except KeyError:
+            print(f"{package} is not in the dependency chain of {root_spec}, can't upload to build database. Exiting...")
+            raise
 
         package_hash: str  = package.format('{hash}')
         package_version: str = package.format('{version}')
