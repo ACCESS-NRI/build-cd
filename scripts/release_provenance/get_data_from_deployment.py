@@ -34,10 +34,10 @@ def main():
     if len(root_specs) == 0:
         raise RuntimeError("There are no root specs matching the deployment name in the environment")
     else:
-        # FIXME: We currently pick the first root spec, in the unsupported cases there are multiple root specs. See #333
+        # FIXME: We currently throw an exception, in the unsupported cases there are multiple root specs. See #333
         root_spec = root_specs[0]
         if len(root_specs) > 1:
-            print(f"Multiple root specs ({root_specs}) in one manifest detected. Taking the first one as the release database doesn't support multiple.")
+            raise RuntimeError(f"Multiple root specs ({root_specs}) in one manifest detected. We don't yet support multiple root specs in one deployment.")
 
     with open(output_path / "root-spec-pkg-hash.txt", 'w') as f:
         f.write(root_spec.format('{hash}'))
