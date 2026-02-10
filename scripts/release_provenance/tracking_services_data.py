@@ -161,6 +161,7 @@ def _format_telemetry_of_model_components(
                     "version": version,
                     "install_location": component["location"],
                     "repository_url": repo_url_at_version,
+                    "md5s": component["md5s"]
                 }
             )
 
