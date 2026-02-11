@@ -117,7 +117,7 @@ jobs:
         id: config-packages
         run: |
           packages_for_injection=$(jq -cr '.provenance + .injection | join(",")' config/packages.json)
-          packages_for_provenance=$(jq -cr '.provenance | join(" ")' config/packages.json)
+          packages_for_provenance=$(jq -cr '.provenance | join(",")' config/packages.json)
 
           echo "Packages to be injected: $packages_for_injection"
           echo "Packages for provenance: $packages_for_provenance"
@@ -239,9 +239,7 @@ jobs:
           echo "DEPLOYMENT_TARGET exported as $DEPLOYMENT_TARGET"
 
           . ${{ steps.path.outputs.spack-config }}/spack-enable.bash
-          # Note: the below spack environment path expression evaluates to an
-          # absolute path, so we don't need a './' before the expression, only the '.'.
-          .${{ steps.path.outputs.spack-environment }}/get_data_from_deployment.py \
+          ${{ steps.path.outputs.spack-environment }}/get_data_from_deployment.py \
             --environment ${{ steps.path.outputs.spack-environment }} \
             --deployment-name ${{ inputs.expected-root-spec-name }} \
             --packages ${{ steps.config-packages.outputs.packages-for-provenance }} \
