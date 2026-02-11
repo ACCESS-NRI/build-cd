@@ -239,10 +239,12 @@ jobs:
           echo "DEPLOYMENT_TARGET exported as $DEPLOYMENT_TARGET"
 
           . ${{ steps.path.outputs.spack-config }}/spack-enable.bash
-          ./${{ steps.path.outputs.spack-environment }}/get_data_from_deployment.py \
+          # Note: the below spack environment path expression evaluates to an
+          # absolute path, so we don't need a './' before the expression, only the '.'.
+          .${{ steps.path.outputs.spack-environment }}/get_data_from_deployment.py \
             --environment ${{ steps.path.outputs.spack-environment }} \
             --deployment-name ${{ inputs.expected-root-spec-name }} \
-            --packages ${{ steps.config-packages.outputs.packages-for-provenance }}
+            --packages ${{ steps.config-packages.outputs.packages-for-provenance }} \
             --output ${{ steps.path.outputs.spack-environment }}
           EOT
 
