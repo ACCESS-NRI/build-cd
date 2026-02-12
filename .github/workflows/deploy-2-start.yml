@@ -245,7 +245,7 @@ jobs:
             --environment ${{ steps.path.outputs.spack-environment }} \
             --deployment-name ${{ inputs.expected-root-spec-name }} \
             --packages ${{ steps.config-packages.outputs.packages-for-provenance }} \
-            --config-scopes ${{ steps.versions.outputs.custom-scopes-comma-separated }} \
+            --config-scopes "${{ steps.versions.outputs.custom-scopes-comma-separated }}" \
             --output ${{ steps.path.outputs.spack-environment }}
           EOT
 
