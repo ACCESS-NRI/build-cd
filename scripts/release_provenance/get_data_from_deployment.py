@@ -70,7 +70,7 @@ def add_custom_spack_config_scopes(config_scopes: List[str]) -> None:
 
     config_scope_paths: List[str] = [str(spack_config_custom_scopes_path / s) for s in config_scopes]
 
-    print(f"Found custom scopes: {config_scope_paths}")
+    print(f"Attempting to load custom scopes: {config_scope_paths}")
 
     spack.main.add_command_line_scopes(spack.config.CONFIG, config_scope_paths)
 
