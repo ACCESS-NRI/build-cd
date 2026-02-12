@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, List, Dict
 
 import spack.environment
+import spack.error
 import spack.cmd
 import spack.config
 import spack.paths
@@ -72,7 +73,11 @@ def add_custom_spack_config_scopes(config_scopes: List[str]) -> None:
 
     print(f"Attempting to load custom scopes: {config_scope_paths}")
 
-    spack.main.add_command_line_scopes(spack.config.CONFIG, config_scope_paths)
+    try:
+        spack.main.add_command_line_scopes(spack.config.CONFIG, config_scope_paths)
+    except spack.error.ConfigError:
+        print(f"Failed to find valid config scope in paths {config_scope_paths}.")
+        raise
 
 def activate_spack_environment(spack_env_path: str) -> spack.environment.Environment:
     spack_env = spack.environment.Environment(spack_env_path)
