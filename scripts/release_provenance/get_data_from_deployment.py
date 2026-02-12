@@ -20,7 +20,7 @@ import spack.main
 def main():
     args = parse_args(sys.argv[1:])
     packages: List[str] = args.packages.split(",")
-    config_scopes: List[str] = args.config_scopes.split(",")
+    config_scopes: List[str] = args.config_scopes.split(",") if args.config_scopes else []
     output_path = Path(args.output)
 
     # Custom scopes added via spack --config-scope for install need to be added back here
