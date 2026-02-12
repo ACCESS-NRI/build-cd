@@ -82,7 +82,9 @@ jobs:
         run: |
           echo "spack=$(jq --compact-output --raw-output '.spack' ./config/versions.json)" >> $GITHUB_OUTPUT
           echo "packages=$(jq --compact-output --raw-output '."access-spack-packages"' ./config/versions.json)" >> $GITHUB_OUTPUT
-          echo "custom-scopes=$(jq --compact-output --raw-output '."custom-scopes" // [] | join(" ")' ./config/versions.json)" >> $GITHUB_OUTPUT
+          echo "custom-scopes-space-separated=$(jq --compact-output --raw-output '."custom-scopes" // [] | join(" ")' ./config/versions.json)" >> $GITHUB_OUTPUT
+          echo "custom-scopes-comma-separated=$(jq --compact-output --raw-output '."custom-scopes" // [] | join(",")' ./config/versions.json)" >> $GITHUB_OUTPUT
+
 
       - name: Get ${{ inputs.deployment-target }} ${{ inputs.deployment-type }} Remote Paths
         id: path
@@ -181,7 +183,7 @@ jobs:
       - name: Deploy to ${{ inputs.deployment-target }} ${{ inputs.deployment-type }}
         id: deploy
         env:
-          SCOPES: ${{ steps.versions.outputs.custom-scopes }}
+          SCOPES: ${{ steps.versions.outputs.custom-scopes-space-separated }}
           SCOPES_PATH: ${{ steps.path.outputs.spack-config }}/custom/cd
         # ssh into deployment environment, create and activate the env, install the spack manifest.
         run: |
@@ -243,6 +245,7 @@ jobs:
             --environment ${{ steps.path.outputs.spack-environment }} \
             --deployment-name ${{ inputs.expected-root-spec-name }} \
             --packages ${{ steps.config-packages.outputs.packages-for-provenance }} \
+            --config-scopes ${{ steps.versions.outputs.custom-scopes-comma-separated }} \
             --output ${{ steps.path.outputs.spack-environment }}
           EOT
 

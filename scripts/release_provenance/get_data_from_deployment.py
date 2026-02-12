@@ -9,15 +9,24 @@ from pathlib import Path
 from typing import Any, List, Dict
 
 import spack.environment
+import spack.error
 import spack.cmd
+import spack.config
+import spack.paths
 import spack.spec
 import spack.repo
+import spack.main
 
 
 def main():
     args = parse_args(sys.argv[1:])
     packages: List[str] = args.packages.split(",")
+    config_scopes: List[str] = args.config_scopes.split(",") if args.config_scopes else []
     output_path = Path(args.output)
+
+    # Custom scopes added via spack --config-scope for install need to be added back here
+    # so we can find those packages!
+    add_custom_spack_config_scopes(config_scopes)
 
     # Activate the spack environment so we can get relevant specs for this deployment
     spack_env = activate_spack_environment(args.environment)
@@ -49,6 +58,26 @@ def main():
 
     with open(output_path / "build-db-pkgs.json", 'w') as f:
         json.dump(packages_metadata, f)
+
+def add_custom_spack_config_scopes(config_scopes: List[str]) -> None:
+    """
+    Adds paths to custom spack config scopes to the command_line scope so we can find binaries for
+    certain environments that use custom installation directories.
+
+    :param config_scopes: Names of custom scopes from spack-configs custom/cd directory.
+    :type config_scopes: List[str]
+    """
+    spack_config_custom_scopes_path: Path = Path(spack.paths.spack_root).parent / "spack-config" / "custom" / "cd"
+
+    config_scope_paths: List[str] = [str(spack_config_custom_scopes_path / s) for s in config_scopes]
+
+    print(f"Attempting to load custom scopes: {config_scope_paths}")
+
+    try:
+        spack.main.add_command_line_scopes(spack.config.CONFIG, config_scope_paths)
+    except spack.error.ConfigError:
+        print(f"Failed to find valid config scope in paths {config_scope_paths}.")
+        raise
 
 def activate_spack_environment(spack_env_path: str) -> spack.environment.Environment:
     spack_env = spack.environment.Environment(spack_env_path)
@@ -142,6 +171,13 @@ def parse_args(args: List[str]) -> argparse.Namespace:
         type=str,
         required=True,
         help="Comma-separated list of packages to extract build metadata for",
+    )
+
+    parser.add_argument(
+        "--config-scopes",
+        type=str,
+        required=False,
+        help="Comma-separated list of custom spack config scopes defined in spack-configs custom/cd directory"
     )
 
     ## Args dealing with outputs
