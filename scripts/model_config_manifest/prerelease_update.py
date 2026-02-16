@@ -124,9 +124,19 @@ def parse_args(args: list[str]) -> argparse.Namespace:
 
 def main():
     args = parse_args(sys.argv[1:])
-    
+
+    # Setting up the YAML parser...
     yaml=ruamel.yaml.YAML()
+    # To cut down on large diffs, keep the original quoting of config.yaml
     yaml.preserve_quotes = True
+    # Some files have 'foo: null' being updated to 'foo: ' - this will ensure that
+    # original 'null' values are still represented as 'null'
+    yaml.representer.add_representer(
+        type(None), lambda self, _: self.represent_scalar("tag:yaml.org,2002:null", "null")
+    )
+    # Some extra-long values are being wrapped, which increases the diff size.
+    # This ensures that wrapping only occurs at the extreme end of file width...
+    yaml.width = 1000
 
     with open(args.manifest, "r") as f:
         manifest = yaml.load(f)
