@@ -1,4 +1,4 @@
-:wrench: Opening Model Configuration PRs in `{{ model_configs_repo if model_configs_repo != '' else 'an unknown configs repository' }}`
+:wrench: Opening/Updating Model Configuration PRs in `{{ model_configs_repo if model_configs_repo != '' else 'an unknown configs repository' }}`
 
 {% if error == 'true' %}
 :x: One or more errors occurred with the workflow
@@ -19,15 +19,15 @@ No configs were requested.
 </details>
 
 <details>
-<summary>Pull Requests Opened</summary>
+<summary>Pull Requests Opened/Updated</summary>
 
 {% if pr_urls %}
-The following PRs were opened:
+The following PRs were opened/updated:
 {% for pr_url in pr_urls.split() %}
 - {{ pr_url }}
 {% endfor %}
 {% else %}
-No PRs were opened
+No PRs were opened/updated
 {% endif %}
 
 </details>
