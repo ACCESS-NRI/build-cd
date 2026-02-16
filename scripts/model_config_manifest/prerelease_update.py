@@ -1,7 +1,7 @@
 import argparse
-import re
 import sys
-import yaml
+
+import ruamel.yaml
 
 # Essentially we are looking to do the following substitutions in yq:
 # yq -i '.modules.use += ["/g/data/vk83/prerelease/modules"]' config.yaml
@@ -124,9 +124,12 @@ def parse_args(args: list[str]) -> argparse.Namespace:
 
 def main():
     args = parse_args(sys.argv[1:])
+    
+    yaml=ruamel.yaml.YAML()
+    yaml.preserve_quotes = True
 
     with open(args.manifest, "r") as f:
-        manifest = yaml.safe_load(f)
+        manifest = yaml.load(f)
 
     updated_manifest = update_model_config_manifest(
         manifest,
@@ -136,7 +139,7 @@ def main():
     )
 
     with open(args.manifest, "w") as f:
-        yaml.safe_dump(updated_manifest, f)
+        yaml.dump(updated_manifest, f)
 
 
 if __name__ == "__main__":
