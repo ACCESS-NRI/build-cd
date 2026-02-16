@@ -223,7 +223,7 @@ jobs:
           echo "Checking PR branch $pr_branch_name from ${{ env.CONFIG }}..."
           git -C caller-configs checkout ${{ env.CONFIG }}
 
-          if git -C caller-configs ls-remote --exit-code --heads origin $pr_branch_name; then
+          if git -C caller-configs ls-remote --exit-code --heads origin $pr_branch_name &> /dev/null; then
             git -C caller-configs checkout $pr_branch_name
           else
             git -C caller-configs checkout -b $pr_branch_name
@@ -250,7 +250,7 @@ jobs:
           git -C caller-configs commit -am "auto: use ${{ env.DEPLOYMENT_IDENTIFIER }} from ${{ env.RUN_URL }}"
           git -C caller-configs push
 
-          if ! gh pr view; then
+          if ! pr_url=$(gh pr view --json url --jq .url 2>/dev/null); then
             echo "Opening PR for branch $pr_branch_name in repo ${{ needs.setup.outputs.configs-repo }}..."
             pr_url=$(gh pr create \
               --draft \
@@ -263,7 +263,6 @@ jobs:
             echo "pr_url=$pr_url" >> $GITHUB_OUTPUT
             echo "::notice:: Opened $pr_url"
           else
-            pr_url=$(gh pr view --json url --jq .url)
             echo "pr_url=$pr_url" >> $GITHUB_OUTPUT
             echo "::notice:: Updated $pr_url"
           fi
