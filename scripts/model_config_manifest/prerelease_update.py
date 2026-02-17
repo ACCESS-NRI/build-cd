@@ -1,7 +1,7 @@
 import argparse
-import re
 import sys
-import yaml
+
+import ruamel.yaml
 
 # Essentially we are looking to do the following substitutions in yq:
 # yq -i '.modules.use += ["/g/data/vk83/prerelease/modules"]' config.yaml
@@ -125,8 +125,21 @@ def parse_args(args: list[str]) -> argparse.Namespace:
 def main():
     args = parse_args(sys.argv[1:])
 
+    # Setting up the YAML parser...
+    yaml=ruamel.yaml.YAML()
+    # To cut down on large diffs, keep the original quoting of config.yaml
+    yaml.preserve_quotes = True
+    # Some files have 'foo: null' being updated to 'foo: ' - this will ensure that
+    # original 'null' values are still represented as 'null'
+    yaml.representer.add_representer(
+        type(None), lambda self, _: self.represent_scalar("tag:yaml.org,2002:null", "null")
+    )
+    # Some extra-long values are being wrapped, which increases the diff size.
+    # This ensures that wrapping only occurs at the extreme end of file width...
+    yaml.width = 1000
+
     with open(args.manifest, "r") as f:
-        manifest = yaml.safe_load(f)
+        manifest = yaml.load(f)
 
     updated_manifest = update_model_config_manifest(
         manifest,
@@ -136,7 +149,7 @@ def main():
     )
 
     with open(args.manifest, "w") as f:
-        yaml.safe_dump(updated_manifest, f)
+        yaml.dump(updated_manifest, f)
 
 
 if __name__ == "__main__":
