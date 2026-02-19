@@ -224,20 +224,21 @@ jobs:
         id: open-pr
         env:
           DEPLOYMENT_IDENTIFIER: ${{ needs.setup.outputs.root-sbd }}/pr${{ github.event.issue.number }}-${{ steps.previous-deployments.outputs.deployments }}
+        working-directory: caller-configs
         run: |
           pr_branch_name="auto/pr${{ github.event.issue.number }}/${{ env.CONFIG }}"
 
           echo "Checking PR branch $pr_branch_name from ${{ env.CONFIG }}..."
-          git -C caller-configs checkout ${{ env.CONFIG }}
+          git checkout ${{ env.CONFIG }}
 
-          if git -C caller-configs ls-remote --exit-code --heads origin $pr_branch_name &> /dev/null; then
-            git -C caller-configs checkout $pr_branch_name
+          if git ls-remote --exit-code --heads origin $pr_branch_name &> /dev/null; then
+            git checkout $pr_branch_name
           else
-            git -C caller-configs checkout -b $pr_branch_name
-            git -C caller-configs push --set-upstream origin $pr_branch_name
+            git checkout -b $pr_branch_name
+            git push --set-upstream origin $pr_branch_name
           fi
 
-          if [ ! -f caller-configs/config.yaml ]; then
+          if [ ! -f config.yaml ]; then
             echo "::error::File config.yaml not found in ${{ needs.setup.outputs.configs-repo }} on branch ${{ env.CONFIG }}, cannot automatically open configs PRs"
             exit 1
           fi
@@ -246,16 +247,16 @@ jobs:
 
           # FIXME: This is Gadi-specific
           # --manifest is still relative to the current working directory, unaffected by the custom PYTHONPATH
-          PYTHONPATH=build-cd python3 -m scripts.model_config_manifest.prerelease_update \
-            --manifest caller-configs/config.yaml \
+          PYTHONPATH=../build-cd python3 -m scripts.model_config_manifest.prerelease_update \
+            --manifest config.yaml \
             --deployment-target Gadi \
             --root-sbd ${{ needs.setup.outputs.root-sbd }} \
             --module ${{ env.DEPLOYMENT_IDENTIFIER }}
 
           echo "Committing and pushing changes..."
-          git -C caller-configs diff
-          git -C caller-configs commit -am "auto: use ${{ env.DEPLOYMENT_IDENTIFIER }} from ${{ env.RUN_URL }}"
-          git -C caller-configs push
+          git diff
+          git commit -am "auto: use ${{ env.DEPLOYMENT_IDENTIFIER }} from ${{ env.RUN_URL }}"
+          git push
 
           if ! pr_url=$(gh pr view --json url --jq .url 2>/dev/null); then
             echo "Opening PR for branch $pr_branch_name in repo ${{ needs.setup.outputs.configs-repo }}..."
