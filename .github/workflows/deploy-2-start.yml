@@ -204,6 +204,9 @@ jobs:
           # Create and activate environment
           spack env activate ${{ inputs.env-name }} --create --envfile ${{ vars.SPACK_YAML_LOCATION }}/${{ inputs.expected-root-spec-name }}-${{ github.run_id }}.spack.yaml
 
+          # Update access-spack-packages repository before installation
+          spack repo update access_spack_packages --commit ${{ steps.packages-ref.outputs.sha }}
+
           # Finally, install the spack manifest
           spack --debug \
             $(for s in ${{ env.SCOPES }}; do echo -n "--config-scope=${{ env.SCOPES_PATH }}/$s "; done) \
