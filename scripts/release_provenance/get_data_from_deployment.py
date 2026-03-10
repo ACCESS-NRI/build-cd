@@ -129,7 +129,7 @@ def _get_package_repo_info(package: spack.spec.Spec) -> Tuple[str, str]:
     if package_name == "um":
         return (
             spack.repo.PATH.get_pkg_class(package_name)._resource_cfg.um_ref.git_url,
-            package.variants.get("um_sources_ref").value
+            package.variants.get("um_ref").value
         )
     else:
         return (
