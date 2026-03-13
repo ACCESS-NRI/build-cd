@@ -232,6 +232,7 @@ jobs:
 
       - name: Get metadata from ${{ inputs.deployment-target }} ${{ inputs.deployment-type}}
         id: metadata
+        if: inputs.deployment-type == 'Release'
         # Get the metadata from the spack environment regarding build database packages
         run: |
           rsync --perms -e 'ssh -i ${{ steps.ssh.outputs.private-key-path }}' \
@@ -275,12 +276,17 @@ jobs:
 
       # Release
       - name: Get Release Metadata
-        # Copy both the spack.* files and the build-db-pkgs.json file to the artifact
+        # Copy both the spack.* files and the build-db-pkgs.json file (for Release) to the artifact
         run: |
           rsync -e 'ssh -i ${{ steps.ssh.outputs.private-key-path }}' \
             '${{ secrets.USER }}@${{ secrets.HOST_DATA }}:${{ steps.path.outputs.spack-environment }}/spack.*' \
-            '${{ secrets.USER }}@${{ secrets.HOST_DATA }}:${{ steps.path.outputs.spack-environment }}/build-db-pkgs.json' \
             ./${{ env.ARTIFACT_NAME }}
+
+          if [[ "${{ inputs.deployment-type }}" == "Release" ]]; then
+            rsync -e 'ssh -i ${{ steps.ssh.outputs.private-key-path }}' \
+              '${{ secrets.USER }}@${{ secrets.HOST_DATA }}:${{ steps.path.outputs.spack-environment }}/build-db-pkgs.json' \
+              ./${{ env.ARTIFACT_NAME }}
+          fi
 
           # Rename the files to include the deployment environment
           cd ./${{ env.ARTIFACT_NAME }}
