@@ -102,6 +102,8 @@ def generate_packages_metadata(package_names: List[str], root_spec: spack.spec.S
 
         package_hash: str  = package.format('{hash}')
         package_location: str = package.format('{prefix}')
+        package_repo_url: str
+        package_repo_version: str
         package_repo_url, package_repo_version = _get_package_repo_info(package)
 
         md5s_of_binaries = generate_md5s_for_package_binaries(package)
