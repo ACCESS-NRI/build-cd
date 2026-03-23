@@ -6,7 +6,7 @@ import hashlib
 import os
 from pathlib import Path
 # Need to import these as spack python is on 3.6, before __future__ annotations or typing improvements
-from typing import Any, List, Dict
+from typing import Any, List, Dict, Tuple
 
 import spack.environment
 import spack.error
@@ -101,15 +101,16 @@ def generate_packages_metadata(package_names: List[str], root_spec: spack.spec.S
             raise
 
         package_hash: str  = package.format('{hash}')
-        package_version: str = package.format('{version}')
         package_location: str = package.format('{prefix}')
-        package_repo_url: str =  spack.repo.PATH.get_pkg_class(package_name).git
+        package_repo_url: str
+        package_repo_version: str
+        package_repo_url, package_repo_version = _get_package_repo_info(package)
 
         md5s_of_binaries = generate_md5s_for_package_binaries(package)
 
         metadata.append({
             "name": package_name,
-            "version": package_version,
+            "version": package_repo_version,
             "hash": package_hash,
             "location": package_location,
             "url": package_repo_url,
@@ -117,6 +118,33 @@ def generate_packages_metadata(package_names: List[str], root_spec: spack.spec.S
         })
 
     return metadata
+
+def _get_package_repo_info(package: spack.spec.Spec) -> Tuple[str, str]:
+    """
+    Get package repo information from the package.py file.
+    This is different for certain packages like the um, which have variants and structs in the
+    package.py file that have that information.
+    Returns: A pair composed of a git url and a git ref
+    """
+    package_name = package.name
+
+    if package_name == "um":
+        um_config: Dict[str, Any] = spack.repo.PATH.get_pkg_class(package_name)._resource_cfg
+        um_git_url = um_config.get("um_ref", {}).get("git_url")
+        um_git_ref = package.variants.get("um_ref")
+
+        if not um_git_url or not um_git_ref:
+            raise RuntimeError("The package 'um' needs to have a git url specified in _resource_cfg and the um_ref variant for provenance.")
+
+        return (
+            um_git_url,
+            um_git_ref.value
+        )
+    else:
+        return (
+            spack.repo.PATH.get_pkg_class(package_name).git,
+            package.format("{version}")
+        )
 
 
 def generate_md5s_for_package_binaries(package: spack.spec.Spec) -> List[Dict[str, str]]:
