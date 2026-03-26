@@ -150,13 +150,18 @@ def _get_package_repo_info(package: spack.spec.Spec) -> Tuple[str, str]:
 def generate_md5s_for_package_binaries(package: spack.spec.Spec) -> List[Dict[str, str]]:
     md5s: List[Dict[str, str]] = []
 
-    bin_path = Path(package.prefix) / "bin"
+    bin_paths = [
+        directory
+        for directory in Path(package.prefix).rglob("bin")
+        if directory.is_dir()
+    ]
 
-    if not bin_path.exists():
+    if not bin_paths:
         return md5s
 
     executables = [
         executable
+        for bin_path in bin_paths
         for executable in bin_path.rglob('*')
         if executable.is_file() and os.access(executable, os.X_OK)
     ]
