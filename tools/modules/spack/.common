@@ -1,0 +1,150 @@
+#%Module1.0
+
+# Get module name and version
+lassign [split [module-info name] {/}] module_name module_version
+
+conflict $module_name
+
+# Set spack root
+set base_dir "/g/data/vk83/testing/apps/spack/$module_version"
+set spack_root "$base_dir/spack"
+
+# Set spack setup-env.sh
+set setup_env "$spack_root/share/spack/setup-env.sh"
+
+# Set Python to be used with spack
+set spack_python /apps/python3/3.12.1/bin/python3
+
+# Set the name of the env variable used to store the environment information before sourcing the spack seupt-env.sh script
+set old_env_var_name _SPACK_MODULE_OLD_ENV
+
+# If the module is loaded
+if {[module-info mode load]} {
+    ### Set spack environment
+    # Since the Module version is < 5.0 we cannot directly source spack's setup-env script within this modulefile.
+    # A work-around is to run a bash script that computes the environment before and after sourcing the spack's 
+    # setup-env and:
+    # - When the module is loaded, set the new variables and functions.
+    #   When the module is unloaded, unset them.
+    # - When the module is loaded, set the variables and functions that changed to their new values.
+    #   When the module is unloaded, re-set them to their old values.
+
+    # To handle tcl and bash quoting correctly, we first set up the bash script in a TCL variable
+    # (bash_script) and then run it using `exec /bin/bash -c $bash_script`
+    # For this reason, we double the percent sign (%%) when we want a literal percent, because the script
+    # is within a TCL `format` function that would otherwise interpret the percent as a formatting sign.
+    # NOTE: this setup could be simplified by writing the bash script into a file 
+    # (shipped together with the spack module), and exec that file using somthing like `exec /bin/bash <path/to/file>`
+
+    set bash_script [format {
+    # Set old environment env var
+    old_env_var_name="%s"
+    declare -n env_var="$old_env_var_name"
+
+    # Set setup-env script
+    setup_env_script="%s"
+
+    # Set regex for bash functions in the environment printout
+    function_regex='^BASH_FUNC_(.+)%%%%=\(\) (.*)'
+
+    # Capture the environment before sourcing the setup-env script
+    # and parse variables and functions into bash associative arrays
+    declare -A before_functions
+    declare -A before_variables
+    while IFS= read -r -d '' entry; do
+        if [[ "$entry" =~ $function_regex ]]; then
+            # Set function
+            name="${BASH_REMATCH[1]}"
+            value="${BASH_REMATCH[2]}"
+            before_functions["$name"]="$value"
+        else
+            # Set variable
+            name="${entry%%%%=*}"
+            value="${entry#*=}"
+            before_variables["$name"]="$value"
+        fi
+    done < <(env -0)
+
+    # Set up SPACK_PYTHON
+    export SPACK_PYTHON="%s"
+    # Set up SPACK_ROOT
+    export SPACK_ROOT="%s"
+    # Source the setup-env script
+    source "$setup_env_script" > /dev/null
+
+    # Capture the environment after sourcing the setup-env script
+    # and parse it to find changes
+    while IFS= read -r -d '' entry; do
+        if [[ "$entry" =~ $function_regex ]]; then
+            # Function
+            name="${BASH_REMATCH[1]}"
+            value="${BASH_REMATCH[2]}"
+            if [[ ! -v before_functions["$name"] ]]; then 
+                # If the function got added, print out the bash command for it to be exported
+                # and add to the old_env_var_name the bash command for it to be unset
+                printf '%%s ; ' "${name}() $value ; export -f $name"
+                env_var+=$(printf '%%s ;' "unset -f $name")
+            elif [[ "${before_functions[$name]}" != "$value" ]]; then
+                # If the function got changed, print out the bash command for it to be exported
+                # and add to the old_env_var_name the bash command for it to be set to its old value
+                printf '%%s ; ' "${name}() $value ; export -f $name"
+                old_value="${before_functions["$name"]}"
+                env_var+=$(printf '%%s ; ' "${name}() $old_value ; export -f $name")
+            fi
+        else
+            # Variable
+            name="${entry%%%%=*}"
+            value="${entry#*=}"
+            if [[ ! -v before_variables["$name"] ]]; then
+                # If the variable got added, print out the bash command for it to be exported
+                # and add to the old_env_var_name the bash command for it to be unset
+                printf '%%s ; ' "export $name=$value"
+                env_var+=$(printf '%%s ; ' "unset $name")
+            elif [[ "${before_variables[$name]}" != "$value" ]]; then
+                # If the variable got changed, print out the bash command for it to be exported
+                # and add to the old_env_var_name the bash command for it to be set to its old value
+                printf '%%s ; ' "export $name=$value"
+                old_value="${before_variables["$name"]}"
+                env_var+=$(printf '%%s ; ' "export $name=$old_value")
+            fi
+        fi
+    done < <(env -0)
+    # Print a null character as a separator, to help splitting the commands to set the new environment
+    # from those to reinstate the old environment
+    printf '\x00'
+    # Print the commands to reinstate the old environment
+    echo "${!old_env_var_name}"
+    } $old_env_var_name $setup_env $spack_python $spack_root]
+
+    # Run the bash script and capture its output into a variable
+    set bash_commands [exec /bin/bash -c $bash_script]
+
+    # Split the variable with null character (\x00) to get the commands to set the new environment
+    # and those to reinstate the old environment
+    lassign [split $bash_commands "\x00"] new_env_commands old_env_commands
+
+    # Set the environment variable to reinstate the old environment
+    puts "export $old_env_var_name='$old_env_commands'"
+
+    # Set the new environment
+    puts $new_env_commands
+
+    puts stderr "Spack environment set up using $setup_env"
+} else {
+    # If the module is unloaded, we use the old_env_var_name env variable to reinstate the old
+    # environment
+    if {[info exists env($old_env_var_name)]} {
+        puts $env($old_env_var_name)
+        # Unset the old_env_var_name
+        puts "unset $old_env_var_name"
+    } else {
+        # If the old_env_var_name env variable doesn't exist, print out a warning message
+        puts stderr [string cat \
+            "WARNING: The $old_env_var_name env variable which stores the environment " \
+            "information prior to loading the $module_name module is not set. Environment restoration failed."
+        ]
+    }
+}
+
+# Set 'spacktivate' alias
+set-alias spacktivate {spack env activate}
