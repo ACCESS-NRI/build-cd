@@ -160,7 +160,7 @@ jobs:
             version=${update[0]}
             new_ref=${update[1]}
 
-            . ${{ secrets.SPACK_INSTALLS_ROOT_LOCATION }}/$version/spack-config/spack-enable.bash
+            . ${{ secrets.SPACK_INSTALLS_ROOT_LOCATION }}/$version/spack/share/spack/setup-env.sh
 
             builtin_repo_path=$(spack location --repo builtin)
 

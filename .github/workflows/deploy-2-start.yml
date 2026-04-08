@@ -199,7 +199,7 @@ jobs:
           echo "DEPLOYMENT_TARGET exported as $DEPLOYMENT_TARGET"
 
           # Enable spack
-          . ${{ steps.path.outputs.spack-config }}/spack-enable.bash
+          . ${{ steps.path.outputs.spack }}/share/spack/setup-env.sh
 
           # Create and activate environment
           spack env activate ${{ inputs.env-name }} --create --envfile ${{ vars.SPACK_YAML_LOCATION }}/${{ inputs.expected-root-spec-name }}-${{ github.run_id }}.spack.yaml
@@ -244,7 +244,7 @@ jobs:
           export DEPLOYMENT_TARGET="${{ vars.DEPLOYMENT_TARGET }}"
           echo "DEPLOYMENT_TARGET exported as $DEPLOYMENT_TARGET"
 
-          . ${{ steps.path.outputs.spack-config }}/spack-enable.bash
+          . ${{ steps.path.outputs.spack }}/share/spack/setup-env.sh
           ${{ steps.path.outputs.spack-environment }}/get_data_from_deployment.py \
             --environment ${{ steps.path.outputs.spack-environment }} \
             --deployment-name ${{ inputs.expected-root-spec-name }} \
