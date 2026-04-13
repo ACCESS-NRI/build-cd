@@ -156,15 +156,6 @@ jobs:
             --spack-packages-version-sha ${{ steps.packages-ref.outputs.sha }} \
             --output ../${{ inputs.spack-manifest-path }}
 
-      - name: Validate service user permissions
-        run: |
-          ssh ${{ secrets.USER }}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
-            if [ -z "$ACCESS_SPACK_ADMIN" ]; then
-              echo "::error::Service user is not setup to deploy Pre/Releases. Please ensure the service user has the correct permissions and try again."
-              exit 1
-            fi
-          EOT
-
       - name: Copy ${{ inputs.spack-manifest-path }}
         run: |
           rsync -e 'ssh -i ${{ steps.ssh.outputs.private-key-path }}' \
