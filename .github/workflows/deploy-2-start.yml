@@ -212,7 +212,9 @@ jobs:
             $(for s in ${{ env.SCOPES }}; do echo -n "--config-scope=${{ env.SCOPES_PATH }}/$s "; done) \
             install --fail-fast --fresh ${{ vars.SPACK_INSTALL_ADDITIONAL_ARGS }} || exit $?
 
-          spack module tcl refresh -y
+          spack \
+            $(for s in ${{ env.SCOPES }}; do echo -n "--config-scope=${{ env.SCOPES_PATH }}/$s "; done) \
+            module tcl refresh -y
           EOT
 
       - name: Move spack logs
