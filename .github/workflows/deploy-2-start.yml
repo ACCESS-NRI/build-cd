@@ -206,6 +206,7 @@ jobs:
           # Export vars.DEPLOYMENT_TARGET
           export DEPLOYMENT_TARGET="${{ vars.DEPLOYMENT_TARGET }}"
           echo "DEPLOYMENT_TARGET exported as $DEPLOYMENT_TARGET"
+          export ACCESS_SPACK_ADMIN=1
 
           # Enable spack
           . ${{ steps.path.outputs.spack }}/share/spack/setup-env.sh
@@ -252,6 +253,7 @@ jobs:
           # Export vars.DEPLOYMENT_TARGET
           export DEPLOYMENT_TARGET="${{ vars.DEPLOYMENT_TARGET }}"
           echo "DEPLOYMENT_TARGET exported as $DEPLOYMENT_TARGET"
+          export ACCESS_SPACK_ADMIN=1
 
           . ${{ steps.path.outputs.spack }}/share/spack/setup-env.sh
           ${{ steps.path.outputs.spack-environment }}/get_data_from_deployment.py \
