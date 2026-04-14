@@ -197,6 +197,10 @@ jobs:
           # Export vars.DEPLOYMENT_TARGET
           export DEPLOYMENT_TARGET="${{ vars.DEPLOYMENT_TARGET }}"
           echo "DEPLOYMENT_TARGET exported as $DEPLOYMENT_TARGET"
+
+          # This environment variable is used by our spack-config to delineate between a normal user
+          # and an admin or service user that has custom config.install_trees (among other things).
+          # See https://github.com/ACCESS-NRI/spack-config/blob/main/v1.1/include/defaults.yaml
           export ACCESS_SPACK_ADMIN=1
 
           # Enable spack
@@ -244,6 +248,10 @@ jobs:
           # Export vars.DEPLOYMENT_TARGET
           export DEPLOYMENT_TARGET="${{ vars.DEPLOYMENT_TARGET }}"
           echo "DEPLOYMENT_TARGET exported as $DEPLOYMENT_TARGET"
+
+          # This environment variable is used by our spack-config to delineate between a normal user
+          # and an admin or service user that has custom config.install_trees (among other things).
+          # See https://github.com/ACCESS-NRI/spack-config/blob/main/v1.1/include/defaults.yaml
           export ACCESS_SPACK_ADMIN=1
 
           . ${{ steps.path.outputs.spack }}/share/spack/setup-env.sh
