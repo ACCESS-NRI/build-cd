@@ -214,7 +214,7 @@ jobs:
 
           spack \
             $(for s in ${{ env.SCOPES }}; do echo -n "--config-scope=${{ env.SCOPES_PATH }}/$s "; done) \
-            module tcl refresh -y
+            module tcl refresh --upstream-modules -y
           EOT
 
       - name: Move spack logs
