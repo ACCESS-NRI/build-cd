@@ -120,6 +120,8 @@ jobs:
                 echo "::error::Error: ${{ inputs.deployment-environment }} ${{ inputs.spack-type }} $version spack-config failed checkout from $current_head_commit to $new_commit"
               else
                 echo "::notice::Changed: ${{ inputs.deployment-environment }} ${{ inputs.spack-type }} $version spack-config changed from $current_head_commit to $new_commit"
+                . ${{ secrets.SPACK_INSTALLS_ROOT_LOCATION }}/$version/spack/share/spack/setup-env.sh
+                spack repo update
               fi
 
             else
