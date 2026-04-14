@@ -16,7 +16,7 @@
             "Release": {
               "type": "object",
               "patternProperties": {
-                "^0\\.\\d+$": {
+                "^\\d+\\.\\d+$": {
                   "type": "object",
                   "properties": {
                     "spack": {
@@ -28,22 +28,6 @@
                   },
                   "additionalProperties": false,
                   "required": ["spack", "spack-config"]
-                },
-                "^[1-9]\\d*\\.\\d+$": {
-                  "type": "object",
-                  "properties": {
-                    "spack": {
-                      "type": "string"
-                    },
-                    "builtin-spack-packages": {
-                      "type": "string"
-                    },
-                    "spack-config": {
-                      "type": "string"
-                    }
-                  },
-                  "additionalProperties": false,
-                  "required": ["spack", "builtin-spack-packages", "spack-config"]
                 }
               },
               "additionalProperties": false
@@ -51,7 +35,7 @@
             "Prerelease": {
               "type": "object",
               "patternProperties": {
-                "^0\\.\\d+$": {
+                "^\\d+\\.\\d+$": {
                   "type": "object",
                   "properties": {
                     "spack": {
@@ -63,22 +47,6 @@
                   },
                   "additionalProperties": false,
                   "required": ["spack", "spack-config"]
-                },
-                "^[1-9]\\d*\\.\\d+$": {
-                  "type": "object",
-                  "properties": {
-                    "spack": {
-                      "type": "string"
-                    },
-                    "builtin-spack-packages": {
-                      "type": "string"
-                    },
-                    "spack-config": {
-                      "type": "string"
-                    }
-                  },
-                  "additionalProperties": false,
-                  "required": ["spack", "builtin-spack-packages", "spack-config"]
                 }
               },
               "additionalProperties": false
