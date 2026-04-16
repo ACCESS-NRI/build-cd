@@ -166,7 +166,7 @@ jobs:
       spack-version: ${{ steps.config-versions-refs.outputs.spack-branch }}
       spack-git-hash: ${{ steps.spack-sha.outputs.sha }}
 
-      builtin-spack-packages-version: ${{ steps.config-settings-refs.outputs.builtin-spack-packages-ref }}
+      builtin-spack-packages-version: ${{ steps.builtin-spack-packages.outputs.ref }}
       builtin-spack-packages-git-hash: ${{ steps.builtin-spack-packages-sha.outputs.sha }}
 
       access-spack-packages-version: ${{ steps.config-versions-refs.outputs.access-spack-packages-ref }}
@@ -245,7 +245,18 @@ jobs:
 
           echo "spack-ref=$(jq --compact-output --raw-output '.spack' <<< "$refs_for_deployment")" >> $GITHUB_OUTPUT
           echo "spack-config-ref=$(jq --compact-output --raw-output '."spack-config"' <<< "$refs_for_deployment")" >> $GITHUB_OUTPUT
-          echo "builtin-spack-packages-ref=$(jq --compact-output --raw-output '."builtin-spack-packages"' <<< "$refs_for_deployment")" >> $GITHUB_OUTPUT
+
+      - name: 'build-cd: Checkout spack-config to get builtin spack-packages ref'
+        uses: actions/checkout@v4
+        with:
+          repository: ACCESS-NRI/spack-config
+          ref: ${{ steps.config-settings-refs.outputs.spack-config }}
+          path: spack-config
+
+      - name: 'build-cd: Get builtin spack-packages ref'
+        id: builtin-spack-packages
+        run: |
+          echo "ref=$(jq -cr '.repos | .builtin // ."builtin:" | .branch // .tag // .commit' spack-config/v${{ steps.config-versions-refs.outputs.spack-branch }}/repos.yaml)" >> $GITHUB_OUTPUT
 
       - name: 'build-cd: Get spack SHA'
         id: spack-sha
@@ -266,7 +277,7 @@ jobs:
         uses: access-nri/actions/.github/actions/get-git-ref-info@main
         with:
           repository: spack/spack-packages
-          ref: ${{ steps.config-settings-refs.outputs.builtin-spack-packages-ref }}
+          ref: ${{ steps.builtin-spack-packages.outputs.ref }}
 
   check-spack-yaml:
     name: '${{ inputs.deployment-target }}: Check Spack Manifest'
