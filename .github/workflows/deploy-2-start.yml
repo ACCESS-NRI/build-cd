@@ -66,6 +66,12 @@ jobs:
       root-spec-pkg-hash: ${{ steps.metadata.outputs.root-spec-pkg-hash }}
       metadata-artifact-name: ${{ env.ARTIFACT_NAME }}
     steps:
+      - name: Maintenance
+        # TODO: Remove once maintenace is complete
+        run: |
+          echo "::error::This spack instance is down for maintenance. Please try pre/release again later."
+          exit 1
+
       - name: Checkout ${{ github.repository }}
         uses: actions/checkout@v4
         with:
