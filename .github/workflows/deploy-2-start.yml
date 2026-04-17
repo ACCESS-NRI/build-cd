@@ -202,6 +202,8 @@ jobs:
           # and an admin or service user that has custom config.install_trees (among other things).
           # See https://github.com/ACCESS-NRI/spack-config/blob/main/v1.1/include/defaults.yaml
           export ACCESS_SPACK_ADMIN=1
+          # User cache path is not yet easily settable in spack-config, so we need to export it here as a sibling of the spack directory.
+          export SPACK_USER_CACHE_PATH="${{ steps.path.outputs.root }}/user_cache"
 
           # Enable spack
           . ${{ steps.path.outputs.spack }}/share/spack/setup-env.sh
@@ -253,6 +255,8 @@ jobs:
           # and an admin or service user that has custom config.install_trees (among other things).
           # See https://github.com/ACCESS-NRI/spack-config/blob/main/v1.1/include/defaults.yaml
           export ACCESS_SPACK_ADMIN=1
+          # User cache path is not yet easily settable in spack-config, so we need to export it here as a sibling of the spack directory.
+          export SPACK_USER_CACHE_PATH="${{ steps.path.outputs.root }}/user_cache"
 
           . ${{ steps.path.outputs.spack }}/share/spack/setup-env.sh
           ${{ steps.path.outputs.spack-environment }}/get_data_from_deployment.py \
