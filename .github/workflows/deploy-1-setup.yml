@@ -224,10 +224,11 @@ jobs:
         with:
           repository: access-nri/build-cd
           path: build-cd
+          ref: v8.3.3
 
       - name: 'build-cd: Validate config/settings.json'
         id: settings
-        uses: access-nri/build-cd/.github/actions/validate-deployment-settings@v8
+        uses: access-nri/build-cd/.github/actions/validate-deployment-settings@v8.3.3
         with:
           settings-path: ${{ env.build-cd-config-settings-json-path }}
           target: ${{ inputs.deployment-target }}
@@ -298,7 +299,7 @@ jobs:
 
       - name: Get current (${{ inputs.deployment-ref }}) root spec version
         id: current
-        uses: access-nri/build-cd/.github/actions/get-spack-manifest@v8
+        uses: access-nri/build-cd/.github/actions/get-spack-manifest@v8.3.3
         with:
           spack-manifest-path: ${{ inputs.spack-manifest-path }}
 
@@ -335,7 +336,7 @@ jobs:
       - name: Get base root spec version
         id: base
         if: inputs.deployment-type != 'Release' && steps.checkout-base-spack.outcome != 'failure'
-        uses: access-nri/build-cd/.github/actions/get-spack-manifest@v8
+        uses: access-nri/build-cd/.github/actions/get-spack-manifest@v8.3.3
         with:
           spack-manifest-path: ${{ inputs.spack-manifest-path }}
 
@@ -376,7 +377,7 @@ jobs:
     needs:
       - check-config  # Verify configuration information is correct
       - check-spack-yaml  # Verify spack manifest information is correct
-    uses: access-nri/build-cd/.github/workflows/deploy-2-start.yml@v8
+    uses: access-nri/build-cd/.github/workflows/deploy-2-start.yml@v8.3.3
     with:
       ref: ${{ inputs.deployment-ref }}
       version: ${{ inputs.deployment-version }}

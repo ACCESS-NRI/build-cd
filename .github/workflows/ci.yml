@@ -124,7 +124,7 @@ jobs:
 
       - name: Generate Deployment Target Matrix
         id: target
-        uses: access-nri/build-cd/.github/actions/get-target-matrix@v8
+        uses: access-nri/build-cd/.github/actions/get-target-matrix@v8.3.3
         with:
           targets: ${{ vars.PRERELEASE_DEPLOYMENT_TARGETS }}
 
@@ -134,7 +134,7 @@ jobs:
 
       - name: Get Deployment Name from Spack Manifest
         id: manifest
-        uses: access-nri/build-cd/.github/actions/get-spack-manifest@v8
+        uses: access-nri/build-cd/.github/actions/get-spack-manifest@v8.3.3
         with:
           spack-manifest-path: ${{ inputs.spack-manifest-path }}
 
@@ -198,7 +198,7 @@ jobs:
       matrix:
         # Example: ['Gadi', 'Setonix', ...]
         target: ${{ fromJson(needs.init.outputs.targets) }}
-    uses: access-nri/build-cd/.github/workflows/deploy-1-setup.yml@v8
+    uses: access-nri/build-cd/.github/workflows/deploy-1-setup.yml@v8.3.3
     with:
       deployment-target: ${{ matrix.target }}
       deployment-ref: ${{ needs.init.outputs.head-ref }}

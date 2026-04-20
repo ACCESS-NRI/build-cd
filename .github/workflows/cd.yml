@@ -76,13 +76,13 @@ jobs:
 
       - name: Get manifest
         id: manifest
-        uses: access-nri/build-cd/.github/actions/get-spack-manifest@v8
+        uses: access-nri/build-cd/.github/actions/get-spack-manifest@v8.3.3
         with:
           spack-manifest-path: ${{ inputs.spack-manifest-path }}
 
       - name: Generate Deployment Target Matrix
         id: target
-        uses: access-nri/build-cd/.github/actions/get-target-matrix@v8
+        uses: access-nri/build-cd/.github/actions/get-target-matrix@v8.3.3
         with:
           targets: ${{ vars.RELEASE_DEPLOYMENT_TARGETS }}
 
@@ -99,7 +99,7 @@ jobs:
         with:
           repository: access-nri/build-cd
 
-      - uses: access-nri/build-cd/.github/actions/validate-deployment-settings@v8
+      - uses: access-nri/build-cd/.github/actions/validate-deployment-settings@v8.3.3
         with:
           settings-path: ./config/settings.json
           target: ${{ matrix.target }}
@@ -117,7 +117,7 @@ jobs:
 
       - name: Get Deployment Version
         id: manifest
-        uses: access-nri/build-cd/.github/actions/get-spack-manifest@v8
+        uses: access-nri/build-cd/.github/actions/get-spack-manifest@v8.3.3
         with:
           spack-manifest-path: ${{ inputs.spack-manifest-path }}
 
@@ -166,7 +166,7 @@ jobs:
     strategy:
       matrix:
         target: ${{ fromJson(needs.init.outputs.targets) }}
-    uses: access-nri/build-cd/.github/workflows/deploy-1-setup.yml@v8
+    uses: access-nri/build-cd/.github/workflows/deploy-1-setup.yml@v8.3.3
     with:
       deployment-target: ${{ matrix.target }}
       deployment-ref: ${{ github.ref_name }}
