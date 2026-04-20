@@ -5,8 +5,11 @@ lassign [split [module-info name] {/}] module_name module_version
 
 conflict $module_name
 
-# Set spack root
-set base_dir "/g/data/vk83/testing/apps/spack/$module_version"
+# Get the spack root directory for the spack instance.
+# First, we get this modulefile parent directory, then we construct the spack root as 
+# <parent-directory>/../../apps/spack/<version>/spack
+set spack_module_dir [file dirname [info script]]
+set base_dir [file normalize "$spack_module_dir/../../apps/spack/$module_version"]
 set spack_root "$base_dir/spack"
 
 # Set spack setup-env.sh
