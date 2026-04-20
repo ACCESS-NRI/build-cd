@@ -13,7 +13,7 @@ set spack_root "$base_dir/spack"
 set setup_env "$spack_root/share/spack/setup-env.sh"
 
 # Set Python to be used with spack
-set spack_python /apps/python3/3.12.1/bin/python3
+set spack_python /bin/python3
 
 # Set the name of the env variable used to store the environment information before sourcing the spack seupt-env.sh script
 set old_env_var_name _SPACK_MODULE_OLD_ENV
