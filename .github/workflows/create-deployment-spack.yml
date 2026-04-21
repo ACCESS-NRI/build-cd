@@ -16,19 +16,25 @@ on:
         required: true
         default: main
         description: A version of ACCESS-NRI/spack-config
-      deployment-location:
+      spack-deployment-location:
         type: string
         required: true
         description: |
           A path in the deployment environment where Spack should be created.
           For example, if it is `opt/spack`, spack will be installed under `opt/spack/<spack-version>/`
+      module-deployment-location:
+        type: string
+        required: true
+        description: |
+          A path in the deployment environment where modules referencing the deployed Spack should be created.
+          For example, if it is `opt/modules/spack` for spack v1.1, the modulefile created will be under `opt/modules/spack/1.1`
 jobs:
   log-inputs:
     name: Log Inputs
     runs-on: ubuntu-latest
     steps:
       - run: |
-          echo '::notice::url = `${{ inputs.spack-git-url }}`, spack version = `${{ inputs.spack-version }}`, spack-config version = `${{ inputs.spack-config-version }}`, deployment location = `${{ inputs.deployment-location }}`'
+          echo '::notice::url = `${{ inputs.spack-git-url }}`, spack version = `${{ inputs.spack-version }}`, spack-config version = `${{ inputs.spack-config-version }}`, deployment location = `${{ inputs.spack-deployment-location }}`, module location = `${{ inputs.module-deployment-location }}`'
 
   create-spack:
     name: Spack
@@ -48,11 +54,12 @@ jobs:
         id: strip
         # this step removes the 'release/' part from some spack tags, so our
         # directory structure doesn't contain a 'releases' subdirectory
-        run: echo "version-dir=$(echo '${{ inputs.spack-version }}' | cut --delimiter 'v' --fields 2)" >> $GITHUB_OUTPUT
+        run: echo "version=$(echo '${{ inputs.spack-version }}' | cut --delimiter 'v' --fields 2)" >> $GITHUB_OUTPUT
 
       - name: Install
+        id: spack-install
         env:
-          ROOT_VERSION_LOCATION: ${{ inputs.deployment-location }}/${{ steps.strip.outputs.version-dir }}
+          ROOT_VERSION_LOCATION: ${{ inputs.spack-deployment-location }}/${{ steps.strip.outputs.version }}
         # This step will fail if `mkdir` fails to create a version directory (e.g. `0.20` is already deployed and exists)
         run: |
           ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
@@ -74,3 +81,20 @@ jobs:
 
           . ${{ env.ROOT_VERSION_LOCATION }}/spack/share/spack/setup-env.sh
           spack -d bootstrap now
+          
+      - name: Checkout build-cd for modulefiles
+        uses: actions/checkout@v6
+
+      - name: Deploy modulefiles
+        run: |
+          rsync --archive \
+            -i ${{ steps.ssh.outputs.private-key-path }} \
+            tools/modules/spack/bash_script.sh \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ inputs.module-deployment-location }}/.${{ steps.strip.outputs.version }}.sh
+
+          rsync --archive \
+            -i ${{ steps.ssh.outputs.private-key-path }} \
+            tools/modules/spack/modulefile \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ inputs.module-deployment-location }}/${{ steps.strip.outputs.version }}
+
+          echo "::notice::Modulefiles for ${{ steps.strip.outputs.version }} deployed. This does not affect the default module."
