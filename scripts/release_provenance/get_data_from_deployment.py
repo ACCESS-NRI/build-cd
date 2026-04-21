@@ -129,8 +129,8 @@ def _get_package_repo_info(package: spack.spec.Spec) -> Tuple[str, str]:
     package_name = package.name
 
     if package_name == "um":
-        um_config: Dict[str, Any] = spack.repo.PATH.get_pkg_class(package_name)._resource_cfg
-        um_git_url = um_config.get("um_ref", {}).get("git_url")
+        um_class = spack.repo.PATH.get_pkg_class(package_name)
+        um_git_url = um_class._project_cfg[package_name].get('url')
         um_git_ref = package.variants.get("um_ref")
 
         if not um_git_url or not um_git_ref:
