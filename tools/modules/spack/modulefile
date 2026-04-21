@@ -33,13 +33,6 @@ if {[module-info mode load]} {
     # - When the module is loaded, set the variables and functions that changed to their new values.
     #   When the module is unloaded, re-set them to their old values.
 
-    # To handle tcl and bash quoting correctly, we first set up the bash script in a TCL variable
-    # (bash_script) and then run it using `exec /bin/bash -c $bash_script`
-    # For this reason, we double the percent sign (%%) when we want a literal percent, because the script
-    # is within a TCL `format` function that would otherwise interpret the percent as a formatting sign.
-    # NOTE: this setup could be simplified by writing the bash script into a file 
-    # (shipped together with the spack module), and exec that file using somthing like `exec /bin/bash <path/to/file>`
-
     # The bash script is in the same directory as this modulefile, and is named .<module_version>.sh
     set bash_script "$spack_module_dir/.$module_version.sh"
 
@@ -81,7 +74,7 @@ if {[module-info mode load]} {
 set-alias spacktivate {spack env activate}
 
 # Set spack user cache path
-set spack_admin_config_env_var_name SPACK_ADMIN_CONFIG
+set spack_admin_config_env_var_name ACCESS_SPACK_ADMIN
 if { [info exists env($spack_admin_config_env_var_name)] } {
     setenv SPACK_USER_CACHE_PATH "$base_dir/spack-admin-cache"
 } else {
