@@ -31,6 +31,15 @@ while IFS= read -r -d '' entry; do
         before_variables["$name"]="$value"
     fi
 done < <(env -0)
+# Capture the aliases before sourcing the setup-env script
+# into a bash associative array
+declare -A before_aliases
+while IFS= read -r entry; do
+    entry="${entry#alias }" # strip leading "alias "
+    name="${entry%%=*}"
+    value="${entry#*=}"
+    before_aliases["$name"]="$value"
+done < <(alias -p)
 
 # Set up SPACK_PYTHON
 export SPACK_PYTHON="$spack_python"
@@ -76,6 +85,26 @@ while IFS= read -r -d '' entry; do
         fi
     fi
 done < <(env -0)
+# Capture the aliases after sourcing the setup-env script
+# and parse them to find changes
+while IFS= read -r entry; do
+    entry="${entry#alias }" # strip leading "alias "
+    name="${entry%%=*}"
+    value="${entry#*=}"
+    if [[ ! -v before_aliases["$name"] ]]; then
+        # If the alias got added, print out the bash command for it to be set
+        # and add to the old_env_var_name the bash command for it to be unset
+        printf '%s ; ' "alias $name=$value"
+        old_env_var_reference+=$(printf '%s ; ' "unalias $name")
+    elif [[ "${before_aliases[$name]}" != "$value" ]]; then
+        # If the alias got changed, print out the bash command for it to be set
+        # and add to the old_env_var_name the bash command for it to be set to its old value
+        printf '%s ; ' "alias $name=$value"
+        old_value="${before_aliases["$name"]}"
+        old_env_var_reference+=$(printf '%s ; ' "alias $name=$old_value")
+    fi
+done < <(alias -p)
+
 # Print a null character as a separator, to help splitting the commands to set the new environment
 # from those to reinstate the old environment
 printf '\x00'

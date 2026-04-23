@@ -70,9 +70,6 @@ if {[module-info mode load]} {
     }
 }
 
-# Set 'spacktivate' alias
-set-alias spacktivate {spack env activate}
-
 # Set spack user cache path
 set spack_admin_config_env_var_name ACCESS_SPACK_ADMIN
 if { [info exists env($spack_admin_config_env_var_name)] } {
