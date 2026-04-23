@@ -79,4 +79,7 @@ if { [info exists env($spack_admin_config_env_var_name)] } {
     setenv SPACK_USER_CACHE_PATH "$base_dir/spack-admin-cache"
 } else {
     setenv SPACK_USER_CACHE_PATH "/g/data/$env(PROJECT)/$env(USER)/spack/$module_version/spack-user-cache"
+    if {[module-info mode load]} {
+        puts stderr "Spack user cache set to $env(SPACK_USER_CACHE_PATH)"
+    }
 }
