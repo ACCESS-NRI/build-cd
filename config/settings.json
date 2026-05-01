@@ -12,8 +12,8 @@
           "spack-config": "2026.02.000"
         },
         "1.1": {
-          "spack": "018ccf07963f6f4db4baff3b198ef3080cc58949",
-          "spack-config": "2026.04.000"
+          "spack": "345243f02036035d9a236caa40291bf8423a7807",
+          "spack-config": "2026.05.000"
         }
       },
       "Prerelease": {
@@ -22,8 +22,8 @@
           "spack-config": "2026.02.000"
         },
         "1.1": {
-          "spack": "018ccf07963f6f4db4baff3b198ef3080cc58949",
-          "spack-config": "2026.04.000"
+          "spack": "345243f02036035d9a236caa40291bf8423a7807",
+          "spack-config": "2026.05.000"
         }
       }
     }
