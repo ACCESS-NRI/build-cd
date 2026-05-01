@@ -7,9 +7,9 @@ conflict $module_name
 
 # Get the spack root directory for the spack instance.
 # First, we get this modulefile parent directory, then we construct the spack root as
-# <parent-directory>/../../apps/spack-shared/<version>/spack
+# <parent-directory>/../../apps/spack/<version>/spack
 set spack_module_dir [file dirname [info script]]
-set base_dir [file normalize "$spack_module_dir/../../apps/spack-shared/$module_version"]
+set base_dir [file normalize "$spack_module_dir/../../apps/spack/$module_version"]
 set spack_root "$base_dir/spack"
 
 # Set spack setup-env.sh
@@ -71,7 +71,7 @@ if {[module-info mode load]} {
 }
 
 # Set spack user cache path
-setenv SPACK_USER_CACHE_PATH "/g/data/$env(PROJECT)/$env(USER)/spack/$module_version/spack-user-cache"
+setenv SPACK_USER_CACHE_PATH "$base_dir/spack-admin-cache"
 if {[module-info mode load]} {
     puts stderr "Spack user cache set to $env(SPACK_USER_CACHE_PATH)"
 }

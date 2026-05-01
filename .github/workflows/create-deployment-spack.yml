@@ -51,6 +51,7 @@ jobs:
           private-key: ${{ secrets.SSH_KEY }}
 
       - name: Strip Spack Version
+        # FIXME: Need to split a potential -admin section, and access/
         id: strip
         # this step removes the 'release/' part from some spack tags, so our
         # directory structure doesn't contain a 'releases' subdirectory
@@ -81,7 +82,7 @@ jobs:
 
           . ${{ env.ROOT_VERSION_LOCATION }}/spack/share/spack/setup-env.sh
           spack -d bootstrap now
-          
+
       - name: Checkout build-cd for modulefiles
         uses: actions/checkout@v6
 
