@@ -168,12 +168,12 @@ jobs:
         run: |
           ssh ${{ secrets.USER }}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
 
-          if [ ! -d "${{ steps.path.outputs.root }}/git_repos" ]; then
+          if [ ! -d "${{ steps.path.outputs.root }}/spack-admin-cache/git_repos" ]; then
             echo "::warning::Unable to find git_repos folder under ${{ steps.path.outputs.root }} - spack will attempt fetch instead"
             exit 0
           fi
 
-          cd "${{ steps.path.outputs.root }}/git_repos" || exit 0
+          cd "${{ steps.path.outputs.root }}/spack-admin-cache/git_repos" || exit 0
 
           for package_repo in *; do
             git -C "./$package_repo" fetch --verbose --update-head-ok origin "+refs/heads/*:refs/heads/*"
