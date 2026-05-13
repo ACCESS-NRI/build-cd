@@ -12,6 +12,10 @@ class TestUpdateRootSpecProjectionVersion:
     def test_update_root_spec_projection_version__valid_existing_single_spec(self):
         manifest = {
             "spack": {
+                "definitions": [
+                    {"_name": ["access-om2"]},
+                    {"_version": ["2025.12.000"]},
+                ],
                 "specs": [
                     "access-om2",
                 ],
@@ -37,6 +41,10 @@ class TestUpdateRootSpecProjectionVersion:
     def test_update_root_spec_projection_version__valid_existing_multi_spec(self):
         manifest = {
             "spack": {
+                "definitions": [
+                    {"_name": ["access-om2"]},
+                    {"_version": ["2025.12.000"]},
+                ],
                 "specs": [
                     "access-om2 +var",
                     "access-om2 ~var"
