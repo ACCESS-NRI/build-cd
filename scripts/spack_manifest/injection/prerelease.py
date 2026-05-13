@@ -86,11 +86,9 @@ def add_namespace_to_other_projection_versions(
         projections.pop(root_spec_name)
 
     for projection_name, projection_value in projections.items():
-        # Non-root-spec projections will be of the form ROOT_SPEC_NAME/prX-Y/{name}/VERSION, where VERSION is previously defined.
-        # For example, access-om2/pr12-13/mom5/main-{hash:7}
-        new_projection_value = re.sub(
-            r"{name}/(.+)", rf"{root_spec_name}/dependencies/{version}/{{name}}/\1", projection_value
-        )
+        # Non-root-spec projections are namespaced under ROOT_SPEC_NAME/dependencies/prX-Y,
+        # while preserving the original projection structure (with or without a {name} token).
+        new_projection_value = f"{root_spec_name}/dependencies/{version}/{projection_value.lstrip('/')}"
 
         print(
             f"Updating projection '{projection_name}' from '{projection_value}' to '{new_projection_value}'"
@@ -111,19 +109,9 @@ def update_root_spec_projection_version(
     number_of_root_specs_in_speclist = len(Specs(manifest).get_specs_with_name(root_spec_name))
 
     if current_root_projection:
-        # Essentially - replace the original version infix with the prX-Y style, and add back the custom suffix if there was one.
-        # For example:
-        #   {name}/2025.12.000 -> {name}/prX-Y
-        #   system-tools/{name}/2025.12.000 -> system-tools/{name}/prX-Y
-        #   {name}/2025.12.000/{variant.x} -> {name}/prX-Y/{variant.x}
-        new_root_projection_pattern = re.compile(
-            r"""
-            ^(.*\{name\}/)[^/]+  # Pre-infix section - like {name} or system-tools/{name}
-            (/.+)?$              # Post-infix section - like /{variants.x}
-            """,
-            re.VERBOSE
-        )
-        new_root_projection = re.sub(new_root_projection_pattern, fr"\1{deployment_version}\2", current_root_projection)
+        # Replace the manifest version wherever it appears as a path segment in the projection.
+        current_version = ReservedDefinitions(manifest).get("version")
+        new_root_projection = current_root_projection.replace(current_version, deployment_version)
 
         if number_of_root_specs_in_speclist > 1 and re.match(fr"^.+/{deployment_version}$", new_root_projection):
             # If there are multiple of the same root spec, we need to demarcate them somehow if there was no custom suffix given.
