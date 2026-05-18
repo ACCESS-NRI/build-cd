@@ -144,6 +144,34 @@ class TestGenerateProjectionForRootSpecOrRaise:
         with pytest.raises(ValueError):
             generate_projection_for_root_spec_or_raise(manifest, projection)
 
+    def test_generate_projection_for_root_spec_or_raise__projection_without_default_name(self):
+        root_spec_name="access-issm"
+        root_spec_version="2025.12.000"
+        root_spec_projection="ISSM{variants.ad}/{version}"
+
+        partial_manifest = {
+            "spack": {
+                "definitions": [
+                    {"_name": [root_spec_name]},
+                    {"_version": [root_spec_version]},
+                ],
+                "specs": [root_spec_name],
+                "modules": {
+                    "default": {
+                        "tcl": {
+                            "projections": {
+                                root_spec_name: root_spec_projection
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        result_projections = generate_projection_for_root_spec_or_raise(partial_manifest, root_spec_name, root_spec_projection)
+
+        assert result_projections == {root_spec_name: f"ISSM{{variants.ad}}/{root_spec_version}"}
+
 
 class TestGenerateProjectionForPackageOrRaise:
     def test_generate_projection_for_package_or_raise__valid_at_git(self):

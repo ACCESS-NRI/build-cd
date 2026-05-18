@@ -64,7 +64,7 @@ def main():
             output_file.write(dumped_manifest)
 
 def inject_projections(
-    manifest: str, root_spec: str, packages: set[str]
+    manifest: dict[str, Any], root_spec: str, packages: set[str]
 ) -> dict[str, Any]:
 
     # Get projections that are already defined in the manifest - we don't want to redefine these
@@ -140,7 +140,6 @@ def generate_projection_for_root_spec_or_raise(
     root_spec_projection: str = ''
 ) -> dict[str, str]:
     reserved_definitions_getter = ReservedDefinitions(manifest)
-    specs_getter = Specs(manifest)
 
     version = reserved_definitions_getter.get("version")
 
@@ -148,39 +147,18 @@ def generate_projection_for_root_spec_or_raise(
         f"Extracted version '{version}' from _version definition'"
     )
 
-    # Essentially we're looking to infix the version between {name} and what comes after, if there exists a projection.
-    module_projection_pattern = re.compile(
-        r"""
-        ^(.*\{name\}[^\/]*?)  # First group - Either '{name}' (most common) or a prefix like 'system-tools/{name}' (for SDRs)
-        (?:\/(.+))?$          # Optional second group - Rest of the projection after '{name}/', if given. Used for variants/descriptors in modulefile names
-        """,
-        re.VERBOSE
-    )
+    if not root_spec_projection:  # we need to make a projection from scratch...
+        root_specs_in_speclist = len(Specs(manifest).get_specs_with_name(root_spec_name))
 
-    projection_components: re.Match | None = re.match(module_projection_pattern, root_spec_projection)
+        if root_specs_in_speclist == 0:
+            raise ValueError(f"No specs with name {root_spec_name} in speclist")
+        elif root_specs_in_speclist == 1:
+            return {root_spec_name: f"{{name}}/{version}"}
+        else:
+            # If there are multiple of the same root spec (for example, different variants housed under the same environment), we need to demarcate the modulefile with a spack package hash
+            return {root_spec_name: f"{{name}}/{version}/{{hash:7}}"}
 
-    # If there is a root spec projection and it is well-formed, we need to infix the version
-    if projection_components:
-        # We have a custom projection defined for the root spec, so we need to respect that
-        projection_groups: tuple[str] = projection_components.groups()
-
-        updated_version: str = f"{projection_groups[0]}/{version}" + (f"/{projection_groups[1]}" if projection_groups[1] else "")
-
-        print(f"Root spec already had a projection ({root_spec_projection}) so we infix the the version ({version}) to give: {updated_version}")
-
-        return {root_spec_name: updated_version}
-
-    # Otherwise, we need to construct a projection from scratch
-    root_specs_in_speclist = len(specs_getter.get_specs_with_name(root_spec_name))
-
-    if root_specs_in_speclist == 0:
-        raise ValueError(f"No specs with name {root_spec_name} in speclist")
-    elif root_specs_in_speclist == 1:
-        return {root_spec_name: f"{{name}}/{version}"}
-    else:
-        # If there are multiple of the same root spec (for example, different variants housed under the same environment), we need to demarcate the modulefile with a spack package hash
-        return {root_spec_name: f"{{name}}/{version}/{{hash:7}}"}
-
+    return {root_spec_name: root_spec_projection.replace("{version}", version)}
 
 def generate_projection_for_package_or_raise(
     manifest: dict[str, Any], package_name: str
