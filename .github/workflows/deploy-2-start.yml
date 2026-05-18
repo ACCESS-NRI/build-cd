@@ -156,7 +156,14 @@ jobs:
             --spack-packages-version-sha ${{ steps.packages-ref.outputs.sha }} \
             --output ../${{ inputs.spack-manifest-path }}
 
+      - name: Debug - Get Public IP Used To Connect To ${{ inputs.deployment-target }}
+        # FIXME: Remove once enough data collected for NCI support.
+        run: |
+          date >> ip.txt
+          curl https://ipchecker.nci.org.au >> ip.txt
+
       - name: Copy ${{ inputs.spack-manifest-path }}
+        id: ssh-copy-manifest
         run: |
           rsync -e 'ssh -i ${{ steps.ssh.outputs.private-key-path }}' \
             ${{ inputs.spack-manifest-path }} \
@@ -165,6 +172,7 @@ jobs:
       - name: Fetch git sources for packages to build
         # Workaround for ACCESS-NRI/spack#2.
         # TODO: Remove once underlying spack issue is fixed
+        id: ssh-fetch-sources
         run: |
           ssh ${{ secrets.USER }}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
 
@@ -221,6 +229,7 @@ jobs:
           EOT
 
       - name: Move spack logs
+        id: ssh-move-logs
         if: always() && (steps.deploy.outcome == 'success' || steps.deploy.outcome == 'failure')
         run: |
           ssh ${{ secrets.USER}}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
@@ -269,6 +278,7 @@ jobs:
           rm ./root-spec-pkg-hash.txt
 
       - name: Tar spack environment metadata
+        id: ssh-tar-metadata
         # We want to attempt to tar up the .spack-env directory even if the install fails, so we can save inodes.
         if: always() && (steps.deploy.conclusion == 'success' || steps.deploy.conclusion == 'failure')
         run: |
@@ -282,6 +292,7 @@ jobs:
 
       # Release
       - name: Get Release Metadata
+        id: ssh-get-metadata
         # Copy both the spack.* files and the build-db-pkgs.json file (for Release) to the artifact
         run: |
           rsync -e 'ssh -i ${{ steps.ssh.outputs.private-key-path }}' \
@@ -306,3 +317,19 @@ jobs:
         with:
           name: ${{ env.ARTIFACT_NAME }}
           path: ./${{ env.ARTIFACT_NAME }}/*
+
+      # FIXME: Remove once enough data collected for NCI support.
+      - name: Upload IP Artifact
+        if: |-
+          failure() &&
+          steps.ssh-copy-manifest.outcome == 'failure' ||
+          steps.ssh-fetch-sources.outcome == 'failure' ||
+          steps.ssh-get-metadata.outcome == 'failure' ||
+          steps.ssh-move-logs.outcome == 'failure' ||
+          steps.ssh-tar-metadata.outcome == 'failure' ||
+          steps.deploy.outcome == 'failure' ||
+          steps.metadata.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-ip
+          path: ./ip.txt
