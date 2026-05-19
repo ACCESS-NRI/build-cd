@@ -290,7 +290,7 @@ jobs:
           jq --null-input --arg pr_url "${{ steps.open-pr.outputs.pr_url }}" '{pr_url: $pr_url}' > ./${{ env.PR_URL_ARTIFACT_NAME }}
 
       - name: Upload PR URL Artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ env.PR_URL_ARTIFACT_NAME }}
           path: ./${{ env.PR_URL_ARTIFACT_NAME }}
@@ -313,7 +313,7 @@ jobs:
           path: build-cd
 
       - name: Download PR URL Artifacts
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           pattern: ${{ needs.update-configs.outputs.pr-url-artifact-glob }}
           merge-multiple: true

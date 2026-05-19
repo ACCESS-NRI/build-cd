@@ -265,7 +265,7 @@ jobs:
           repository: access-nri/build-cd
 
       - name: Download matrix deployment outputs
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           pattern: ${{ needs.deploy.outputs.general-outputs-artifact-glob }}
           path: ${{ env.OUTPUT_ARTIFACT_PATH }}

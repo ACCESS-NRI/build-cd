@@ -203,14 +203,14 @@ jobs:
           repository: access-nri/build-cd
 
       - name: Download Metadata Artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           pattern: ${{ needs.deploy-release.outputs.general-metadata-artifact-glob }}
           path: ${{ env.METADATA_PATH }}
           merge-multiple: true
 
       - name: Download Outputs Artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           pattern: ${{ needs.deploy-release.outputs.general-outputs-artifact-glob }}
           path: ${{ env.OUTPUTS_PATH }}
@@ -262,14 +262,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download Metadata Artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           pattern: ${{ needs.deploy-release.outputs.general-metadata-artifact-glob }}
           path: ${{ env.METADATA_PATH }}
           merge-multiple: true
 
       - name: Download Outputs Artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           pattern: ${{ needs.deploy-release.outputs.general-outputs-artifact-glob }}
           path: ${{ env.OUTPUTS_PATH }}
