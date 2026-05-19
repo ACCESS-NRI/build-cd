@@ -1,7 +1,7 @@
 name: Config Settings Update
 on:
   push:
-    # Below condition is enforced by the `if` condition in 
+    # Below condition is enforced by the `if` condition in
     # the `setup-settings-update` job:
     # branches:
     #   - $default_branch
@@ -21,7 +21,7 @@ jobs:
       targets: ${{ steps.target.outputs.targets }}
     steps:
       - name: Get deployment settings.json
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: access-nri/build-cd
 
@@ -42,7 +42,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout settings.json
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - uses: actions/setup-python@v5
         with:
@@ -75,7 +75,7 @@ jobs:
     outputs:
       updates: ${{ steps.info.outputs.updates }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Collect Deployment Information
         id: info
@@ -107,7 +107,7 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Get merged PR number
         id: pr

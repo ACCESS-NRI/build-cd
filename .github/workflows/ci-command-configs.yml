@@ -107,7 +107,7 @@ jobs:
         run: echo "ref=$(gh pr view ${{ github.event.issue.number }} --repo ${{ github.repository }} --json headRefName --jq .headRefName)" >> $GITHUB_OUTPUT
 
       - name: Checkout caller repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ steps.pr.outputs.ref }}
 
@@ -165,13 +165,13 @@ jobs:
       # pr-url: ${{ steps.open-pr.outputs.pr-url }}
     steps:
       - name: Checkout caller repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: caller
           ref: ${{ needs.setup.outputs.pr-branch }}
 
       - name: Checkout caller configs repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ needs.setup.outputs.configs-repo }}
           path: caller-configs
@@ -179,7 +179,7 @@ jobs:
           token: ${{ secrets.configs-repo-token }}
 
       - name: Checkout build-cd
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: access-nri/build-cd
           path: build-cd
@@ -307,7 +307,7 @@ jobs:
       ARTIFACT_PATH: ./pr-urls
     steps:
       - name: Checkout build-cd
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: access-nri/build-cd
           path: build-cd

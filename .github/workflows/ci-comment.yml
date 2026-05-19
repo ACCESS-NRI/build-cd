@@ -40,7 +40,7 @@ jobs:
         # We have to do a bit more interrogation of the issue number to get the branch name to check out
         run: echo "branch=$(gh pr view ${{ github.event.issue.number }} --repo ${{ github.repository }} --json headRefName --jq .headRefName)" >> $GITHUB_OUTPUT
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ steps.issue.outputs.branch }}
           fetch-depth: 0

@@ -128,7 +128,7 @@ jobs:
         with:
           targets: ${{ vars.PRERELEASE_DEPLOYMENT_TARGETS }}
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ steps.pr.outputs.head }}
 
@@ -260,7 +260,7 @@ jobs:
       TEMPLATED_COMMENT_BODY_PATH: /opt/comment-body.md
     steps:
       - name: Checkout build-cd for scripts
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: access-nri/build-cd
 

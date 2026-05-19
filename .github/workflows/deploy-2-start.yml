@@ -67,12 +67,12 @@ jobs:
       metadata-artifact-name: ${{ env.ARTIFACT_NAME }}
     steps:
       - name: Checkout ${{ github.repository }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ inputs.ref }}
 
       - name: Checkout build-cd
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: access-nri/build-cd
           path: build-cd
