@@ -285,7 +285,7 @@ jobs:
           echo "errors=$(jq --slurp 'map(.deployment_result == "success") | all | not' ${{ env.OUTPUT_ARTIFACT_PATH }}/*)" >> $GITHUB_OUTPUT
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: 3.12
           cache: pip
