@@ -32,7 +32,7 @@ jobs:
       targets: ${{ steps.target.outputs.valid-targets }}
     steps:
       - name: Get data from ${{ github.repository }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Get Deployment Name
         id: manifest

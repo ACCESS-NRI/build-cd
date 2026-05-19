@@ -72,7 +72,7 @@ jobs:
       deployment-name: ${{ steps.manifest.outputs.deployment-name }}
       targets: ${{ steps.target.outputs.valid-targets }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Get manifest
         id: manifest
@@ -95,7 +95,7 @@ jobs:
       matrix:
         target: ${{ fromJson(needs.init.outputs.targets) }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           repository: access-nri/build-cd
 
@@ -113,7 +113,7 @@ jobs:
     outputs:
       version: ${{ steps.manifest.outputs.deployment-version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Get Deployment Version
         id: manifest
@@ -130,7 +130,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Import Commit-Signing Key
         uses: crazy-max/ghaction-import-gpg@01dd5d3ca463c7f10f7f4f7b4f177225ac661ee4  # v6.1.0
@@ -198,26 +198,26 @@ jobs:
       TEMPLATED_RELEASE_BODY_PATH: /opt/release-body.md
     steps:
       - name: Checkout build-cd
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: access-nri/build-cd
 
       - name: Download Metadata Artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           pattern: ${{ needs.deploy-release.outputs.general-metadata-artifact-glob }}
           path: ${{ env.METADATA_PATH }}
           merge-multiple: true
 
       - name: Download Outputs Artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           pattern: ${{ needs.deploy-release.outputs.general-outputs-artifact-glob }}
           path: ${{ env.OUTPUTS_PATH }}
           merge-multiple: true
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: 3.12
           cache: pip
@@ -262,27 +262,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download Metadata Artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           pattern: ${{ needs.deploy-release.outputs.general-metadata-artifact-glob }}
           path: ${{ env.METADATA_PATH }}
           merge-multiple: true
 
       - name: Download Outputs Artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           pattern: ${{ needs.deploy-release.outputs.general-outputs-artifact-glob }}
           path: ${{ env.OUTPUTS_PATH }}
           merge-multiple: true
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ vars.PYTHON_VERSION }}
           cache: pip
 
       - name: Checkout Upload Script
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: access-nri/build-cd
 

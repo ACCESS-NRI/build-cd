@@ -67,12 +67,12 @@ jobs:
       metadata-artifact-name: ${{ env.ARTIFACT_NAME }}
     steps:
       - name: Checkout ${{ github.repository }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ inputs.ref }}
 
       - name: Checkout build-cd
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: access-nri/build-cd
           path: build-cd
@@ -106,7 +106,7 @@ jobs:
             ${{ secrets.HOST_DATA }}
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
           cache: 'pip'
@@ -302,7 +302,7 @@ jobs:
           cd -
 
       - name: Upload Metadata Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ env.ARTIFACT_NAME }}
           path: ./${{ env.ARTIFACT_NAME }}/*

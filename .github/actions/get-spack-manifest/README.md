@@ -26,7 +26,7 @@ jobs:
   manifest:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - id: spec
         uses: access-nri/build-cd/.github/actions/get-spack-manifest@vX  # for some version `vX`

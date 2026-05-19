@@ -179,7 +179,7 @@ jobs:
     steps:
       # Validate the caller repository's config files and versions
       - name: '${{ github.repository }}: Checkout ${{ github.repository }} Config'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: model
           ref: ${{ inputs.deployment-ref }}
@@ -220,7 +220,7 @@ jobs:
 
       # Validate the build-cd repository's config/settings.json for the deployment target
       - name: 'build-cd: Checkout build-cd Config'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: access-nri/build-cd
           path: build-cd
@@ -247,7 +247,7 @@ jobs:
           echo "spack-config-ref=$(jq --compact-output --raw-output '."spack-config"' <<< "$refs_for_deployment")" >> $GITHUB_OUTPUT
 
       - name: 'build-cd: Checkout spack-config to get builtin spack-packages ref'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ACCESS-NRI/spack-config
           ref: ${{ steps.config-settings-refs.outputs.spack-config }}
@@ -294,7 +294,7 @@ jobs:
       # Spack env name in form <model>-<version>
       spack-env-name: ${{ steps.get-env-name.outputs.env-name }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           ref: ${{ inputs.deployment-ref }}
@@ -440,7 +440,7 @@ jobs:
           }' > ./${{ env.UPLOAD_FILE_NAME }}
 
       - name: Upload
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ env.UPLOAD_FILE_NAME }}
           path: ./${{ env.UPLOAD_FILE_NAME }}
