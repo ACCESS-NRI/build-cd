@@ -80,7 +80,7 @@ This entrypoint is used to handle the `!bump` Comment Command, which updates, co
 
 This entrypoint handles cleanup of existing Prerelease environments from the referenced PR.
 
-Similar to `ci.yml`, it parallelizes cleanups based on HPC target.
+It is responsible for removing all spack environments associated with a closed Pull Request for each HPC target. It removes the spack environments matching the closed PR's version pattern and garbage-collects orphaned packages.
 
 ### `cd.yml` - Release Deployment Entrypoint
 
@@ -92,15 +92,7 @@ Similar to `ci.yml`, it parallelizes deployments based on HPC target.
 
 This pipeline is responsible for deploying a given model, via [`spack`](https://spack.readthedocs.io/en/latest/), to a single HPC target. This pipeline is deployment-type-independent - it works for both Prereleases and Releases.
 
-This workflow validates environment configuration information from both `build-cd` and the Model Deployment Repository's `config` directory; validates the Model Deployment Repository's `spack.yaml`; deploys the model to the target environment; and uploads deployment metadata/outputs artifacts for [the caller](#deploy-yml---target-deployment-pipeline).
-
-## `undeploy-*.yml` - Target Deployment Removal Pipeline
-
-This pipeline is responsible for removing all spack environments associated with a closed Pull Request for a single HPC target.
-
-### `undeploy-1-start.yml` - Remove Prereleases from Target
-
-This workflow, currently being the single part of the pipeline, removes the spack environments given as a glob pattern, installed in a particular spack instance, on a particular HPC target.
+This workflow validates environment configuration information from both `build-cd` and the Model Deployment Repository's `config` directory; validates the Model Deployment Repository's `spack.yaml`; deploys the model to the target environment; and uploads deployment metadata/outputs artifacts for [the caller](#deployyml---target-deployment-pipeline).
 
 ## `settings.yml` - `build-cd config` Update Pipeline
 
