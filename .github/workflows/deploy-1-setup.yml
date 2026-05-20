@@ -109,11 +109,11 @@ on:
     #   builtin-spack-packages-version:
     #     value: ${{ jobs.check-config.outputs.builtin-spack-packages-version }}
     #     description: |
-    #       Git ref of 'spack/spack-packages' that is used to reference builtin packages in spack.
+    #       Git ref of 'ACCESS-NRI/upstream-spack-packages' that is used to reference builtin packages in spack.
     #   builtin-spack-packages-git-hash:
     #     value: ${{ jobs.check-config.outputs.builtin-spack-packages-git-hash }}
     #     description: |
-    #       Git hash of the 'spack/spack-packages' repository at the specified version.
+    #       Git hash of the 'ACCESS-NRI/upstream-spack-packages' repository at the specified version.
     #   access-spack-packages-version:
     #     value: ${{ jobs.check-config.outputs.access-spack-packages-version }}
     #     description: |
@@ -250,7 +250,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: ACCESS-NRI/spack-config
-          ref: ${{ steps.config-settings-refs.outputs.spack-config }}
+          ref: ${{ steps.config-settings-refs.outputs.spack-config-ref }}
           path: spack-config
 
       - name: 'build-cd: Get builtin spack-packages ref'
@@ -276,7 +276,7 @@ jobs:
         id: builtin-spack-packages-sha
         uses: access-nri/actions/.github/actions/get-git-ref-info@main
         with:
-          repository: spack/spack-packages
+          repository: ACCESS-NRI/upstream-spack-packages
           ref: ${{ steps.builtin-spack-packages.outputs.ref }}
 
   check-spack-yaml:
