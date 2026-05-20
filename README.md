@@ -102,17 +102,9 @@ This pipeline is responsible for removing all spack environments associated with
 
 This workflow, currently being the single part of the pipeline, removes the spack environments given as a glob pattern, installed in a particular spack instance, on a particular HPC target.
 
-## `settings-*.yml` - `build-cd config` Update Pipeline
+## `settings.yml` - `build-cd config` Update Pipeline
 
-This pipeline is responsible for validating and deploying changes based on protected deployment information in `build-cd`s `config` directory. More information on this folder is found in [`config/README.md`](./config/README.md).
-
-### `settings-1-update.yml` - Validate Updated Settings
-
-This workflow is responsible for validating modifications made to `config/settings.json` on Pull Request or push to `build-cd`. Additionally, it will setup matrixing [the deployment workflow](#settings-2-deployyml---deploy-updated-settings) if the workflow trigger is `on.push`.
-
-### `settings-2-deploy.yml` - Deploy Updated Settings
-
-This workflow will update the repositories referenced in `config/settings.json` to the refs in the file for a HPC target.
+This pipeline is responsible for validating and deploying spack changes on HPCs based on protected deployment information in `build-cd`s `config` directory. More information on this folder is found in [`config/README.md`](./config/README.md).
 
 ## (Legacy) JSON Validation Workflow - `validate-json.yml`
 
