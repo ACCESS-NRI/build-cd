@@ -131,7 +131,7 @@ jobs:
             :information_source: The deployment of the merged settings update can be found here: ${{ env.RUN_URL }} :information_source:
 
   settings-update:
-    name: Update
+    name: Update ${{ matrix.update.deployment-environment }} ${{ matrix.update.type }} Settings
     if: github.event_name == 'push'
     needs:
       - setup-settings-update
@@ -146,8 +146,119 @@ jobs:
         # - deployment-environment: Gadi
         #   type: Prerelease
         # etc ...
-    uses: access-nri/build-cd/.github/workflows/settings-2-deploy.yml@v8
-    with:
-      deployment-environment: ${{ matrix.update.deployment-environment }}
-      spack-type: ${{ matrix.update.type }}
-    secrets: inherit
+    runs-on: ubuntu-latest
+    environment: ${{ matrix.update.deployment-environment }} ${{ matrix.update.type }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup spack updates
+        id: spack
+        # TODO: Since we can't format any of this later json as an input for this job (see the earlier workflow) we need to do it here
+        # Create a newline-separated list of strings of the form "MAJOR_VERSION COMMIT_HASH" so we
+        # update the remotes MAJOR_VERSION/spack to COMMIT_HASH. Ex: "0.20 y7834gtbf3jf3434rr34r34ru"
+        run: |
+          updates=$(jq --compact-output --raw-output \
+            --arg env "${{ matrix.update.deployment-environment }}" \
+            --arg type "${{ matrix.update.type }}" \
+            '.deployment[$env][$type] | to_entries[] | "\(.key) \(.value.spack)"' \
+            ${{ env.CONFIG_SETTINGS_PATH }}
+          )
+
+          echo "$updates"
+          # For multiline output, use a heredoc. See https://github.com/orgs/community/discussions/116619#discussioncomment-8994849
+          echo "updates<<EOF" >> $GITHUB_OUTPUT
+          echo "$updates" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Setup spack-config updates
+        id: spack-config
+        run: |
+          updates=$(jq --compact-output --raw-output \
+            --arg env "${{ matrix.update.deployment-environment }}" \
+            --arg type "${{ matrix.update.type }}" \
+            '.deployment[$env][$type] | to_entries[] | "\(.key) \(.value."spack-config")"' \
+            ${{ env.CONFIG_SETTINGS_PATH }}
+          )
+
+          echo "$updates"
+          # For multiline output, use a heredoc. See https://github.com/orgs/community/discussions/116619#discussioncomment-8994849
+          echo "updates<<EOF" >> $GITHUB_OUTPUT
+          echo "$updates" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Setup SSH
+        id: ssh
+        uses: access-nri/actions/.github/actions/setup-ssh@main
+        with:
+          hosts: ${{ secrets.HOST }}
+          private-key: ${{ secrets.SSH_KEY }}
+
+      - name: Update Spack
+        continue-on-error: true
+        run: |
+          ssh ${{ secrets.USER}}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
+          set +e
+          while read -ra update; do
+            version=${update[0]}
+            new_commit=${update[1]}
+            current_head_commit=$(git -C ${{ secrets.SPACK_INSTALLS_ROOT_LOCATION }}/$version/spack rev-parse HEAD)
+
+            if [ $? -eq 128 ]; then
+              # FIXME: Deploy spack instances in this job too.
+              echo "::error::Error: ${{ matrix.update.deployment-environment }} ${{ matrix.update.type }} $version spack does not exist. Deploy it via build-cds Create Deployment Spack workflow first."
+              continue
+            fi
+
+            git -C ${{ secrets.SPACK_INSTALLS_ROOT_LOCATION }}/$version/spack fetch
+
+            if [[ "$current_head_commit" != "$new_commit" ]]; then
+              git -C ${{ secrets.SPACK_INSTALLS_ROOT_LOCATION }}/$version/spack checkout $new_commit
+              if [ $? -ne 0 ]; then
+                echo "::error::Error: ${{ matrix.update.deployment-environment }} ${{ matrix.update.type }} $version spack failed checkout from $current_head_commit to $new_commit"
+              else
+                echo "::notice::Changed: ${{ matrix.update.deployment-environment }} ${{ matrix.update.type }} $version spack changed from $current_head_commit to $new_commit"
+              fi
+            else
+              echo "::notice::Unchanged: ${{ matrix.update.deployment-environment }} ${{ matrix.update.type }} $version spack left at $current_head_commit"
+            fi
+          done <<< "${{ steps.spack.outputs.updates }}"
+          EOT
+
+      - name: Update spack-config
+        continue-on-error: true
+        run: |
+          ssh ${{ secrets.USER}}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
+          set +e
+          while read -ra update; do
+            version=${update[0]}
+            new_tag=${update[1]}
+
+            current_head_commit=$(git -C ${{ secrets.SPACK_INSTALLS_ROOT_LOCATION }}/$version/spack-config rev-parse HEAD)
+
+            if [ $? -eq 128 ]; then
+              echo "::error::Error: ${{ matrix.update.deployment-environment }} ${{ matrix.update.type }} $version spack-config does not exist."
+              continue
+            fi
+
+            git -C ${{ secrets.SPACK_INSTALLS_ROOT_LOCATION }}/$version/spack-config fetch
+
+            # Parse the above spack-config tag as a commit hash, for easy comparison. The '^{}' syntax gives the hash of the tagged commit, not the hash of the tag itself
+            new_commit=$(git -C ${{ secrets.SPACK_INSTALLS_ROOT_LOCATION }}/$version/spack-config rev-parse "${new_tag}^{}")
+
+            if [[ "$current_head_commit" != "$new_commit" ]]; then
+              git -C ${{ secrets.SPACK_INSTALLS_ROOT_LOCATION }}/$version/spack-config checkout $new_tag
+              if [ $? -ne 0 ]; then
+                echo "::error::Error: ${{ matrix.update.deployment-environment }} ${{ matrix.update.type }} $version spack-config failed checkout from $current_head_commit to $new_commit"
+              else
+                echo "::notice::Changed: ${{ matrix.update.deployment-environment }} ${{ matrix.update.type }} $version spack-config changed from $current_head_commit to $new_commit"
+
+                module use ${{ vars.ADMIN_MODULES_DIR }}
+                module load spack/$version
+                spack repo update
+              fi
+
+            else
+              echo "::notice::Unchanged: ${{ matrix.update.deployment-environment }} ${{ matrix.update.type }} $version spack-config left at $current_head_commit"
+            fi
+          done <<< "${{ steps.spack-config.outputs.updates }}"
+          EOT
