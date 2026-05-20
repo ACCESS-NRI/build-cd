@@ -92,13 +92,9 @@ Similar to `ci.yml`, it parallelizes deployments based on HPC target.
 
 This pipeline is responsible for deploying a given model, via [`spack`](https://spack.readthedocs.io/en/latest/), to a single HPC target. This pipeline is deployment-type-independent - it works for both Prereleases and Releases.
 
-### `deploy-1-setup.yml` - Checks and Configuration
+### `deploy-1-setup.yml` - Checks, Deployment and Metadata Retrieval
 
-This workflow validates environment configuration information from both `build-cd` and the Model Deployment Repository's `config` directory; and also validates the Model Deployment Repository's `spack.yaml`. It then passes this validated information to the [next workflow](#deploy-2-startyml---deployment-and-metadata-retrieval) returning deployment information to [the caller](#deploy-yml---target-deployment-pipeline) via a target-specific file artifact.
-
-### `deploy-2-start.yml` - Deployment and Metadata Retrieval
-
-This workflow deploys the climate model via spack to the given deployment target. It also collects metadata relating to the spack install and returns it to [the previous workflow](#deploy-1-setupyml---checks-and-configuration).
+This workflow validates environment configuration information from both `build-cd` and the Model Deployment Repository's `config` directory; validates the Model Deployment Repository's `spack.yaml`; deploys the model to the target environment; and uploads deployment metadata/outputs artifacts for [the caller](#deploy-yml---target-deployment-pipeline).
 
 ## `undeploy-*.yml` - Target Deployment Removal Pipeline
 
