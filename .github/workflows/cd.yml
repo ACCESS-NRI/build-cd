@@ -166,7 +166,7 @@ jobs:
     strategy:
       matrix:
         target: ${{ fromJson(needs.init.outputs.targets) }}
-    uses: access-nri/build-cd/.github/workflows/deploy-1-setup.yml@v8
+    uses: access-nri/build-cd/.github/workflows/deploy.yml@v8
     with:
       deployment-target: ${{ matrix.target }}
       deployment-ref: ${{ github.ref_name }}

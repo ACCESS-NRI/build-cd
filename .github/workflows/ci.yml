@@ -198,7 +198,7 @@ jobs:
       matrix:
         # Example: ['Gadi', 'Setonix', ...]
         target: ${{ fromJson(needs.init.outputs.targets) }}
-    uses: access-nri/build-cd/.github/workflows/deploy-1-setup.yml@v8
+    uses: access-nri/build-cd/.github/workflows/deploy.yml@v8
     with:
       deployment-target: ${{ matrix.target }}
       deployment-ref: ${{ needs.init.outputs.head-ref }}
@@ -297,7 +297,7 @@ jobs:
 
       - name: Create deployment message
         id: matrix-output-parser
-        # Outputs defined in deploy-1-setup.yml under the outputs-upload job
+        # Outputs defined in deploy.yml under the outputs-upload job
         # Creates a comment of the form: https://github.com/ACCESS-NRI/ACCESS-TEST/pull/15#issuecomment-2558675980
         env:
           J2_MODEL: ${{ inputs.model }}

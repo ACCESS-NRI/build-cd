@@ -88,11 +88,9 @@ This entrypoint is used to deploy Releases as part of merged Pull Requests into 
 
 Similar to `ci.yml`, it parallelizes deployments based on HPC target.
 
-## `deploy-*.yml` - Target Deployment Pipeline
+## `deploy.yml` - Target Deployment Pipeline
 
 This pipeline is responsible for deploying a given model, via [`spack`](https://spack.readthedocs.io/en/latest/), to a single HPC target. This pipeline is deployment-type-independent - it works for both Prereleases and Releases.
-
-### `deploy-1-setup.yml` - Checks, Deployment and Metadata Retrieval
 
 This workflow validates environment configuration information from both `build-cd` and the Model Deployment Repository's `config` directory; validates the Model Deployment Repository's `spack.yaml`; deploys the model to the target environment; and uploads deployment metadata/outputs artifacts for [the caller](#deploy-yml---target-deployment-pipeline).
 
