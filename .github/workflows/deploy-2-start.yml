@@ -208,6 +208,7 @@ jobs:
           spack env activate ${{ inputs.env-name }} --create --envfile ${{ vars.SPACK_YAML_LOCATION }}/${{ inputs.expected-root-spec-name }}-${{ github.run_id }}.spack.yaml
 
           # Update access-spack-packages repository before installation
+          spack repo set access_spack_packages
           spack repo update access_spack_packages --commit ${{ steps.packages-ref.outputs.sha }}
 
           # Finally, install the spack manifest
