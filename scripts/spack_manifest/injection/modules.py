@@ -86,9 +86,15 @@ def inject_projections(
     # To start with, add the projections that are already defined in the manifest
     new_projections: dict[str, str] = dict(defined_projections_dict)
 
-    new_projections.update(
-        generate_projection_for_root_spec_or_raise(manifest, root_spec, defined_projections_dict.get(root_spec, ''))
-    )
+    # This matches projection keys that are more complex partial specs, like model~variant
+    projections_like_root_spec = {partial_spec: projection for partial_spec, projection in defined_projections_dict.items() if partial_spec.startswith(root_spec)}
+    list_of_projections_like_root_spec: list[str] = [root_spec] + list(projections_like_root_spec.keys())
+
+    if not projections_like_root_spec:
+        new_projections.update(generate_projection_for_root_spec_from_scratch(manifest, root_spec))
+    else:
+        for partial, projection in projections_like_root_spec.items():
+            new_projections.update(update_projection_for_root_spec_or_raise(manifest, partial, projection))
 
     for projection in projections_to_generate:
         new_projections.update(
@@ -96,11 +102,7 @@ def inject_projections(
         )
 
     # Sort the projections by name to ensure a consistent order...
-    ordered_new_projections = dict(sorted(new_projections.items()))
-
-    # But, we want to ensure that the root spec projection is always first in the list because it's special
-    root_spec_version = ordered_new_projections.pop(root_spec)
-    ordered_new_projections = {root_spec: root_spec_version, **ordered_new_projections}
+    ordered_new_projections: dict[str, str] = order_projections(projections=new_projections, root_spec_like_specs=list_of_projections_like_root_spec)
 
     # Finally, add the new projections to the manifest
     injected_manifest: dict[str, Any] = dict(manifest)
@@ -133,32 +135,46 @@ def inject_includes(
 # Lower-level functions to generate manifest sections #
 #######################################################
 
+def order_projections(projections: dict[str, str], root_spec_like_specs: list[str]) -> dict[str, str]:
+    root_specs: dict[str, str] = {spec: projection for spec, projection in projections.items() if spec in root_spec_like_specs}
+    other_specs: dict[str, str] = {spec: projection for spec, projection in projections.items() if spec not in root_spec_like_specs}
 
-def generate_projection_for_root_spec_or_raise(
-    manifest: dict[str, Any],
-    root_spec_name: str,
-    root_spec_projection: str = ''
-) -> dict[str, str]:
-    reserved_definitions_getter = ReservedDefinitions(manifest)
+    ordered_root_specs = dict(sorted(root_specs.items()))
+    ordered_other_specs = dict(sorted(other_specs.items()))
 
-    version = reserved_definitions_getter.get("version")
+    return {**ordered_root_specs, **ordered_other_specs}
+
+def generate_projection_for_root_spec_from_scratch(manifest: dict[str, Any], root_spec_name: str) -> dict[str, str]:
+    version = ReservedDefinitions(manifest).get("version")
 
     print(
         f"Extracted version '{version}' from _version definition'"
     )
 
-    if not root_spec_projection:  # we need to make a projection from scratch...
-        root_specs_in_speclist = len(Specs(manifest).get_specs_with_name(root_spec_name))
+    root_specs_in_speclist = len(Specs(manifest).get_specs_with_name(root_spec_name))
 
-        if root_specs_in_speclist == 0:
-            raise ValueError(f"No specs with name {root_spec_name} in speclist")
-        elif root_specs_in_speclist == 1:
-            return {root_spec_name: f"{{name}}/{version}"}
-        else:
-            # If there are multiple of the same root spec (for example, different variants housed under the same environment), we need to demarcate the modulefile with a spack package hash
-            return {root_spec_name: f"{{name}}/{version}/{{hash:7}}"}
+    if root_specs_in_speclist == 0:
+        raise ValueError(f"No specs with name {root_spec_name} in speclist")
+    elif root_specs_in_speclist == 1:
+        return {root_spec_name: f"{{name}}/{version}"}
+    else:
+        # If there are multiple of the same root spec (for example, different variants housed under the same environment), we need to demarcate the modulefile with a spack package hash
+        return {root_spec_name: f"{{name}}/{version}/{{hash:7}}"}
+
+
+def update_projection_for_root_spec_or_raise(
+    manifest: dict[str, Any],
+    root_spec_name: str,
+    root_spec_projection: str = ''
+) -> dict[str, str]:
+    version = ReservedDefinitions(manifest).get("version")
+
+    print(
+        f"Extracted version '{version}' from _version definition'"
+    )
 
     return {root_spec_name: root_spec_projection.replace("{version}", version)}
+
 
 def generate_projection_for_package_or_raise(
     manifest: dict[str, Any], package_name: str
