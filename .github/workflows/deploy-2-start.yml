@@ -198,8 +198,9 @@ jobs:
           export DEPLOYMENT_TARGET="${{ vars.DEPLOYMENT_TARGET }}"
           echo "DEPLOYMENT_TARGET exported as $DEPLOYMENT_TARGET"
 
-          #FIXME: Remove this once spack modules are deployed
+          #FIXME: Remove this once spack modules are deployed for admins
           export SPACK_USER_CACHE_PATH=${{ steps.path.outputs.spack }}/../spack-admin-cache
+          export SPACK_PYTHON=/usr/bin/python3.12
 
           # Enable spack
           . ${{ steps.path.outputs.spack }}/share/spack/setup-env.sh
