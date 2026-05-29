@@ -159,21 +159,20 @@ class TestUpdateRootSpecProjectionsVersion:
         manifest = {
             "spack": {
                 "definitions": [
-                    {"_name": ["access-om2"]},
+                    {"_name": ["access-issm"]},
                     {"_version": ["2025.12.000"]},
                 ],
                 "specs": [
-                    "access-om2 +var",
-                    "access-om2 ~var"
+                    "access-issm+ad",
+                    "access-issm~ad"
                 ],
                 "modules": {
                     "default": {
                         "tcl": {
                             "projections": {
-                                "access-om2": "{name}/2025.12.000",
-                                "access-om2 +var": "{name}/2025.12.000/plus",
-                                "access-om2 ~var": "{name}/2025.12.000/minus",
-                                "dependency": "{name}/2025.12.000/2.0.0"
+                                "access-om2+ad": "{name}-AD/2025.12.000",
+                                "access-om2~ad": "{name}/2025.12.000",
+                                "dependency": "{name}/2025.12.001"
                             }
                         }
                     }
@@ -187,10 +186,9 @@ class TestUpdateRootSpecProjectionsVersion:
 
         updated_projections = updated_manifest["spack"]["modules"]["default"]["tcl"]["projections"]
 
-        assert updated_projections["access-om2"] == f"{{name}}/{root_spec_version}/{{hash:7}}"
-        assert updated_projections["access-om2 +var"] == f"{{name}}/{root_spec_version}/plus"
-        assert updated_projections["access-om2 ~var"] == f"{{name}}/{root_spec_version}/minus"
-        assert updated_projections["dependency"] == "{name}/2025.12.000/2.0.0"
+        assert updated_projections["access-om2+ad"] == f"{{name}}-AD/{root_spec_version}"
+        assert updated_projections["access-om2~ad"] == f"{{name}}/{root_spec_version}"
+        assert updated_projections["dependency"] == "{name}/2025.12.001"
 
 class TestAddPrereleaseReposSection:
     def test_add_prerelease_repos_section__valid(self):

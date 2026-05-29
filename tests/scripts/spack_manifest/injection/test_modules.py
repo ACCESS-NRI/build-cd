@@ -5,7 +5,8 @@ from scripts.spack_manifest.injection.modules import (
     inject_projections,
     inject_includes,
 
-    generate_projection_for_root_spec_or_raise,
+    generate_projection_for_root_spec_from_scratch,
+    update_projection_for_root_spec_or_raise,
     generate_projection_for_package_or_raise,
 
     parse_args
@@ -64,20 +65,20 @@ class TestParseArgs:
         assert parsed_args.packages == "mom5,cice5,libaccessom2"
 
 
-class TestGenerateProjectionForRootSpecOrRaise:
+class TestGenerateProjectionForRootSpecFromScratch:
 
-    def test_generate_projection_for_root_spec_or_raise__valid_single_target(self):
+    def test_generate_projection_for_root_spec_from_scratch__valid_single_target(self):
         manifest = {"spack": {"definitions": [{"_name": ["access-om2"]}, {"_version": ["2025.05.000"]}],"specs": ["access-om2 +debug ~mpi"]}}
 
         projection = "access-om2"
         expected_version = {"access-om2": "{name}/2025.05.000"}
-        result = generate_projection_for_root_spec_or_raise(manifest, projection)
+        result = generate_projection_for_root_spec_from_scratch(manifest, projection)
 
         assert (
             result == expected_version
         ), f"Expected version {expected_version} for spec {projection}."
 
-    def test_generate_projection_for_root_spec_or_raise__valid_multi_target(self):
+    def test_generate_projection_for_root_spec_from_scratch__valid_multi_target(self):
         manifest = {
             "spack": {
                 "definitions": [
@@ -90,13 +91,13 @@ class TestGenerateProjectionForRootSpecOrRaise:
 
         projection = "access-om2"
         expected_version = {"access-om2": "{name}/2025.05.000"}
-        result = generate_projection_for_root_spec_or_raise(manifest, projection)
+        result = generate_projection_for_root_spec_from_scratch(manifest, projection)
 
         assert (
             result == expected_version
         ), f"Expected version {expected_version} for spec {projection}."
 
-    def test_generate_projection_for_root_spec_or_raise__single_target_no_version_defined(
+    def test_generate_projection_for_root_spec_from_scratch__single_target_no_version_defined(
         self,
     ):
         manifest = {"spack": {"definitions": [{"_name": ["access-om2"]}],"specs": ["access-om2"]}}
@@ -104,9 +105,9 @@ class TestGenerateProjectionForRootSpecOrRaise:
         projection = "access-om2"
 
         with pytest.raises(NoSectionComponentError):
-            generate_projection_for_root_spec_or_raise(manifest, projection)
+            generate_projection_for_root_spec_from_scratch(manifest, projection)
 
-    def test_generate_projection_for_root_spec_or_raise__multi_target_no_version_defined(
+    def test_generate_projection_for_root_spec_from_scratch__multi_target_no_version_defined(
         self,
     ):
         manifest = {"spack": {"definitions": [{"ROOT_PACKAGE": ["access-om2"]}]}}
@@ -114,9 +115,9 @@ class TestGenerateProjectionForRootSpecOrRaise:
         projection = "access-om2"
 
         with pytest.raises(NoSectionComponentError):
-            generate_projection_for_root_spec_or_raise(manifest, projection)
+            generate_projection_for_root_spec_from_scratch(manifest, projection)
 
-    def test_generate_projection_for_root_spec_or_raise__single_target_wrong_projection(
+    def test_generate_projection_for_root_spec_from_scratch__single_target_wrong_projection(
         self,
     ):
         manifest = {"spack": {"definitions": [{"_name": ["access-om2"]}, {"_version": ["2025.05.000"]}],"specs": ["access-om2 +debug ~mpi"]}}
@@ -124,9 +125,9 @@ class TestGenerateProjectionForRootSpecOrRaise:
         projection = "wrong-projection"
 
         with pytest.raises(ValueError):
-            generate_projection_for_root_spec_or_raise(manifest, projection)
+            generate_projection_for_root_spec_from_scratch(manifest, projection)
 
-    def test_generate_projection_for_root_spec_or_raise__multi_target_wrong_projection(
+    def test_generate_projection_for_root_spec_from_scratch__multi_target_wrong_projection(
         self,
     ):
         manifest = {
@@ -142,9 +143,39 @@ class TestGenerateProjectionForRootSpecOrRaise:
         projection = "wrong-projection"
 
         with pytest.raises(ValueError):
-            generate_projection_for_root_spec_or_raise(manifest, projection)
+            generate_projection_for_root_spec_from_scratch(manifest, projection)
 
-    def test_generate_projection_for_root_spec_or_raise__projection_without_default_name(self):
+class TestUpdateProjectionForRootSpecOrRaise:
+
+    def test_update_projection_for_root_spec_or_raise__projection_default_name(self):
+        root_spec_name="access-issm"
+        root_spec_version="2025.12.000"
+        root_spec_projection="{name}{variants.ad}/{version}"
+
+        partial_manifest = {
+            "spack": {
+                "definitions": [
+                    {"_name": [root_spec_name]},
+                    {"_version": [root_spec_version]},
+                ],
+                "specs": [root_spec_name],
+                "modules": {
+                    "default": {
+                        "tcl": {
+                            "projections": {
+                                root_spec_name: root_spec_projection
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        result_projections = update_projection_for_root_spec_or_raise(partial_manifest, root_spec_name, root_spec_projection)
+
+        assert result_projections == {root_spec_name: f"{{name}}{{variants.ad}}/{root_spec_version}"}
+
+    def test_update_projection_for_root_spec_or_raise__projection_without_default_name(self):
         root_spec_name="access-issm"
         root_spec_version="2025.12.000"
         root_spec_projection="ISSM{variants.ad}/{version}"
@@ -168,7 +199,7 @@ class TestGenerateProjectionForRootSpecOrRaise:
             }
         }
 
-        result_projections = generate_projection_for_root_spec_or_raise(partial_manifest, root_spec_name, root_spec_projection)
+        result_projections = update_projection_for_root_spec_or_raise(partial_manifest, root_spec_name, root_spec_projection)
 
         assert result_projections == {root_spec_name: f"ISSM{{variants.ad}}/{root_spec_version}"}
 
