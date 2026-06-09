@@ -85,10 +85,9 @@ def add_namespace_to_other_projection_versions(
     root_spec_like_projections: dict[str, str] = projections_getter.get_partial_specs_of(root_spec_name)
 
     # We only want to modify projections that are not root-spec-like, since they already have their version set
-    for root_spec_like_projection in root_spec_like_projections:
-        projections.pop(root_spec_like_projection, None)
-
     for projection_name, projection_value in projections.items():
+        if projection_name in root_spec_like_projections:
+            continue
         # Non-root-spec projections are namespaced under ROOT_SPEC_NAME/dependencies/prX-Y,
         # while preserving the original projection structure (with or without a {name} token).
         new_projection_value = f"{root_spec_name}/dependencies/{version}/{projection_value.lstrip('/')}"
