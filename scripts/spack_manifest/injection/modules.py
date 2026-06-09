@@ -87,7 +87,7 @@ def inject_projections(
     new_projections: dict[str, str] = dict(defined_projections_dict)
 
     # This matches projection keys that are more complex partial specs, like model~variant
-    projections_like_root_spec = {partial_spec: projection for partial_spec, projection in defined_projections_dict.items() if partial_spec.startswith(root_spec)}
+    projections_like_root_spec = projections_getter.get_partial_specs_of(root_spec)
     list_of_projections_like_root_spec: list[str] = [root_spec] + list(projections_like_root_spec.keys())
 
     if not projections_like_root_spec:
