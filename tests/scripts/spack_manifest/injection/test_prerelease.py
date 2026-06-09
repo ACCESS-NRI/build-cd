@@ -163,15 +163,14 @@ class TestUpdateRootSpecProjectionsVersion:
                     {"_version": ["2025.12.000"]},
                 ],
                 "specs": [
-                    "access-issm+ad",
-                    "access-issm~ad"
+                    "access-issm+ad"
                 ],
                 "modules": {
                     "default": {
                         "tcl": {
                             "projections": {
-                                "access-om2+ad": "{name}-AD/2025.12.000",
-                                "access-om2~ad": "{name}/2025.12.000",
+                                "access-issm+ad": "{name}-AD/2025.12.000",
+                                "access-issm~ad": "{name}/2025.12.000",
                                 "dependency": "{name}/2025.12.001"
                             }
                         }
@@ -179,15 +178,15 @@ class TestUpdateRootSpecProjectionsVersion:
                 }
             }
         }
-        root_spec_name = "access-om2"
+        root_spec_name = "access-issm"
         root_spec_version = "pr12-2"
 
         updated_manifest = update_root_spec_projections_version(manifest, root_spec_name, root_spec_version)
 
         updated_projections = updated_manifest["spack"]["modules"]["default"]["tcl"]["projections"]
 
-        assert updated_projections["access-om2+ad"] == f"{{name}}-AD/{root_spec_version}"
-        assert updated_projections["access-om2~ad"] == f"{{name}}/{root_spec_version}"
+        assert updated_projections["access-issm+ad"] == f"{{name}}-AD/{root_spec_version}"
+        assert updated_projections["access-issm~ad"] == f"{{name}}/{root_spec_version}"
         assert updated_projections["dependency"] == "{name}/2025.12.001"
 
 class TestAddPrereleaseReposSection:
