@@ -98,9 +98,9 @@ def add_namespace_to_other_projection_versions(
         )
 
         # Ensures that the new projection is a quoted string when dumped so spack does projected modules correctly, see top of file.
-        manifest["spack"]["modules"]["default"]["tcl"]["projections"][projection_name] = YamlExplicitQuotedString(new_projection_value)
+        mutable_manifest["spack"]["modules"]["default"]["tcl"]["projections"][projection_name] = YamlExplicitQuotedString(new_projection_value)
 
-    return manifest
+    return mutable_manifest
 
 
 def update_root_spec_projections_version(
