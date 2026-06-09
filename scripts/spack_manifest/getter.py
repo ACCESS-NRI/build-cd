@@ -377,8 +377,10 @@ class Projections:
         return self.projections.get(name, None)
 
     def get_partial_specs_of(self, name: str) -> dict[str, str]:
+        # Match exact root spec or root spec followed by a valid spec continuation.
+        pattern = re.compile(rf"^{re.escape(name)}($|[+~@% ])")
         return {
             partial: projection
             for partial, projection in self.projections.items()
-            if partial.startswith(name)
+            if pattern.match(partial)
         }
