@@ -88,7 +88,7 @@ def inject_projections(
 
     # This matches projection keys that are more complex partial specs, like model~variant
     projections_like_root_spec = projections_getter.get_partial_specs_of(root_spec)
-    list_of_projections_like_root_spec: list[str] = [root_spec] + list(projections_like_root_spec.keys())
+    projections_like_root_spec_set: set[str] = {root_spec} | set(projections_like_root_spec.keys())
 
     if not projections_like_root_spec:
         new_projections.update(generate_projection_for_root_spec_from_scratch(manifest, root_spec))
@@ -102,7 +102,7 @@ def inject_projections(
         )
 
     # Sort the projections by name to ensure a consistent order...
-    ordered_new_projections: dict[str, str] = order_projections(projections=new_projections, root_spec_like_specs=list_of_projections_like_root_spec)
+    ordered_new_projections: dict[str, str] = order_projections(projections=new_projections, root_spec_like_specs=projections_like_root_spec_set)
 
     # Finally, add the new projections to the manifest
     injected_manifest: dict[str, Any] = dict(manifest)
@@ -135,14 +135,14 @@ def inject_includes(
 # Lower-level functions to generate manifest sections #
 #######################################################
 
-def order_projections(projections: dict[str, str], root_spec_like_specs: list[str]) -> dict[str, str]:
-    root_specs: dict[str, str] = {spec: projection for spec, projection in projections.items() if spec in root_spec_like_specs}
-    other_specs: dict[str, str] = {spec: projection for spec, projection in projections.items() if spec not in root_spec_like_specs}
-
-    ordered_root_specs = dict(sorted(root_specs.items()))
-    ordered_other_specs = dict(sorted(other_specs.items()))
-
-    return {**ordered_root_specs, **ordered_other_specs}
+def order_projections(projections: dict[str, str], root_spec_like_specs: set[str]) -> dict[str, str]:
+    return dict(
+        sorted(
+            projections.items(),
+            # Sort first by root_spec_like_specs membership, then alphabetically
+            key=lambda item: (item[0] not in root_spec_like_specs, item[0]),
+        )
+    )
 
 def generate_projection_for_root_spec_from_scratch(manifest: dict[str, Any], root_spec_name: str) -> dict[str, str]:
     version = ReservedDefinitions(manifest).get("version")

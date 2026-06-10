@@ -6,6 +6,7 @@ from scripts.spack_manifest.injection.modules import (
     inject_includes,
 
     generate_projection_for_root_spec_from_scratch,
+    order_projections,
     update_projection_for_root_spec_or_raise,
     generate_projection_for_package_or_raise,
 
@@ -242,8 +243,78 @@ class TestGenerateProjectionForPackageOrRaise:
         with pytest.raises(NoSectionComponentError):
             generate_projection_for_package_or_raise(manifest, projection)
 
+class TestOrderProjections:
+    def test_order_projections__single_root_spec(self):
+        projections: dict[str, str] = {
+            "cice5": "{name}/2023.10.19-{hash:7}",
+            "libaccessom2": "{name}/2023.10.26-{hash:7}",
+            "mom5": "{name}/2023.11.09-{hash:7}",
+            "oasis3-mct": "{name}/2023.11.09-{hash:7}",
+            "access-om2": "{name}/2024.03.0",
+        }
 
-###############
+        root_spec_like_specs: set[str] = {"access-om2"}
+
+        result = order_projections(projections, root_spec_like_specs)
+
+        expected = {
+            "access-om2": "{name}/2024.03.0",
+            "cice5": "{name}/2023.10.19-{hash:7}",
+            "libaccessom2": "{name}/2023.10.26-{hash:7}",
+            "mom5": "{name}/2023.11.09-{hash:7}",
+            "oasis3-mct": "{name}/2023.11.09-{hash:7}",
+        }
+
+        assert result == expected, "Projections should be ordered with root spec first, followed by others alphabetically."
+
+    def test_order_projections__multiple_root_like_specs(self):
+        projections: dict[str, str] = {
+            "cice5": "{name}/2023.10.19-{hash:7}",
+            "libaccessom2": "{name}/2023.10.26-{hash:7}",
+            "mom5": "{name}/2023.11.09-{hash:7}",
+            "oasis3-mct": "{name}/2023.11.09-{hash:7}",
+            "access-om2+variant": "{name}/2024.03.0",
+            "access-om2~variant": "{name}-variant/2024.03.0",
+        }
+
+        root_spec_like_specs: set[str] = {"access-om2+variant", "access-om2~variant"}
+
+        result = order_projections(projections, root_spec_like_specs)
+
+        expected = {
+            "access-om2+variant": "{name}/2024.03.0",
+            "access-om2~variant": "{name}-variant/2024.03.0",
+            "cice5": "{name}/2023.10.19-{hash:7}",
+            "libaccessom2": "{name}/2023.10.26-{hash:7}",
+            "mom5": "{name}/2023.11.09-{hash:7}",
+            "oasis3-mct": "{name}/2023.11.09-{hash:7}",
+        }
+
+        assert result == expected, "Projections should be ordered with root spec like entries first, followed by others alphabetically."
+
+    def test_order_projections__alphabetically_lower_root_spec(self):
+        projections: dict[str, str] = {
+            "cice5": "{name}/2023.10.19-{hash:7}",
+            "libaccessom2": "{name}/2023.10.26-{hash:7}",
+            "mom5": "{name}/2023.11.09-{hash:7}",
+            "oasis3-mct": "{name}/2023.11.09-{hash:7}",
+            "z-access-om2": "{name}/2024.03.0",
+        }
+
+        root_spec_like_specs: set[str] = {"z-access-om2"}
+
+        result = order_projections(projections, root_spec_like_specs)
+
+        expected = {
+            "z-access-om2": "{name}/2024.03.0",
+            "cice5": "{name}/2023.10.19-{hash:7}",
+            "libaccessom2": "{name}/2023.10.26-{hash:7}",
+            "mom5": "{name}/2023.11.09-{hash:7}",
+            "oasis3-mct": "{name}/2023.11.09-{hash:7}",
+        }
+
+        assert result == expected, "Projections should be ordered with root spec first, followed by others alphabetically."
+
 
 class TestInjectProjections:
     def test_inject_projections__valid(self):
