@@ -99,7 +99,7 @@ jobs:
 
           rsync --archive \
             -i ${{ steps.ssh.outputs.private-key-path }} \
-            tools/modules/spack/${{ inputs.module-deployment-is-admin && 'modulefile-admin' || 'modulefile' }} \
+            tools/modules/spack/modulefile${{ inputs.module-deployment-is-admin && '-admin' }} \
             ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ inputs.module-deployment-location }}/${{ steps.strip.outputs.version }}
 
           echo "::notice::Modulefiles for ${{ steps.strip.outputs.version }} deployed. This does not affect the default module."
