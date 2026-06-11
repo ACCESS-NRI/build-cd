@@ -1,0 +1,77 @@
+#%Module1.0
+
+# Get module name and version
+lassign [split [module-info name] {/}] module_name module_version
+
+conflict $module_name
+
+# Get the spack root directory for the spack instance.
+# First, we get this modulefile parent directory, then we construct the spack root as
+# <parent-directory>/../../apps/spack-shared/<version>/spack
+set spack_module_dir [file dirname [info script]]
+set base_dir [file normalize "$spack_module_dir/../../apps/spack-shared/$module_version"]
+set spack_root "$base_dir/spack"
+
+# Set spack setup-env.sh
+set setup_env "$spack_root/share/spack/setup-env.sh"
+
+# Set Python to be used with spack
+set spack_python /usr/bin/python3.12
+
+# Set the name of the env variable used to store the current environment information so
+# the environment can be reinstated when this module is unloaded
+set old_env_var_name _SPACK_MODULE_OLD_ENV
+
+# If the module is loaded
+if {[module-info mode load]} {
+    ### Set spack environment
+    # Since the Module version is < 5.0 we cannot directly source spack's setup-env script within this modulefile.
+    # A work-around is to run a bash script that computes the environment before and after sourcing the spack's
+    # setup-env and:
+    # - When the module is loaded, set the new variables and functions.
+    #   When the module is unloaded, unset them.
+    # - When the module is loaded, set the variables and functions that changed to their new values.
+    #   When the module is unloaded, re-set them to their old values.
+
+    # The bash script is in the same directory as this modulefile, and is named .<module_version>.sh
+    set bash_script "$spack_module_dir/.$module_version.sh"
+
+    # Run the bash script and capture its output into a variable
+    set bash_commands [exec /bin/bash $bash_script \
+      $old_env_var_name \
+      $setup_env \
+      $spack_python \
+      $spack_root]
+
+    # Split the variable with null character (\x00) to get the commands to set the new environment
+    # and those to reinstate the old environment
+    lassign [split $bash_commands "\x00"] new_env_commands old_env_commands
+
+    # Set the environment variable to reinstate the old environment
+    puts "export $old_env_var_name='$old_env_commands'"
+
+    # Set the new environment
+    puts $new_env_commands
+
+    puts stderr "Spack environment set up using $setup_env"
+} else {
+    # If the module is unloaded, we use the old_env_var_name env variable to reinstate the old
+    # environment
+    if {[info exists env($old_env_var_name)]} {
+        puts $env($old_env_var_name)
+        # Unset the old_env_var_name
+        puts "unset $old_env_var_name"
+    } else {
+        # If the old_env_var_name env variable doesn't exist, print out a warning message
+        puts stderr [string cat \
+            "WARNING: The $old_env_var_name env variable which stores the environment " \
+            "information prior to loading the $module_name module is not set. Environment restoration failed."
+        ]
+    }
+}
+
+# Set spack user cache path
+setenv SPACK_USER_CACHE_PATH "/g/data/$env(PROJECT)/$env(USER)/spack/$module_version/spack-user-cache"
+if {[module-info mode load]} {
+    puts stderr "Spack user cache set to $env(SPACK_USER_CACHE_PATH)"
+}
