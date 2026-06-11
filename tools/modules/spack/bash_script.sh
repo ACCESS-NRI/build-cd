@@ -1,3 +1,4 @@
+#!/bin/bash
 # Set TCL variables passed as arguments
 # old environment env var
 old_env_var_name="$1"
@@ -49,6 +50,7 @@ done < <(alias -p)
 export SPACK_PYTHON="$spack_python"
 # Set up SPACK_ROOT
 export SPACK_ROOT="$spack_root"
+# shellcheck disable=SC1090
 source "$setup_env_script" > /dev/null
 
 # ==============================================================================
@@ -86,7 +88,7 @@ done < <(alias -p)
 # Added and changed
 for name in "${!after_functions[@]}"; do
     value="${after_functions[$name]}"
-    if [[ ! -v before_functions["$name"] ]]; then 
+    if [[ ! -v before_functions["$name"] ]]; then
         # Added function: print command for it to be exported and record the command for it to be unset
         printf '%s ; ' "${name}() $value ; export -f $name"
         old_env_var_reference+=$(printf '%s ;' "unset -f $name")
@@ -109,7 +111,7 @@ done
 # Added and changed
 for name in "${!after_variables[@]}"; do
     value="${after_variables[$name]}"
-    if [[ ! -v before_variables["$name"] ]]; then 
+    if [[ ! -v before_variables["$name"] ]]; then
         # Added variable: print command for it to be exported and record the command for it to be unset
         printf '%s ; ' "export $name=$value"
         old_env_var_reference+=$(printf '%s ; ' "unset $name")
@@ -132,7 +134,7 @@ done
 # Added and changed
 for name in "${!after_aliases[@]}"; do
     value="${after_aliases[$name]}"
-    if [[ ! -v before_aliases["$name"] ]]; then 
+    if [[ ! -v before_aliases["$name"] ]]; then
         # Added aliase: print command for it to be set and record the command for it to be unset
         printf '%s ; ' "alias $name=$value"
         old_env_var_reference+=$(printf '%s ; ' "unalias $name")
