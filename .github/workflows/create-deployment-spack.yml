@@ -28,13 +28,18 @@ on:
         description: |
           A path in the deployment environment where modules referencing the deployed Spack should be created.
           For example, if it is `opt/modules/spack` for spack v1.1, the modulefile created will be under `opt/modules/spack/1.1`
+      module-deployment-is-admin:
+        type: boolean
+        required: true
+        description: |
+          Whether the modulefiles being deployed should be admin-only.
 jobs:
   log-inputs:
     name: Log Inputs
     runs-on: ubuntu-latest
     steps:
       - run: |
-          echo '::notice::url = `${{ inputs.spack-git-url }}`, spack version = `${{ inputs.spack-version }}`, spack-config version = `${{ inputs.spack-config-version }}`, deployment location = `${{ inputs.spack-deployment-location }}`, module location = `${{ inputs.module-deployment-location }}`'
+          echo '::notice::url = `${{ inputs.spack-git-url }}`, spack version = `${{ inputs.spack-version }}`, spack-config version = `${{ inputs.spack-config-version }}`, deployment location = `${{ inputs.spack-deployment-location }}`, module location = `${{ inputs.module-deployment-location }}`, admin only=`${{ inputs.module-deployment-is-admin }}`'
 
   create-spack:
     name: Spack
@@ -51,11 +56,10 @@ jobs:
           private-key: ${{ secrets.SSH_KEY }}
 
       - name: Strip Spack Version
-        # FIXME: Need to split a potential -admin section, and access/
         id: strip
-        # this step removes the 'release/' part from some spack tags, so our
-        # directory structure doesn't contain a 'releases' subdirectory
-        run: echo "version=$(echo '${{ inputs.spack-version }}' | cut --delimiter 'v' --fields 2)" >> $GITHUB_OUTPUT
+        # this step removes the 'access/release/' part from some spack branches (and an optional '-admin' bit), so our
+        # directory structure doesn't contain superfluous subdirectories
+        run: echo "version=$(echo '${{ inputs.spack-version }}' | sed -E 's|^(access/releases/)?v([0-9]+\.[0-9]+)(-admin)?$|\2|')" >> $GITHUB_OUTPUT
 
       - name: Install
         id: spack-install
@@ -95,7 +99,7 @@ jobs:
 
           rsync --archive \
             -i ${{ steps.ssh.outputs.private-key-path }} \
-            tools/modules/spack/modulefile \
+            tools/modules/spack/${{ inputs.module-deployment-is-admin && 'modulefile-admin' || 'modulefile' }} \
             ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ inputs.module-deployment-location }}/${{ steps.strip.outputs.version }}
 
           echo "::notice::Modulefiles for ${{ steps.strip.outputs.version }} deployed. This does not affect the default module."
