@@ -84,7 +84,10 @@ jobs:
             ${{ env.ROOT_VERSION_LOCATION }}/restricted $TMPDIR/restricted
           EOT
 
-          . ${{ env.ROOT_VERSION_LOCATION }}/spack/share/spack/setup-env.sh
+          # Enable spack
+          module use ${{ vars.ADMIN_MODULES_DIR }}
+          module load spack/${{ steps.strip.outputs.version }}
+
           spack -d bootstrap now
 
       - name: Checkout build-cd for modulefiles
