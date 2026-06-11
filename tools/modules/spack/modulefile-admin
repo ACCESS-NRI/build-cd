@@ -7,9 +7,11 @@ conflict $module_name
 
 # Get the spack root directory for the spack instance.
 # First, we get this modulefile parent directory, then we construct the spack root as
-# <parent-directory>/../../apps/spack/<version>/spack
+# <parent-directory>/../../../apps/spack/<version>/spack
 set spack_module_dir [file dirname [info script]]
-set base_dir [file normalize "$spack_module_dir/../../apps/spack/$module_version"]
+# For this admin modulefile, it is under PROJECT/admin/modules/spack/<version> for Release
+# and PROJECT/prerelease/admin/modules/spack/<version> for Prerelease, hence the extra '..'
+set base_dir [file normalize "$spack_module_dir/../../../apps/spack/$module_version"]
 set spack_root "$base_dir/spack"
 
 # Set spack setup-env.sh
