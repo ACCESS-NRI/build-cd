@@ -352,6 +352,13 @@ class Includes:
 class Projections:
     def __init__(self, manifest: dict[str, Any]):
         self.manifest: dict[str, Any] = manifest
+        self.projections: dict[str, str] = (
+            manifest.get("spack", {})
+            .get("modules", {})
+            .get("default", {})
+            .get("tcl", {})
+            .get("projections", {})
+        )
 
     # Can also pass in a path to a yaml manifest instead of a python object
     @classmethod
@@ -364,20 +371,16 @@ class Projections:
         return cls(manifest)
 
     def get(self) -> dict[str, str]:
-        return (
-            self.manifest.get("spack", {})
-            .get("modules", {})
-            .get("default", {})
-            .get("tcl", {})
-            .get("projections", {})
-        )
+        return self.projections
 
     def get_projection_with_name(self, name: str) -> str | None:
-        return (
-            self.manifest.get("spack", {})
-            .get("modules", {})
-            .get("default", {})
-            .get("tcl", {})
-            .get("projections", {})
-            .get(name, None)
-        )
+        return self.projections.get(name, None)
+
+    def get_partial_specs_of(self, name: str) -> dict[str, str]:
+        # Match exact root spec or root spec followed by a valid spec continuation.
+        pattern = re.compile(rf"^{re.escape(name)}($|[+~@% ])")
+        return {
+            partial: projection
+            for partial, projection in self.projections.items()
+            if pattern.match(partial)
+        }

@@ -3,13 +3,13 @@ import pytest
 from scripts.spack_manifest.injection.prerelease import (
     inject_prerelease_information,
     add_prerelease_repos_section,
-    update_root_spec_projection_version,
+    update_root_spec_projections_version,
     add_namespace_to_other_projection_versions,
     parse_args
 )
 
-class TestUpdateRootSpecProjectionVersion:
-    def test_update_root_spec_projection_version__valid_existing_single_spec(self):
+class TestUpdateRootSpecProjectionsVersion:
+    def test_update_root_spec_projections_version__valid_existing_single_spec(self):
         manifest = {
             "spack": {
                 "definitions": [
@@ -34,11 +34,11 @@ class TestUpdateRootSpecProjectionVersion:
         root_spec_name = "access-om2"
         root_spec_version = "pr12-2"
 
-        updated_manifest = update_root_spec_projection_version(manifest, root_spec_name, root_spec_version)
+        updated_manifest = update_root_spec_projections_version(manifest, root_spec_name, root_spec_version)
 
         assert updated_manifest["spack"]["modules"]["default"]["tcl"]["projections"][root_spec_name] == f"{{name}}/{root_spec_version}/1.0.0"
 
-    def test_update_root_spec_projection_version__valid_existing_multi_spec(self):
+    def test_update_root_spec_projections_version__valid_existing_multi_spec(self):
         manifest = {
             "spack": {
                 "definitions": [
@@ -64,12 +64,12 @@ class TestUpdateRootSpecProjectionVersion:
         root_spec_name = "access-om2"
         root_spec_version = "pr12-2"
 
-        updated_manifest = update_root_spec_projection_version(manifest, root_spec_name, root_spec_version)
+        updated_manifest = update_root_spec_projections_version(manifest, root_spec_name, root_spec_version)
 
         assert updated_manifest["spack"]["modules"]["default"]["tcl"]["projections"][root_spec_name] == f"{{name}}/{root_spec_version}/1.0.0"
 
 
-    def test_update_root_spec_projection_version__valid_new_single_spec(self):
+    def test_update_root_spec_projections_version__valid_new_single_spec(self):
         manifest = {
             "spack": {
                 "specs": [
@@ -87,11 +87,11 @@ class TestUpdateRootSpecProjectionVersion:
         root_spec_name = "access-om2"
         root_spec_version = "pr12-2"
 
-        updated_manifest = update_root_spec_projection_version(manifest, root_spec_name, root_spec_version)
+        updated_manifest = update_root_spec_projections_version(manifest, root_spec_name, root_spec_version)
 
         assert updated_manifest["spack"]["modules"]["default"]["tcl"]["projections"][root_spec_name] == f"{{name}}/{root_spec_version}"
 
-    def test_update_root_spec_projection_version__valid_new_multi_spec(self):
+    def test_update_root_spec_projections_version__valid_new_multi_spec(self):
         manifest = {
             "spack": {
                 "specs": [
@@ -110,11 +110,11 @@ class TestUpdateRootSpecProjectionVersion:
         root_spec_name = "access-om2"
         root_spec_version = "pr12-2"
 
-        updated_manifest = update_root_spec_projection_version(manifest, root_spec_name, root_spec_version)
+        updated_manifest = update_root_spec_projections_version(manifest, root_spec_name, root_spec_version)
 
         assert updated_manifest["spack"]["modules"]["default"]["tcl"]["projections"][root_spec_name] == f"{{name}}/{root_spec_version}/{{hash:7}}"
 
-    def test_update_root_spec_projection_version__no_projections_single_spec(self):
+    def test_update_root_spec_projections_version__no_projections_single_spec(self):
         manifest = {
             "spack": {
                 "specs": [
@@ -130,11 +130,11 @@ class TestUpdateRootSpecProjectionVersion:
         root_spec_name = "access-om2"
         root_spec_version = "pr12-2"
 
-        updated_manifest = update_root_spec_projection_version(manifest, root_spec_name, root_spec_version)
+        updated_manifest = update_root_spec_projections_version(manifest, root_spec_name, root_spec_version)
 
         assert updated_manifest["spack"]["modules"]["default"]["tcl"]["projections"][root_spec_name] == f"{{name}}/{root_spec_version}"
 
-    def test_update_root_spec_projection_version__no_projections_multi_spec(self):
+    def test_update_root_spec_projections_version__no_projections_multi_spec(self):
         manifest = {
             "spack": {
                 "specs": [
@@ -151,9 +151,43 @@ class TestUpdateRootSpecProjectionVersion:
         root_spec_name = "access-om2"
         root_spec_version = "pr12-2"
 
-        updated_manifest = update_root_spec_projection_version(manifest, root_spec_name, root_spec_version)
+        updated_manifest = update_root_spec_projections_version(manifest, root_spec_name, root_spec_version)
 
         assert updated_manifest["spack"]["modules"]["default"]["tcl"]["projections"][root_spec_name] == f"{{name}}/{root_spec_version}/{{hash:7}}"
+
+    def test_update_root_spec_projections_version__updates_multiple_root_like_projection_keys(self):
+        manifest = {
+            "spack": {
+                "definitions": [
+                    {"_name": ["access-issm"]},
+                    {"_version": ["2025.12.000"]},
+                ],
+                "specs": [
+                    "access-issm+ad"
+                ],
+                "modules": {
+                    "default": {
+                        "tcl": {
+                            "projections": {
+                                "access-issm+ad": "{name}-AD/2025.12.000",
+                                "access-issm~ad": "{name}/2025.12.000",
+                                "dependency": "{name}/2025.12.001"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        root_spec_name = "access-issm"
+        root_spec_version = "pr12-2"
+
+        updated_manifest = update_root_spec_projections_version(manifest, root_spec_name, root_spec_version)
+
+        updated_projections = updated_manifest["spack"]["modules"]["default"]["tcl"]["projections"]
+
+        assert updated_projections["access-issm+ad"] == f"{{name}}-AD/{root_spec_version}"
+        assert updated_projections["access-issm~ad"] == f"{{name}}/{root_spec_version}"
+        assert updated_projections["dependency"] == "{name}/2025.12.001"
 
 class TestAddPrereleaseReposSection:
     def test_add_prerelease_repos_section__valid(self):

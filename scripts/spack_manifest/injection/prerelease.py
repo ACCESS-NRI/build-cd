@@ -48,7 +48,7 @@ def inject_prerelease_information(
     # We want the root spec projection to be of the form {name}/prX-Y for single specs, and
     # {name}/prX-Y/DEMARCATOR for multiple specs, so we don't have modulefile clashes.
     # The DEMARCATOR can be a custom projection, or {hash:7} if not supplied.
-    updated_manifest = update_root_spec_projection_version(
+    updated_manifest = update_root_spec_projections_version(
         updated_manifest, root_spec_name, version
     )
 
@@ -78,14 +78,16 @@ def add_namespace_to_other_projection_versions(
 ) -> dict[str, Any]:
     # We don't want to modify the linked manifest dict, so we create a mutable copy.
     mutable_manifest: dict[str, Any] = deepcopy(manifest)
-    projections_from_manifest = Projections(mutable_manifest)
-    projections = projections_from_manifest.get()
 
-    # We only want to modify projections that are not the root spec, since that already has its version set
-    if root_spec_name in projections:
-        projections.pop(root_spec_name)
 
+    projections_getter = Projections(mutable_manifest)
+    projections: dict[str, str] = projections_getter.get()
+    root_spec_like_projections: dict[str, str] = projections_getter.get_partial_specs_of(root_spec_name)
+
+    # We only want to modify projections that are not root-spec-like, since they already have their version set
     for projection_name, projection_value in projections.items():
+        if projection_name in root_spec_like_projections:
+            continue
         # Non-root-spec projections are namespaced under ROOT_SPEC_NAME/dependencies/prX-Y,
         # while preserving the original projection structure (with or without a {name} token).
         new_projection_value = f"{root_spec_name}/dependencies/{version}/{projection_value.lstrip('/')}"
@@ -95,35 +97,38 @@ def add_namespace_to_other_projection_versions(
         )
 
         # Ensures that the new projection is a quoted string when dumped so spack does projected modules correctly, see top of file.
-        manifest["spack"]["modules"]["default"]["tcl"]["projections"][projection_name] = YamlExplicitQuotedString(new_projection_value)
+        mutable_manifest["spack"]["modules"]["default"]["tcl"]["projections"][projection_name] = YamlExplicitQuotedString(new_projection_value)
 
-    return manifest
+    return mutable_manifest
 
 
-def update_root_spec_projection_version(
+def update_root_spec_projections_version(
     manifest: dict[str, Any], root_spec_name: str, deployment_version: str
 ) -> dict[str, Any]:
     manifest.setdefault("spack", {}).setdefault("modules", {}).setdefault("default", {}).setdefault("tcl", {}).setdefault("projections", {})
 
-    current_root_projection = Projections(manifest).get_projection_with_name(root_spec_name)
+    projections_like_root_spec: dict[str, str] | None = Projections(manifest).get_partial_specs_of(root_spec_name)
     number_of_root_specs_in_speclist = len(Specs(manifest).get_specs_with_name(root_spec_name))
 
-    if current_root_projection:
+    if projections_like_root_spec:
         # Replace the manifest version wherever it appears as a path segment in the projection.
         current_version = ReservedDefinitions(manifest).get("version")
-        new_root_projection = current_root_projection.replace(current_version, deployment_version)
+        for root_spec_partial, current_root_projection in projections_like_root_spec.items():
+            new_root_projection = current_root_projection.replace(current_version, deployment_version)
 
-        if number_of_root_specs_in_speclist > 1 and re.match(fr"^.+/{deployment_version}$", new_root_projection):
-            # If there are multiple of the same root spec, we need to demarcate them somehow if there was no custom suffix given.
-            # We use a short package hash as the demarcator if no custom suffix was given.
-            new_root_projection += "/{hash:7}"
+            if number_of_root_specs_in_speclist > 1 and re.match(fr"^.+/{deployment_version}$", new_root_projection):
+                # If there are multiple of the same root spec, we need to demarcate them somehow if there was no custom suffix given.
+                # We use a short package hash as the demarcator if no custom suffix was given.
+                new_root_projection += "/{hash:7}"
+
+            manifest["spack"]["modules"]["default"]["tcl"]["projections"][root_spec_partial] = new_root_projection
     else:
         if number_of_root_specs_in_speclist == 1:
             new_root_projection = f'{{name}}/{deployment_version}'
         else:
             new_root_projection = f'{{name}}/{deployment_version}/{{hash:7}}'
 
-    manifest["spack"]["modules"]["default"]["tcl"]["projections"][root_spec_name] = new_root_projection
+        manifest["spack"]["modules"]["default"]["tcl"]["projections"][root_spec_name] = new_root_projection
 
     return manifest
 
