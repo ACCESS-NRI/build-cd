@@ -1,0 +1,62 @@
+name: Get remote git ref info
+description: Action that retrieves information about a git reference without cloning the repository
+inputs:
+  repository:
+    required: true
+    description: The repository to query, in the format 'owner/repo'
+  ref:
+    required: true
+    description: The git reference (branch, tag, or commit SHA) to retrieve information about
+  token:
+    required: false
+    description: |
+      The GitHub token to use for authentication when accessing the repository.
+      Defaults to github.token.
+outputs:
+  ref-type:
+    description: The type of the git reference (branch, tag, or commit)
+    value: ${{ steps.ref-info.outputs.ref-type }}
+  sha:
+    description: The commit SHA that the git reference points to
+    value: ${{ steps.ref-info.outputs.sha }}
+runs:
+  using: composite
+  steps:
+    - name: Get Git Ref Info
+      id: ref-info
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token || github.token }}
+      run: |
+        set +e
+        branch_sha=$(gh api "repos/${{ inputs.repository }}/git/ref/heads/${{ inputs.ref }}" --jq '.object.sha' 2> /dev/null)
+        branch_status=$?
+
+        tag_sha=$(gh api "repos/${{ inputs.repository }}/git/ref/tags/${{ inputs.ref }}" --jq '.object.sha' 2> /dev/null)
+        tag_status=$?
+        set -e
+
+        if [[ $branch_status -eq 0 && $tag_status -eq 0 ]]; then
+          echo "::error::The specified ref '${{ inputs.ref }}' exists as both a branch and a tag in the repository. Please specify a unique ref."
+          exit 1
+        elif [[ $branch_status -eq 0 ]]; then
+          echo "ref-type=branch" >> $GITHUB_OUTPUT
+          echo "sha=$branch_sha" >> $GITHUB_OUTPUT
+        elif [[ $tag_status -eq 0 ]]; then
+          tag_commit_sha=$(gh api "repos/${{ inputs.repository }}/commits/${{ inputs.ref }}" --jq '.sha')
+          echo "ref-type=tag" >> $GITHUB_OUTPUT
+          echo "sha=$tag_commit_sha" >> $GITHUB_OUTPUT
+        else
+          set +e
+          commit_sha=$(gh api "repos/${{ inputs.repository }}/commits/${{ inputs.ref }}" --jq '.sha' 2> /dev/null)
+          commit_status=$?
+          set -e
+
+          if [[ $commit_status -eq 0 ]]; then
+            echo "ref-type=commit" >> $GITHUB_OUTPUT
+            echo "sha=$commit_sha" >> $GITHUB_OUTPUT
+          else
+            echo "::error::The specified ref '${{ inputs.ref }}' does not exist in the repository."
+            exit 1
+          fi
+        fi

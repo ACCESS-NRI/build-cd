@@ -183,6 +183,9 @@ jobs:
         with:
           path: model
           ref: ${{ inputs.deployment-ref }}
+          fetch-depth: 1
+          sparse-checkout: |
+            config
 
       - name: '${{ github.repository }}: Validate config/versions.json'
         uses: access-nri/schema/.github/actions/validate-with-schema@main
@@ -206,14 +209,14 @@ jobs:
 
       - name: '${{ github.repository }}: Validate spack branch'
         id: spack-branch-check
-        uses: access-nri/actions/.github/actions/get-git-ref-info@main
+        uses: access-nri/build-cd/.github/actions/get-remote-git-ref-info@v8
         with:
           repository: ACCESS-NRI/spack
           ref: releases/v${{ steps.config-versions-refs.outputs.spack-branch }}
 
       - name: '${{ github.repository }}: Get access-spack-packages SHA'
         id: access-spack-packages-sha
-        uses: access-nri/actions/.github/actions/get-git-ref-info@main
+        uses: access-nri/build-cd/.github/actions/get-remote-git-ref-info@v8
         with:
           repository: ACCESS-NRI/access-spack-packages
           ref: ${{ steps.config-versions-refs.outputs.access-spack-packages-ref }}
@@ -224,6 +227,9 @@ jobs:
         with:
           repository: access-nri/build-cd
           path: build-cd
+          fetch-depth: 1
+          sparse-checkout: |
+            config
 
       - name: 'build-cd: Validate config/settings.json'
         id: settings
@@ -246,35 +252,30 @@ jobs:
           echo "spack-ref=$(jq --compact-output --raw-output '.spack' <<< "$refs_for_deployment")" >> $GITHUB_OUTPUT
           echo "spack-config-ref=$(jq --compact-output --raw-output '."spack-config"' <<< "$refs_for_deployment")" >> $GITHUB_OUTPUT
 
-      - name: 'build-cd: Checkout spack-config to get builtin spack-packages ref'
-        uses: actions/checkout@v6
-        with:
-          repository: ACCESS-NRI/spack-config
-          ref: ${{ steps.config-settings-refs.outputs.spack-config-ref }}
-          path: spack-config
-
       - name: 'build-cd: Get builtin spack-packages ref'
         id: builtin-spack-packages
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          echo "ref=$(yq '.repos | .builtin // ."builtin:" | .branch // .tag // .commit' spack-config/v${{ steps.config-versions-refs.outputs.spack-branch }}/repos.yaml)" >> $GITHUB_OUTPUT
+          echo "ref=$(gh api -X GET repos/ACCESS-NRI/spack-config/contents/v${{ steps.config-versions-refs.outputs.spack-branch }}/repos.yaml -f ref=${{ steps.config-settings-refs.outputs.spack-config-ref }} --jq '.content' | base64 --decode | yq '.repos | .builtin // .[\"builtin:\"] | .branch // .tag // .commit')" >> $GITHUB_OUTPUT
 
       - name: 'build-cd: Get spack SHA'
         id: spack-sha
-        uses: access-nri/actions/.github/actions/get-git-ref-info@main
+        uses: access-nri/build-cd/.github/actions/get-remote-git-ref-info@v8
         with:
           repository: ACCESS-NRI/spack
           ref: ${{ steps.config-settings-refs.outputs.spack-ref }}
 
       - name: 'build-cd: Get spack-config SHA'
         id: spack-config-sha
-        uses: access-nri/actions/.github/actions/get-git-ref-info@main
+        uses: access-nri/build-cd/.github/actions/get-remote-git-ref-info@v8
         with:
           repository: ACCESS-NRI/spack-config
           ref: ${{ steps.config-settings-refs.outputs.spack-config-ref }}
 
       - name: 'build-cd: Get builtin spack-packages SHA'
         id: builtin-spack-packages-sha
-        uses: access-nri/actions/.github/actions/get-git-ref-info@main
+        uses: access-nri/build-cd/.github/actions/get-remote-git-ref-info@v8
         with:
           repository: ACCESS-NRI/upstream-spack-packages
           ref: ${{ steps.builtin-spack-packages.outputs.ref }}
