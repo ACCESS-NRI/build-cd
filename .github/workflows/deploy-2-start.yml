@@ -194,16 +194,9 @@ jobs:
             exit 1
           fi
 
-          # Export vars.DEPLOYMENT_TARGET
-          export DEPLOYMENT_TARGET="${{ vars.DEPLOYMENT_TARGET }}"
-          echo "DEPLOYMENT_TARGET exported as $DEPLOYMENT_TARGET"
-
-          #FIXME: Remove this once spack modules are deployed for admins
-          export SPACK_USER_CACHE_PATH=${{ steps.path.outputs.spack }}/../spack-admin-cache
-          export SPACK_PYTHON=/usr/bin/python3.12
-
           # Enable spack
-          . ${{ steps.path.outputs.spack }}/share/spack/setup-env.sh
+          module use ${{ vars.ADMIN_MODULES_DIR }}
+          module load spack/${{ steps.versions.outputs.spack }}
 
           # Create and activate environment
           spack env activate ${{ inputs.env-name }} --create --envfile ${{ vars.SPACK_YAML_LOCATION }}/${{ inputs.expected-root-spec-name }}-${{ github.run_id }}.spack.yaml
@@ -245,14 +238,11 @@ jobs:
             ${{ secrets.USER }}@${{ secrets.HOST }}:${{ steps.path.outputs.spack-environment }}/
 
           ssh ${{ secrets.USER }}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
-          # Export vars.DEPLOYMENT_TARGET
-          export DEPLOYMENT_TARGET="${{ vars.DEPLOYMENT_TARGET }}"
-          echo "DEPLOYMENT_TARGET exported as $DEPLOYMENT_TARGET"
 
-          #FIXME: Remove this once spack modules are deployed
-          export SPACK_USER_CACHE_PATH=${{ steps.path.outputs.spack }}/../spack-admin-cache
+          # Enable spack
+          module use ${{ vars.ADMIN_MODULES_DIR }}
+          module load spack/${{ steps.versions.outputs.spack }}
 
-          . ${{ steps.path.outputs.spack }}/share/spack/setup-env.sh
           ${{ steps.path.outputs.spack-environment }}/get_data_from_deployment.py \
             --environment ${{ steps.path.outputs.spack-environment }} \
             --deployment-name ${{ inputs.expected-root-spec-name }} \
