@@ -2,121 +2,189 @@ import argparse
 import sys
 
 import ruamel.yaml
+from abc import ABC, abstractmethod
+from typing import Any
+from pathlib import Path
 
-# Essentially we are looking to do the following substitutions in yq:
-# yq -i '.modules.use += ["/g/data/vk83/prerelease/modules"]' config.yaml
-# yq -i '.modules.load |= map(sub("^${{ needs.setup.outputs.root-sbd }}/.*"; "${{ env.DEPLOYMENT_IDENTIFIER }}"))' config.yaml
-# yq -i '.manifest.reproduce.exe=false' config.yaml
+# Constants for deployment targets
+GADI_MODULE_USE_PATH: str = "/g/data/vk83/prerelease/modules"
 
-def update_model_config_manifest(
-    manifest: dict[str, any],
-    deployment_target: str,
-    root_sbd: str,
-    module: str
-) -> dict[str, any]:
-    updated_manifest = update_modules_use_section(
-        manifest, deployment_target
-    )
+# Constants for default configuration files to edit
+DEFAULT_PAYU_CONFIG_PATH: str = "config.yaml"
+DEFAULT_ROSE_CYLC_CONFIG_PATH: str = "rose-suite.conf"
 
-    updated_manifest = update_modules_load_section(
-        updated_manifest, root_sbd, module
-    )
+class ConfigUpdater(ABC):
+    def __init__(self, config_path: str, deployment_target: str) -> None:
+        self.config_path = Path(config_path)
+        self.deployment_target = deployment_target
 
-    updated_manifest = update_reproduce_exe_section(
-        updated_manifest
-    )
+    @abstractmethod
+    def update_modules_use_section(self) -> None:
+        pass
 
-    return updated_manifest
+    @abstractmethod
+    def update_modules_load_section(
+        self,
+        root_sbd: str,
+        prerelease_module: str
+    ) -> None:
+        pass
 
-def update_modules_use_section(
-    manifest: dict[str, any],
-    deployment_target: str
-) -> dict[str, any]:
-    """
-    Updates the modules.use section of the model config manifest to use the prerelease module path
-    """
-    manifest.setdefault("modules", {}).setdefault("use", [])
+class PayuConfigUpdater(ConfigUpdater):
+    def __init__(self, config_path: str, deployment_target: str) -> None:
+        super().__init__(config_path, deployment_target)
 
-    modules_use: list[str] = manifest["modules"]["use"]
+        # Setting up the YAML parser...
+        self.yaml=ruamel.yaml.YAML()
+        # To cut down on large diffs, keep the original quoting of config.yaml
+        self.yaml.preserve_quotes = True
+        # Some files have 'foo: null' being updated to 'foo: ' - this will ensure that
+        # original 'null' values are still represented as 'null'
+        self.yaml.representer.add_representer(
+            type(None), lambda self, _: self.represent_scalar("tag:yaml.org,2002:null", "null")
+        )
+        # Some extra-long values are being wrapped, which increases the diff size.
+        # This ensures that wrapping only occurs at the extreme end of file width...
+        self.yaml.width = 1000
 
-    match deployment_target:
-        case "Gadi":
-            prerelease_module_path = "/g/data/vk83/prerelease/modules"
-        case _:
-            raise ValueError(f"Unsupported deployment target: {deployment_target}")
+    # Essentially we are looking to do the following substitutions in yq:
+    ## For payu-based configurations:
+    # yq -i '.modules.use += ["/g/data/vk83/prerelease/modules"]' config.yaml
+    # yq -i '.modules.load |= map(sub("^${{ needs.setup.outputs.root-sbd }}/.*"; "${{ env.DEPLOYMENT_IDENTIFIER }}"))' config.yaml
+    # yq -i '.manifest.reproduce.exe=false' config.yaml
 
-    if prerelease_module_path not in modules_use:
-        modules_use.append(prerelease_module_path)
+    def update_modules_use_section(self) -> None:
+        with open(self.config_path, "r") as cfg:
+            manifest = self.yaml.load(cfg)
 
-    manifest["modules"]["use"] = modules_use
+        manifest.setdefault("modules", {}).setdefault("use", [])
 
-    return manifest
+        modules_use: list[str] = manifest["modules"]["use"]
 
-def update_modules_load_section(
-    manifest: dict[str, any],
-    root_sbd: str,
-    prerelease_module: str
-) -> dict[str, any]:
-    """
-    Updates the modules.load section of the model config manifest to use the prerelease module name
-    """
-    manifest.setdefault("modules", {}).setdefault("load", [])
+        match self.deployment_target:
+            case "gadi":
+                prerelease_module_path = "/g/data/vk83/prerelease/modules"
+            case _:
+                raise ValueError(f"Unsupported deployment target: {self.deployment_target}")
 
-    modules_load: list[str] = manifest["modules"]["load"]
+        if prerelease_module_path not in modules_use:
+            modules_use.append(prerelease_module_path)
 
-    # We remove all entries that start with the root_sbd to avoid conflicts with the existing release modules in the config.yaml
-    updated_modules_load = [prerelease_module] + [m for m in modules_load if not m.startswith(f"{root_sbd}/")]
+        manifest["modules"]["use"] = modules_use
 
-    print(f"When updating modules.load, removed entries starting with '{root_sbd}' and added '{prerelease_module}' giving: {updated_modules_load}")
+        with open(self.config_path, "w") as cfg:
+            self.yaml.dump(manifest, cfg)
 
-    manifest["modules"]["load"] = updated_modules_load
+    def update_modules_load_section(
+        self,
+        root_sbd: str,
+        prerelease_module: str
+    ) -> None:
+        """
+        Updates the modules.load section of the model config manifest to use the prerelease module name
+        """
+        with open(self.config_path, "r") as cfg:
+            manifest = self.yaml.load(cfg)
 
-    return manifest
+        manifest.setdefault("modules", {}).setdefault("load", [])
 
-def update_reproduce_exe_section(
-    manifest: dict[str, any]
-) -> dict[str, any]:
-    """
-    Updates the manifest.reproduce.exe section of the model config manifest to be false for prerelease builds
-    """
-    manifest.setdefault("manifest", {}).setdefault("reproduce", {})
+        modules_load: list[str] = manifest["modules"]["load"]
 
-    manifest["manifest"]["reproduce"]["exe"] = False
+        # We remove all entries that start with the root_sbd to avoid conflicts with the existing release modules in the config.yaml
+        updated_modules_load = [prerelease_module] + [m for m in modules_load if not m.startswith(f"{root_sbd}/")]
 
-    return manifest
+        print(f"When updating modules.load, removed entries starting with '{root_sbd}' and added '{prerelease_module}' giving: {updated_modules_load}")
+
+        manifest["modules"]["load"] = updated_modules_load
+
+        with open(self.config_path, "w") as cfg:
+            self.yaml.dump(manifest, cfg)
+
+    def update_reproduce_exe_section(
+        self,
+    ) -> None:
+        """
+        Updates the manifest.reproduce.exe section of the model config manifest to be false for prerelease builds
+        """
+        with open(self.config_path, "r") as cfg:
+            manifest = self.yaml.load(cfg)
+
+        manifest.setdefault("manifest", {}).setdefault("reproduce", {})
+
+        manifest["manifest"]["reproduce"]["exe"] = False
+
+        with open(self.config_path, "w") as cfg:
+            self.yaml.dump(manifest, cfg)
+
+
+class RoseCylcConfigUpdater(ConfigUpdater):
+    def __init__(self, config_path: str, deployment_target: str) -> None:
+        super().__init__(config_path, deployment_target)
+
+    ## For rose-cylc-based configurations:
+    # SPACK_MODULE_USE=/g/data/vk83/prerelease/modules in rose-suite.conf
+    # SPACK_BUILD=${{ needs.setup.outputs.root-sbd }}/${{ env.DEPLOYMENT_IDENTIFIER }}
+
+    def update_modules_use_section(self) -> None:
+        with open(self.config_path, "r") as cfg:
+            lines = cfg.readlines()
+
+        try:
+            module_use_line_num: int = next((idx for idx, line in enumerate(lines) if line.startswith("SPACK_MODULE_USE=")))
+        except StopIteration:
+            raise Exception(f"Couldn't find a SPACK_MODULE_USE directive in {self.config_path}, can't update the configuration!")
+
+        lines[module_use_line_num] = f"SPACK_MODULE_USE='{GADI_MODULE_USE_PATH}'\n"
+
+        with open(self.config_path, "w") as cfg:
+            cfg.writelines(lines)
+
+    def update_modules_load_section(self, root_sbd: str, prerelease_module: str) -> None:
+        with open(self.config_path, "r") as cfg:
+            lines = cfg.readlines()
+
+        try:
+            module_use_line_num: int = next((idx for idx, line in enumerate(lines) if line.startswith("SPACK_BUILD=") and root_sbd in line))
+        except StopIteration:
+            raise Exception(f"Couldn't find a SPACK_BUILD directive in {self.config_path}, can't update the configuration!")
+
+        lines[module_use_line_num] = f"SPACK_BUILD='{prerelease_module}'\n"
+
+        with open(self.config_path, "w") as cfg:
+            cfg.writelines(lines)
 
 def parse_args(args: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Script for updating model configuration repositories config.yaml to use prerelease builds."
+        description="Script for updating model configuration repositories configuration to use prerelease builds."
     )
 
     ## Args dealing with inputs
     parser.add_argument(
-        "--manifest",
+        "--workflow-manager",
         type=str,
         required=True,
-        help="Path to the spack manifest file to be injected with prerelease information",
+        help="Workflow manager used to run the configurations"
     )
 
     parser.add_argument(
         "--deployment-target",
         type=str,
         required=True,
-        help="Deployment target to be used for projections in the manifest",
+        help="Deployment HPC target to be used for the configurations",
     )
 
     parser.add_argument(
         "--root-sbd",
         type=str,
         required=True,
-        help="Root Spack Bundle Definition to be used for module path updates",
+        help="Root Spack Bundle Definition for the model",
     )
 
     parser.add_argument(
         "--module",
         type=str,
         required=True,
-        help="Module name to be used for module load updates",
+        help="Module name to be used for module use updates",
     )
 
     return parser.parse_args(args)
@@ -125,31 +193,18 @@ def parse_args(args: list[str]) -> argparse.Namespace:
 def main():
     args = parse_args(sys.argv[1:])
 
-    # Setting up the YAML parser...
-    yaml=ruamel.yaml.YAML()
-    # To cut down on large diffs, keep the original quoting of config.yaml
-    yaml.preserve_quotes = True
-    # Some files have 'foo: null' being updated to 'foo: ' - this will ensure that
-    # original 'null' values are still represented as 'null'
-    yaml.representer.add_representer(
-        type(None), lambda self, _: self.represent_scalar("tag:yaml.org,2002:null", "null")
-    )
-    # Some extra-long values are being wrapped, which increases the diff size.
-    # This ensures that wrapping only occurs at the extreme end of file width...
-    yaml.width = 1000
-
-    with open(args.manifest, "r") as f:
-        manifest = yaml.load(f)
-
-    updated_manifest = update_model_config_manifest(
-        manifest,
-        args.deployment_target,
-        args.root_sbd,
-        args.module
-    )
-
-    with open(args.manifest, "w") as f:
-        yaml.dump(updated_manifest, f)
+    match args.workflow_manager:
+        case "payu":
+            payu_updater = PayuConfigUpdater(DEFAULT_PAYU_CONFIG_PATH, args.deployment_target)
+            payu_updater.update_modules_use_section()
+            payu_updater.update_modules_load_section(args.root_sbd, args.module)
+            payu_updater.update_reproduce_exe_section()
+        case "rose-cylc":
+            rose_cylc_updater = RoseCylcConfigUpdater(DEFAULT_ROSE_CYLC_CONFIG_PATH, args.deployment_target)
+            rose_cylc_updater.update_modules_use_section()
+            rose_cylc_updater.update_modules_load_section(args.root_sbd, args.module)
+        case _:
+            raise ValueError(f"Unsupported workflow manager: {args.workflow_manager}")
 
 
 if __name__ == "__main__":

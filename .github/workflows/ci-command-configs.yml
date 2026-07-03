@@ -7,10 +7,6 @@ on:
         required: false
         default: spack.yaml
         description: Path to the spack manifest in the model deployment repository
-      model:
-        type: string
-        required: true
-        description: The model that is being tested and deployed
       auto-configs-pr-schema-version:
         type: string
         required: true
@@ -50,6 +46,10 @@ jobs:
       configs-formatted: ${{ steps.read-config.outputs.configs-formatted }}
       # The repository containing the configs to update
       configs-repo: ${{ steps.read-config.outputs.configs-repo }}
+      # The workflow manager for the configurations
+      workflow-manager: ${{ steps.read-config.outputs.workflow-manager }}
+      # The target HPC for the configurations
+      target: ${{ steps.read-config.outputs.target }}
     steps:
       - name: Check commenter permissions
         id: commenter
@@ -129,14 +129,22 @@ jobs:
           configs=$(jq -cr '.profiles."${{ steps.parse.outputs.profile }}".configs | keys' config/auto-configs-pr.json)
           configs_formatted=$(jq -cr '.profiles."${{ steps.parse.outputs.profile }}".configs | keys | join(" ")' config/auto-configs-pr.json)
           configs_repo=$(jq -cr '.profiles."${{ steps.parse.outputs.profile }}".configs_repo' config/auto-configs-pr.json)
+          # Defaults to 'payu' to ensure backwards compatibility
+          workflow_manager=$(jq -cr '.profiles."${{ steps.parse.outputs.profile }}".workflow_manager // "payu"' config/auto-configs-pr.json)
+          # Defaults to 'gadi' to ensure backwards compatibility
+          target=$(jq -cr '.profiles."${{ steps.parse.outputs.profile }}".target // "gadi"' config/auto-configs-pr.json)
 
           echo "$configs"
           echo "$configs_formatted"
           echo "$configs_repo"
+          echo "$workflow_manager"
+          echo "$target"
 
           echo "configs=$configs" >> $GITHUB_OUTPUT
           echo "configs-formatted=$configs_formatted" >> $GITHUB_OUTPUT
           echo "configs-repo=$configs_repo" >> $GITHUB_OUTPUT
+          echo "workflow-manager=$workflow_manager" >> $GITHUB_OUTPUT
+          echo "target=$target" >> $GITHUB_OUTPUT
 
       - name: Get caller deployment name
         id: manifest
@@ -183,7 +191,6 @@ jobs:
         with:
           repository: access-nri/build-cd
           path: build-cd
-          ref: v7
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -208,7 +215,7 @@ jobs:
 
       - name: Get previous deployments in PR
         id: previous-deployments
-        uses: access-nri/build-cd/.github/actions/get-pr-deployments@v7
+        uses: access-nri/build-cd/.github/actions/get-pr-deployments@v8
         with:
           pr: ${{ github.event.issue.number }}
           token: ${{ github.token }}
@@ -231,18 +238,11 @@ jobs:
             git push --set-upstream origin $pr_branch_name
           fi
 
-          if [ ! -f config.yaml ]; then
-            echo "::error::File config.yaml not found in ${{ needs.setup.outputs.configs-repo }} on branch ${{ env.CONFIG }}, cannot automatically open configs PRs"
-            exit 1
-          fi
+          echo "Updating configuration in $pr_branch_name to use ${{ env.DEPLOYMENT_IDENTIFIER }}..."
 
-          echo "Updating config.yaml in $pr_branch_name to use ${{ env.DEPLOYMENT_IDENTIFIER }}..."
-
-          # FIXME: This is Gadi-specific
-          # --manifest is still relative to the current working directory, unaffected by the custom PYTHONPATH
           PYTHONPATH=../build-cd python3 -m scripts.model_config_manifest.prerelease_update \
-            --manifest config.yaml \
-            --deployment-target Gadi \
+            --workflow-manager ${{ needs.setup.outputs.workflow-manager }} \
+            --deployment-target ${{ needs.setup.outputs.target}} \
             --root-sbd ${{ needs.setup.outputs.deployment-name }} \
             --module ${{ env.DEPLOYMENT_IDENTIFIER }}
 
