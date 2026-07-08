@@ -17,6 +17,8 @@ jobs:
   setup-settings-validation:
     name: Setup Validate Deployment Settings
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       targets: ${{ steps.target.outputs.targets }}
     steps:
@@ -39,6 +41,8 @@ jobs:
     strategy:
       matrix:
         target: ${{ fromJson(needs.setup-settings-validation.outputs.targets) }}
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     steps:
       - name: Checkout settings.json
@@ -72,6 +76,8 @@ jobs:
     needs:
       - settings-validation
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       updates: ${{ steps.info.outputs.updates }}
     steps:
@@ -135,6 +141,8 @@ jobs:
     if: github.event_name == 'push'
     needs:
       - setup-settings-update
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
