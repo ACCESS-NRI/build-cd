@@ -18,32 +18,24 @@ outputs:
 runs:
   using: composite
   steps:
-    - name: Clone build-cd script location
-      uses: actions/checkout@v6
-      with:
-        repository: access-nri/build-cd
-        path: ${{ github.workspace }}/getter-script
-
-    - name: Get Current Directory
-      id: script
-      # We need to store the current working directory so we can re-construct the inputs.spack-manifest-path, as we run
-      # the script from the build-cd directory
+    - name: Get build-cd root path
+      id: root
+      # Navigate from the action's directory (.github/actions/get-spack-manifest) up to the build-cd repo root
       shell: bash
-      run: |
-        pwd=$(pwd)
-        echo "Action PWD: $pwd"
-        echo "pwd=$pwd" >> $GITHUB_OUTPUT
+      run: echo "path=$(realpath "${{ github.action_path }}/../../..")" >> $GITHUB_OUTPUT
 
     - name: Get reserved definitions
       id: defs
       env:
-        PYTHONPATH: ${{ github.workspace }}/getter-script
+        PYTHONPATH: ${{ steps.root.outputs.path }}
       shell: python
       run: |
         from scripts.spack_manifest.getter import ReservedDefinitions
         import os
 
-        defs = ReservedDefinitions.from_file("${{ steps.script.outputs.pwd }}/${{ inputs.spack-manifest-path }}")
+        defs = ReservedDefinitions.from_file(
+          os.path.join(os.environ['GITHUB_WORKSPACE'], "${{ inputs.spack-manifest-path }}")
+        )
         name = defs.get("name")
         version = defs.get("version")
 

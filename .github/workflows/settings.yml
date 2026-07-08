@@ -57,7 +57,7 @@ jobs:
 
       - name: Validate Deployment Settings
         id: validate
-        uses: access-nri/build-cd/.github/actions/validate-deployment-settings@v8
+        uses: ./.github/actions/validate-deployment-settings
         with:
           settings-path: ${{ env.CONFIG_SETTINGS_PATH }}
           target: ${{ matrix.target }}

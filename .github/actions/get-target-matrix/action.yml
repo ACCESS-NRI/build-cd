@@ -13,20 +13,18 @@ outputs:
 runs:
   using: composite
   steps:
-    - name: Get deployment settings.json
-      uses: actions/checkout@v6
-      with:
-        repository: access-nri/build-cd
-
     - name: Generate Deployment Target Matrix
       shell: bash
       id: generate
       # These are used in the deploy job to determine the targets to deploy to - irrespective of the type of deployment.
       # We use the list of valid targets (from build-cd) intersected with targets set in the caller repository to determine the final list.
       run: |
+        # Resolve the path to config/settings.json relative to this action's location
+        settings_json=$(realpath "${{ github.action_path }}/../../../config/settings.json")
+
         valid_targets=$(jq --raw-output --compact-output \
           '.deployment | keys' \
-          config/settings.json
+          "$settings_json"
         )
         repo_targets=$(jq --null-input --raw-output --compact-output \
           --arg valids "${{ inputs.targets }}" \

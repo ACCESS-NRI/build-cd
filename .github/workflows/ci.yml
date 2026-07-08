@@ -75,6 +75,13 @@ jobs:
       prerelease-version: ${{ steps.prerelease.outputs.version }}
       targets: ${{ steps.target.outputs.valid-targets }}
     steps:
+      - name: Checkout build-cd
+        uses: actions/checkout@v6
+        with:
+          repository: access-nri/build-cd
+          ref: ${{ github.workflow_sha }}
+          path: _build-cd
+
       - name: PR metadata
         id: pr
         run: |
@@ -104,7 +111,7 @@ jobs:
 
       - name: Get previous PR deployments
         id: previous-deploys
-        uses: access-nri/build-cd/.github/actions/get-pr-deployments@v7
+        uses: ./_build-cd/.github/actions/get-pr-deployments
         with:
           pr: ${{ env.PR_NUMBER }}
 
@@ -124,17 +131,18 @@ jobs:
 
       - name: Generate Deployment Target Matrix
         id: target
-        uses: access-nri/build-cd/.github/actions/get-target-matrix@v8
+        uses: ./_build-cd/.github/actions/get-target-matrix
         with:
           targets: ${{ vars.PRERELEASE_DEPLOYMENT_TARGETS }}
 
       - uses: actions/checkout@v6
         with:
           ref: ${{ steps.pr.outputs.head }}
+          clean: false
 
       - name: Get Deployment Name from Spack Manifest
         id: manifest
-        uses: access-nri/build-cd/.github/actions/get-spack-manifest@v8
+        uses: ./_build-cd/.github/actions/get-spack-manifest
         with:
           spack-manifest-path: ${{ inputs.spack-manifest-path }}
 
@@ -198,7 +206,7 @@ jobs:
       matrix:
         # Example: ['Gadi', 'Setonix', ...]
         target: ${{ fromJson(needs.init.outputs.targets) }}
-    uses: access-nri/build-cd/.github/workflows/deploy.yml@v8
+    uses: ./.github/workflows/deploy.yml
     with:
       deployment-target: ${{ matrix.target }}
       deployment-ref: ${{ needs.init.outputs.head-ref }}
@@ -263,6 +271,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: access-nri/build-cd
+          ref: ${{ github.workflow_sha }}
 
       - name: Download matrix deployment outputs
         uses: actions/download-artifact@v7

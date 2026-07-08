@@ -223,11 +223,12 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: access-nri/build-cd
+          ref: ${{ github.workflow_sha }}
           path: build-cd
 
       - name: 'build-cd: Validate config/settings.json'
         id: settings
-        uses: access-nri/build-cd/.github/actions/validate-deployment-settings@v8
+        uses: ./build-cd/.github/actions/validate-deployment-settings
         with:
           settings-path: ${{ env.build-cd-config-settings-json-path }}
           target: ${{ inputs.deployment-target }}
@@ -294,10 +295,18 @@ jobs:
       # Spack env name in form <model>-<version>
       spack-env-name: ${{ steps.get-env-name.outputs.env-name }}
     steps:
+      - name: Checkout build-cd
+        uses: actions/checkout@v6
+        with:
+          repository: access-nri/build-cd
+          ref: ${{ github.workflow_sha }}
+          path: _build-cd
+
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           ref: ${{ inputs.deployment-ref }}
+          clean: false
 
       - name: Validate ACCESS-NRI spack manifest restrictions
         if: env.IS_NOT_DRAFT == 'true' || inputs.deployment-type == 'Release'
@@ -309,7 +318,7 @@ jobs:
 
       - name: Get current (${{ inputs.deployment-ref }}) root spec version
         id: current
-        uses: access-nri/build-cd/.github/actions/get-spack-manifest@v8
+        uses: ./_build-cd/.github/actions/get-spack-manifest
         with:
           spack-manifest-path: ${{ inputs.spack-manifest-path }}
 
@@ -346,7 +355,7 @@ jobs:
       - name: Get base root spec version
         id: base
         if: inputs.deployment-type != 'Release' && steps.checkout-base-spack.outcome != 'failure'
-        uses: access-nri/build-cd/.github/actions/get-spack-manifest@v8
+        uses: ./_build-cd/.github/actions/get-spack-manifest
         with:
           spack-manifest-path: ${{ inputs.spack-manifest-path }}
 
@@ -407,6 +416,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: access-nri/build-cd
+          ref: ${{ github.workflow_sha }}
           path: build-cd
 
       - name: Get Scopes From config/versions.json
@@ -417,7 +427,7 @@ jobs:
 
       - name: Get ${{ inputs.deployment-target }} ${{ inputs.deployment-type }} Remote Paths
         id: path
-        uses: access-nri/build-cd/.github/actions/get-deploy-paths@v8
+        uses: ./build-cd/.github/actions/get-deploy-paths
         with:
           spack-installs-root-path: ${{ vars.SPACK_INSTALLS_ROOT_LOCATION }}
           spack-version: ${{ needs.check-config.outputs.spack-version }}
