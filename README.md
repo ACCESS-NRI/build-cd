@@ -156,4 +156,4 @@ This is most useful for models that are using `@git.BRANCH` references for versi
 
 This Comment Command creates draft PRs to linked model configuration repositories, allowing quick testing of prerelease builds against different model configurations.
 
-This command is informed by the MDRs `config/auto-configs-pr.json` file.
+This command is informed by the MDRs `config/auto-configs-pr.json` file, in which users can create *profiles* which contain a configs repository, a HPC target, a workflow manager, and a set of configuration branches to open PRs into.
