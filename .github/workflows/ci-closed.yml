@@ -48,6 +48,8 @@ jobs:
         uses: ./_build-cd/.github/actions/get-spack-manifest
         with:
           spack-manifest-path: ${{ inputs.spack-manifest-path }}
+
+      - name: Get version
         id: version
         # For example, `access-om3-pr12-*`
         run: echo "pattern=${{ steps.manifest.outputs.deployment-name }}-pr${{ github.event.pull_request.number }}-*" >> $GITHUB_OUTPUT
