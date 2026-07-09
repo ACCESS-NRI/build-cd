@@ -51,13 +51,6 @@ jobs:
       # The target HPC for the configurations
       target: ${{ steps.read-config.outputs.target }}
     steps:
-      - name: Checkout build-cd
-        uses: actions/checkout@v6
-        with:
-          repository: access-nri/build-cd
-          ref: ${{ job.workflow_sha }}
-          path: _build-cd
-
       - name: Check commenter permissions
         id: commenter
         uses: access-nri/actions/.github/actions/commenter-permission-check@main
@@ -117,7 +110,13 @@ jobs:
         uses: actions/checkout@v6
         with:
           ref: ${{ steps.pr.outputs.ref }}
-          clean: false
+
+      - name: Checkout build-cd
+        uses: actions/checkout@v6
+        with:
+          repository: access-nri/build-cd
+          ref: ${{ job.workflow_sha }}
+          path: _build-cd
 
       - name: Validate auto configs PR configuration
         uses: access-nri/schema/.github/actions/validate-with-schema@main

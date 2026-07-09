@@ -295,18 +295,17 @@ jobs:
       # Spack env name in form <model>-<version>
       spack-env-name: ${{ steps.get-env-name.outputs.env-name }}
     steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.deployment-ref }}
+
       - name: Checkout build-cd
         uses: actions/checkout@v6
         with:
           repository: access-nri/build-cd
           ref: ${{ job.workflow_sha }}
           path: _build-cd
-
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-          ref: ${{ inputs.deployment-ref }}
-          clean: false
 
       - name: Validate ACCESS-NRI spack manifest restrictions
         if: env.IS_NOT_DRAFT == 'true' || inputs.deployment-type == 'Release'

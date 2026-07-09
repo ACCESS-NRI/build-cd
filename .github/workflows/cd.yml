@@ -72,16 +72,14 @@ jobs:
       deployment-name: ${{ steps.manifest.outputs.deployment-name }}
       targets: ${{ steps.target.outputs.valid-targets }}
     steps:
+      - uses: actions/checkout@v6
+
       - name: Checkout build-cd
         uses: actions/checkout@v6
         with:
           repository: access-nri/build-cd
           ref: ${{ job.workflow_sha }}
           path: _build-cd
-
-      - uses: actions/checkout@v6
-        with:
-          clean: false
 
       - name: Get manifest
         id: manifest
@@ -123,16 +121,14 @@ jobs:
     outputs:
       version: ${{ steps.manifest.outputs.deployment-version }}
     steps:
+      - uses: actions/checkout@v6
+
       - name: Checkout build-cd
         uses: actions/checkout@v6
         with:
           repository: access-nri/build-cd
           ref: ${{ job.workflow_sha }}
           path: _build-cd
-
-      - uses: actions/checkout@v6
-        with:
-          clean: false
 
       - name: Get Deployment Version
         id: manifest

@@ -75,13 +75,6 @@ jobs:
       prerelease-version: ${{ steps.prerelease.outputs.version }}
       targets: ${{ steps.target.outputs.valid-targets }}
     steps:
-      - name: Checkout build-cd
-        uses: actions/checkout@v6
-        with:
-          repository: access-nri/build-cd
-          ref: ${{ job.workflow_sha }}
-          path: _build-cd
-
       - name: PR metadata
         id: pr
         run: |
@@ -109,6 +102,17 @@ jobs:
           echo "sha=$sha" >> $GITHUB_OUTPUT
           echo "base=$base" >> $GITHUB_OUTPUT
 
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.pr.outputs.head }}
+
+      - name: Checkout build-cd
+        uses: actions/checkout@v6
+        with:
+          repository: access-nri/build-cd
+          ref: ${{ job.workflow_sha }}
+          path: _build-cd
+
       - name: Get previous PR deployments
         id: previous-deploys
         uses: ./_build-cd/.github/actions/get-pr-deployments
@@ -134,11 +138,6 @@ jobs:
         uses: ./_build-cd/.github/actions/get-target-matrix
         with:
           targets: ${{ vars.PRERELEASE_DEPLOYMENT_TARGETS }}
-
-      - uses: actions/checkout@v6
-        with:
-          ref: ${{ steps.pr.outputs.head }}
-          clean: false
 
       - name: Get Deployment Name from Spack Manifest
         id: manifest

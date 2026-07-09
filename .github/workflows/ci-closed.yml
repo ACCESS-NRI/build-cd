@@ -31,17 +31,15 @@ jobs:
       version-pattern: ${{ steps.version.outputs.pattern }}
       targets: ${{ steps.target.outputs.valid-targets }}
     steps:
+      - name: Get data from ${{ github.repository }}
+        uses: actions/checkout@v6
+
       - name: Checkout build-cd
         uses: actions/checkout@v6
         with:
           repository: access-nri/build-cd
           ref: ${{ job.workflow_sha }}
           path: _build-cd
-
-      - name: Get data from ${{ github.repository }}
-        uses: actions/checkout@v6
-        with:
-          clean: false
 
       - name: Get Deployment Name
         id: manifest
@@ -71,16 +69,14 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ matrix.target }} Prerelease
     steps:
+      - uses: actions/checkout@v6
+
       - name: Checkout build-cd
         uses: actions/checkout@v6
         with:
           repository: access-nri/build-cd
           ref: ${{ job.workflow_sha }}
           path: _build-cd
-
-      - uses: actions/checkout@v6
-        with:
-          clean: false
 
       - name: Get Spack Version From config/versions.json
         id: versions
