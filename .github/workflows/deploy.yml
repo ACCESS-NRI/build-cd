@@ -223,7 +223,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: access-nri/build-cd
-          ref: ${{ github.workflow_sha }}
+          ref: ${{ job.workflow_sha }}
           path: build-cd
 
       - name: 'build-cd: Validate config/settings.json'
@@ -299,7 +299,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: access-nri/build-cd
-          ref: ${{ github.workflow_sha }}
+          ref: ${{ job.workflow_sha }}
           path: _build-cd
 
       - uses: actions/checkout@v6
@@ -416,7 +416,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: access-nri/build-cd
-          ref: ${{ github.workflow_sha }}
+          ref: ${{ job.workflow_sha }}
           path: build-cd
 
       - name: Get Scopes From config/versions.json

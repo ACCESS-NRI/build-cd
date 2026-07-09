@@ -79,7 +79,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: access-nri/build-cd
-          ref: ${{ github.workflow_sha }}
+          ref: ${{ job.workflow_sha }}
           path: _build-cd
 
       - name: PR metadata
@@ -271,7 +271,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: access-nri/build-cd
-          ref: ${{ github.workflow_sha }}
+          ref: ${{ job.workflow_sha }}
 
       - name: Download matrix deployment outputs
         uses: actions/download-artifact@v7

@@ -35,7 +35,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: access-nri/build-cd
-          ref: ${{ github.workflow_sha }}
+          ref: ${{ job.workflow_sha }}
           path: _build-cd
 
       - name: Get data from ${{ github.repository }}
@@ -73,7 +73,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: access-nri/build-cd
-          ref: ${{ github.workflow_sha }}
+          ref: ${{ job.workflow_sha }}
           path: _build-cd
 
       - uses: actions/checkout@v6
