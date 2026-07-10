@@ -116,7 +116,7 @@ jobs:
         with:
           repository: access-nri/build-cd
           ref: ${{ job.workflow_sha }}
-          path: _build-cd
+          path: build-cd
 
       - name: Validate auto configs PR configuration
         uses: access-nri/schema/.github/actions/validate-with-schema@main
@@ -155,7 +155,7 @@ jobs:
 
       - name: Get caller deployment name
         id: manifest
-        uses: ./_build-cd/.github/actions/get-spack-manifest
+        uses: ./build-cd/.github/actions/get-spack-manifest
         with:
           spack-manifest-path: ${{ inputs.spack-manifest-path }}
 

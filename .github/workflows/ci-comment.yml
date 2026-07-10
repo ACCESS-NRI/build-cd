@@ -52,11 +52,11 @@ jobs:
         with:
           repository: access-nri/build-cd
           ref: ${{ job.workflow_sha }}
-          path: _build-cd
+          path: build-cd
 
       - name: Original version
         id: original
-        uses: ./_build-cd/.github/actions/get-spack-manifest
+        uses: ./build-cd/.github/actions/get-spack-manifest
         with:
           spack-manifest-path: ${{ inputs.spack-manifest-path }}
 

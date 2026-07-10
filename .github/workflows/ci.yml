@@ -111,11 +111,11 @@ jobs:
         with:
           repository: access-nri/build-cd
           ref: ${{ job.workflow_sha }}
-          path: _build-cd
+          path: build-cd
 
       - name: Get previous PR deployments
         id: previous-deploys
-        uses: ./_build-cd/.github/actions/get-pr-deployments
+        uses: ./build-cd/.github/actions/get-pr-deployments
         with:
           pr: ${{ env.PR_NUMBER }}
 
@@ -135,13 +135,13 @@ jobs:
 
       - name: Generate Deployment Target Matrix
         id: target
-        uses: ./_build-cd/.github/actions/get-target-matrix
+        uses: ./build-cd/.github/actions/get-target-matrix
         with:
           targets: ${{ vars.PRERELEASE_DEPLOYMENT_TARGETS }}
 
       - name: Get Deployment Name from Spack Manifest
         id: manifest
-        uses: ./_build-cd/.github/actions/get-spack-manifest
+        uses: ./build-cd/.github/actions/get-spack-manifest
         with:
           spack-manifest-path: ${{ inputs.spack-manifest-path }}
 

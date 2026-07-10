@@ -305,7 +305,7 @@ jobs:
         with:
           repository: access-nri/build-cd
           ref: ${{ job.workflow_sha }}
-          path: _build-cd
+          path: build-cd
 
       - name: Validate ACCESS-NRI spack manifest restrictions
         if: env.IS_NOT_DRAFT == 'true' || inputs.deployment-type == 'Release'
@@ -317,7 +317,7 @@ jobs:
 
       - name: Get current (${{ inputs.deployment-ref }}) root spec version
         id: current
-        uses: ./_build-cd/.github/actions/get-spack-manifest
+        uses: ./build-cd/.github/actions/get-spack-manifest
         with:
           spack-manifest-path: ${{ inputs.spack-manifest-path }}
 
@@ -354,7 +354,7 @@ jobs:
       - name: Get base root spec version
         id: base
         if: inputs.deployment-type != 'Release' && steps.checkout-base-spack.outcome != 'failure'
-        uses: ./_build-cd/.github/actions/get-spack-manifest
+        uses: ./build-cd/.github/actions/get-spack-manifest
         with:
           spack-manifest-path: ${{ inputs.spack-manifest-path }}
 
