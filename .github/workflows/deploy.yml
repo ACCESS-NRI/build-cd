@@ -161,7 +161,7 @@ jobs:
       # Paths prepended with actions/checkout path argument
       mdr-config-versions-json-path: model/config/versions.json
       mdr-config-packages-json-path: model/config/packages.json
-      build-cd-config-settings-json-path: build-cd/config/settings.json
+      build-cd-config-settings-json-path: latest-build-cd/config/settings.json
     outputs:
       spack-version: ${{ steps.config-versions-refs.outputs.spack-branch }}
       spack-git-hash: ${{ steps.spack-sha.outputs.sha }}
@@ -219,7 +219,17 @@ jobs:
           ref: ${{ steps.config-versions-refs.outputs.access-spack-packages-ref }}
 
       # Validate the build-cd repository's config/settings.json for the deployment target
-      - name: 'build-cd: Checkout build-cd Config'
+      - name: 'build-cd: Checkout Current build-cd Config'
+        uses: actions/checkout@v6
+        # This checkout is to get the current HEAD of build-cd to get
+        # the most up-to-date settings.json for validation
+        with:
+          repository: access-nri/build-cd
+          path: latest-build-cd
+
+      - name: 'build-cd: Checkout build-cd for custom action'
+        # This checkout is used to call the next steps custom action, at
+        # the same commit the workflow is running.
         uses: actions/checkout@v6
         with:
           repository: access-nri/build-cd

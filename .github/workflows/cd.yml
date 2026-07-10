@@ -101,15 +101,27 @@ jobs:
     strategy:
       matrix:
         target: ${{ fromJson(needs.init.outputs.targets) }}
+    env:
+      build-cd-config-settings-json-path: latest-build-cd/config/settings.json
     steps:
       - uses: actions/checkout@v6
+        # This checkout is to get the current HEAD of build-cd to get
+        # the most up-to-date settings.json for validation
+        with:
+          repository: access-nri/build-cd
+          path: latest-build-cd
+
+      - uses: actions/checkout@v6
+        # This checkout is used to call the next steps custom action, at
+        # the same commit the workflow is running.
         with:
           repository: access-nri/build-cd
           ref: ${{ job.workflow_sha }}
+          path: build-cd
 
-      - uses: ./.github/actions/validate-deployment-settings
+      - uses: ./build-cd/.github/actions/validate-deployment-settings
         with:
-          settings-path: ./config/settings.json
+          settings-path: ${{ env.build-cd-config-settings-json-path }}
           target: ${{ matrix.target }}
           error-level: error
 
