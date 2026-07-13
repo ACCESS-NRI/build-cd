@@ -1,4 +1,5 @@
 import argparse
+import configparser
 import sys
 
 import ruamel.yaml
@@ -119,6 +120,11 @@ class PayuConfigUpdater(ConfigUpdater):
 
 class RoseCylcConfigUpdater(ConfigUpdater):
     def __init__(self, config_path: str, deployment_target: str) -> None:
+        self.config = configparser.ConfigParser()
+        # Usually ConfigParser converts option keys via KEY.lower, but we want them unchanged,
+        # hence we are returning the KEY unlowered.
+        self.config.optionxform = lambda optionstr: optionstr
+
         super().__init__(config_path, deployment_target)
 
     ## For rose-cylc-based configurations:
@@ -126,32 +132,26 @@ class RoseCylcConfigUpdater(ConfigUpdater):
     # SPACK_BUILD=${{ needs.setup.outputs.root-sbd }}/${{ env.DEPLOYMENT_IDENTIFIER }}
 
     def update_modules_use_section(self) -> None:
-        with open(self.config_path, "r") as cfg:
-            lines = cfg.readlines()
+        self.config.read(self.config_path)
 
-        try:
-            module_use_line_num: int = next((idx for idx, line in enumerate(lines) if line.startswith("SPACK_MODULE_USE=")))
-        except StopIteration:
+        if not self.config.get("jinja2:suite.rc", "SPACK_MODULE_USE", fallback=None):
             raise Exception(f"Couldn't find a SPACK_MODULE_USE directive in {self.config_path}, can't update the configuration!")
 
-        lines[module_use_line_num] = f"SPACK_MODULE_USE='{GADI_MODULE_USE_PATH}'\n"
+        self.config.set("jinja2:suite.rc", "SPACK_MODULE_USE", f"'{GADI_MODULE_USE_PATH}'")
 
-        with open(self.config_path, "w") as cfg:
-            cfg.writelines(lines)
+        with open(self.config_path, "w") as config_file:
+            self.config.write(config_file, space_around_delimiters=False)
 
     def update_modules_load_section(self, root_sbd: str, prerelease_module: str) -> None:
-        with open(self.config_path, "r") as cfg:
-            lines = cfg.readlines()
+        self.config.read(self.config_path)
 
-        try:
-            module_use_line_num: int = next((idx for idx, line in enumerate(lines) if line.startswith("SPACK_BUILD=") and root_sbd in line))
-        except StopIteration:
-            raise Exception(f"Couldn't find a SPACK_BUILD directive in {self.config_path}, can't update the configuration!")
+        if root_sbd not in self.config.get("jinja2:suite.rc", "SPACK_BUILD", fallback=''):
+            raise Exception(f"Couldn't find a SPACK_BUILD directive with {root_sbd} in {self.config_path}, can't update the configuration!")
 
-        lines[module_use_line_num] = f"SPACK_BUILD='{prerelease_module}'\n"
+        self.config.set("jinja2:suite.rc", "SPACK_BUILD", f"'{prerelease_module}'")
 
-        with open(self.config_path, "w") as cfg:
-            cfg.writelines(lines)
+        with open(self.config_path, "w") as config_file:
+            self.config.write(config_file, space_around_delimiters=False)
 
 def parse_args(args: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
