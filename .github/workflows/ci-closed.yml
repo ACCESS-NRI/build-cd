@@ -34,20 +34,27 @@ jobs:
       - name: Get data from ${{ github.repository }}
         uses: actions/checkout@v6
 
+      - name: Checkout build-cd
+        uses: actions/checkout@v6
+        with:
+          repository: access-nri/build-cd
+          ref: ${{ job.workflow_sha }}
+          path: build-cd
+
       - name: Get Deployment Name
         id: manifest
-        uses: access-nri/build-cd/.github/actions/get-spack-manifest@v8
+        uses: ./build-cd/.github/actions/get-spack-manifest
         with:
           spack-manifest-path: ${{ inputs.spack-manifest-path }}
 
-      - name: Get Version Pattern
+      - name: Get version
         id: version
         # For example, `access-om3-pr12-*`
         run: echo "pattern=${{ steps.manifest.outputs.deployment-name }}-pr${{ github.event.pull_request.number }}-*" >> $GITHUB_OUTPUT
 
       - name: Generate Deployment Target Matrix
         id: target
-        uses: access-nri/build-cd/.github/actions/get-target-matrix@v8
+        uses: ./build-cd/.github/actions/get-target-matrix
         with:
           targets: ${{ vars.PRERELEASE_DEPLOYMENT_TARGETS }}
 
@@ -64,13 +71,20 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Checkout build-cd
+        uses: actions/checkout@v6
+        with:
+          repository: access-nri/build-cd
+          ref: ${{ job.workflow_sha }}
+          path: build-cd
+
       - name: Get Spack Version From config/versions.json
         id: versions
         run: echo "spack=$(jq --compact-output --raw-output '.spack' ./config/versions.json)" >> $GITHUB_OUTPUT
 
       - name: Get ${{ matrix.target }} Remote Paths
         id: path
-        uses: access-nri/build-cd/.github/actions/get-deploy-paths@v8
+        uses: ./build-cd/.github/actions/get-deploy-paths
         with:
           spack-installs-root-path: ${{ vars.SPACK_INSTALLS_ROOT_LOCATION }}
           spack-version: ${{ steps.versions.outputs.spack }}

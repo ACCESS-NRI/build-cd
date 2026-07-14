@@ -74,15 +74,22 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Checkout build-cd
+        uses: actions/checkout@v6
+        with:
+          repository: access-nri/build-cd
+          ref: ${{ job.workflow_sha }}
+          path: build-cd
+
       - name: Get manifest
         id: manifest
-        uses: access-nri/build-cd/.github/actions/get-spack-manifest@v8
+        uses: ./build-cd/.github/actions/get-spack-manifest
         with:
           spack-manifest-path: ${{ inputs.spack-manifest-path }}
 
       - name: Generate Deployment Target Matrix
         id: target
-        uses: access-nri/build-cd/.github/actions/get-target-matrix@v8
+        uses: ./build-cd/.github/actions/get-target-matrix
         with:
           targets: ${{ vars.RELEASE_DEPLOYMENT_TARGETS }}
 
@@ -94,14 +101,27 @@ jobs:
     strategy:
       matrix:
         target: ${{ fromJson(needs.init.outputs.targets) }}
+    env:
+      build-cd-config-settings-json-path: latest-build-cd/config/settings.json
     steps:
       - uses: actions/checkout@v6
+        # This checkout is to get the current HEAD of build-cd to get
+        # the most up-to-date settings.json for validation
         with:
           repository: access-nri/build-cd
+          path: latest-build-cd
 
-      - uses: access-nri/build-cd/.github/actions/validate-deployment-settings@v8
+      - uses: actions/checkout@v6
+        # This checkout is used to call the next steps custom action, at
+        # the same commit the workflow is running.
         with:
-          settings-path: ./config/settings.json
+          repository: access-nri/build-cd
+          ref: ${{ job.workflow_sha }}
+          path: build-cd
+
+      - uses: ./build-cd/.github/actions/validate-deployment-settings
+        with:
+          settings-path: ${{ env.build-cd-config-settings-json-path }}
           target: ${{ matrix.target }}
           error-level: error
 
@@ -115,9 +135,16 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Checkout build-cd
+        uses: actions/checkout@v6
+        with:
+          repository: access-nri/build-cd
+          ref: ${{ job.workflow_sha }}
+          path: build-cd
+
       - name: Get Deployment Version
         id: manifest
-        uses: access-nri/build-cd/.github/actions/get-spack-manifest@v8
+        uses: ./build-cd/.github/actions/get-spack-manifest
         with:
           spack-manifest-path: ${{ inputs.spack-manifest-path }}
 
@@ -166,7 +193,7 @@ jobs:
     strategy:
       matrix:
         target: ${{ fromJson(needs.init.outputs.targets) }}
-    uses: access-nri/build-cd/.github/workflows/deploy.yml@v8
+    uses: ./.github/workflows/deploy.yml
     with:
       deployment-target: ${{ matrix.target }}
       deployment-ref: ${{ github.ref_name }}
@@ -201,6 +228,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: access-nri/build-cd
+          ref: ${{ job.workflow_sha }}
 
       - name: Download Metadata Artifacts
         uses: actions/download-artifact@v7
@@ -285,6 +313,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: access-nri/build-cd
+          ref: ${{ job.workflow_sha }}
 
       - name: Install Dependencies
         run: |

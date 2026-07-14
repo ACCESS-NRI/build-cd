@@ -47,9 +47,16 @@ jobs:
           fetch-tags: true
           token: ${{ secrets.GH_COMMIT_CHECK_TOKEN }}
 
+      - name: Checkout build-cd
+        uses: actions/checkout@v6
+        with:
+          repository: access-nri/build-cd
+          ref: ${{ job.workflow_sha }}
+          path: build-cd
+
       - name: Original version
         id: original
-        uses: access-nri/build-cd/.github/actions/get-spack-manifest@v8
+        uses: ./build-cd/.github/actions/get-spack-manifest
         with:
           spack-manifest-path: ${{ inputs.spack-manifest-path }}
 

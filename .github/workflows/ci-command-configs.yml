@@ -111,6 +111,13 @@ jobs:
         with:
           ref: ${{ steps.pr.outputs.ref }}
 
+      - name: Checkout build-cd
+        uses: actions/checkout@v6
+        with:
+          repository: access-nri/build-cd
+          ref: ${{ job.workflow_sha }}
+          path: build-cd
+
       - name: Validate auto configs PR configuration
         uses: access-nri/schema/.github/actions/validate-with-schema@main
         with:
@@ -148,7 +155,7 @@ jobs:
 
       - name: Get caller deployment name
         id: manifest
-        uses: access-nri/build-cd/.github/actions/get-spack-manifest@v8
+        uses: ./build-cd/.github/actions/get-spack-manifest
         with:
           spack-manifest-path: ${{ inputs.spack-manifest-path }}
 
@@ -191,6 +198,7 @@ jobs:
         with:
           repository: access-nri/build-cd
           path: build-cd
+          ref: ${{ job.workflow_sha }}
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -215,7 +223,7 @@ jobs:
 
       - name: Get previous deployments in PR
         id: previous-deployments
-        uses: access-nri/build-cd/.github/actions/get-pr-deployments@v8
+        uses: ./build-cd/.github/actions/get-pr-deployments
         with:
           pr: ${{ github.event.issue.number }}
           token: ${{ github.token }}
