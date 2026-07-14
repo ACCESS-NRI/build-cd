@@ -383,20 +383,240 @@ jobs:
         run: echo "env-name=$(echo '${{ inputs.expected-root-spec-name }}-${{ inputs.deployment-version }}' | tr '.' '_')" >> $GITHUB_OUTPUT
 
   deployment:
-    name: ${{ inputs.deployment-target }}
+    name: '${{ inputs.deployment-target }}: Deployment'
     needs:
       - check-config  # Verify configuration information is correct
       - check-spack-yaml  # Verify spack manifest information is correct
-    uses: access-nri/build-cd/.github/workflows/deploy-2-start.yml@v8
-    with:
-      ref: ${{ inputs.deployment-ref }}
-      version: ${{ inputs.deployment-version }}
-      env-name: ${{ needs.check-spack-yaml.outputs.spack-env-name }}
-      deployment-target: ${{ inputs.deployment-target }}
-      deployment-type: ${{ inputs.deployment-type }}
-      expected-root-spec-name: ${{ inputs.expected-root-spec-name }}
-      spack-manifest-path: ${{ inputs.spack-manifest-path }}
-    secrets: inherit
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.deployment-target }} ${{ inputs.deployment-type }}
+    env:
+      METADATA_PATH: /opt/metadata
+      ARTIFACT_NAME: deploy-${{ inputs.expected-root-spec-name }}-metadata.${{ inputs.deployment-target }}
+    outputs:
+      spack-location: ${{ steps.location.outputs.spack }}
+      modules-location: ${{ steps.location.outputs.modules }}
+      root-spec-pkg-hash: ${{ steps.metadata.outputs.root-spec-pkg-hash }}
+      general-metadata-artifact-glob: ${{ env.ARTIFACT_NAME }}
+    steps:
+      - name: Checkout ${{ github.repository }}
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.deployment-ref }}
+
+      - name: Checkout build-cd
+        uses: actions/checkout@v6
+        with:
+          repository: access-nri/build-cd
+          path: build-cd
+
+      - name: Get Scopes From config/versions.json
+        id: custom-scopes
+        run: |
+          echo "space-separated=$(jq --compact-output --raw-output '."custom-scopes" // [] | join(" ")' ./config/versions.json)" >> $GITHUB_OUTPUT
+          echo "comma-separated=$(jq --compact-output --raw-output '."custom-scopes" // [] | join(",")' ./config/versions.json)" >> $GITHUB_OUTPUT
+
+      - name: Get ${{ inputs.deployment-target }} ${{ inputs.deployment-type }} Remote Paths
+        id: path
+        uses: access-nri/build-cd/.github/actions/get-deploy-paths@v8
+        with:
+          spack-installs-root-path: ${{ vars.SPACK_INSTALLS_ROOT_LOCATION }}
+          spack-version: ${{ needs.check-config.outputs.spack-version }}
+          deployment-target: ${{ inputs.deployment-target }}
+          deployment-type: ${{ inputs.deployment-type }}
+          spack-environment: ${{ needs.check-spack-yaml.outputs.spack-env-name }}
+
+      - name: Setup SSH
+        id: ssh
+        uses: access-nri/actions/.github/actions/setup-ssh@main
+        with:
+          private-key: ${{ secrets.SSH_KEY }}
+          hosts: |
+            ${{ secrets.HOST }}
+            ${{ secrets.HOST_DATA }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Injection Requirements
+        working-directory: build-cd
+        run: python -m pip install -r scripts/spack_manifest/injection/requirements.txt
+
+      - name: Spack Manifest - Get Provenance and Injection Packages
+        id: config-packages
+        run: |
+          packages_for_injection=$(jq -cr '.provenance + .injection | join(",")' config/packages.json)
+          packages_for_provenance=$(jq -cr '.provenance | join(",")' config/packages.json)
+
+          echo "Packages to be injected: $packages_for_injection"
+          echo "Packages for provenance: $packages_for_provenance"
+
+          echo "packages-for-injection=$packages_for_injection" >> $GITHUB_OUTPUT
+          echo "packages-for-provenance=$packages_for_provenance" >> $GITHUB_OUTPUT
+
+      - name: Spack Manifest - Modules Injection
+        # Injects relevant module projections and includes into the spack manifest so users don't have to
+        working-directory: build-cd
+        run: |
+          python -m scripts.spack_manifest.injection.modules \
+            --manifest ../${{ inputs.spack-manifest-path }} \
+            --packages "${{ steps.config-packages.outputs.packages-for-injection }}" \
+            --output ../${{ inputs.spack-manifest-path }}
+
+      - name: Spack Manifest - Prerelease Injection
+        if: inputs.deployment-type == 'Prerelease'
+        # Modifies the name of the prerelease modulefile to the pr<number>-<deployment number>` style.
+        # Also adds a repos section that points to the prereleases specific access-spack-packages repo.
+        working-directory: build-cd
+        run: |
+          python -m scripts.spack_manifest.injection.prerelease \
+            --manifest ../${{ inputs.spack-manifest-path }} \
+            --version ${{ inputs.deployment-version }} \
+            --spack-packages-path ${{ steps.path.outputs.spack-environment }}/access-spack-packages \
+            --spack-packages-version-sha ${{ needs.check-config.outputs.access-spack-packages-git-hash }} \
+            --output ../${{ inputs.spack-manifest-path }}
+
+      - name: Copy ${{ inputs.spack-manifest-path }}
+        run: |
+          rsync -e 'ssh -i ${{ steps.ssh.outputs.private-key-path }}' \
+            ${{ inputs.spack-manifest-path }} \
+            ${{ secrets.USER }}@${{ secrets.HOST_DATA }}:${{ vars.SPACK_YAML_LOCATION }}/${{ inputs.expected-root-spec-name }}-${{ github.run_id }}.spack.yaml
+
+      - name: Fetch git sources for packages to build
+        # Workaround for ACCESS-NRI/spack#2.
+        # TODO: Remove once underlying spack issue is fixed
+        run: |
+          ssh ${{ secrets.USER }}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
+
+          if [ ! -d "${{ steps.path.outputs.root }}/spack-admin-cache/git_repos" ]; then
+            echo "::warning::Unable to find git_repos folder under ${{ steps.path.outputs.root }} - spack will attempt fetch instead"
+            exit 0
+          fi
+
+          cd "${{ steps.path.outputs.root }}/spack-admin-cache/git_repos" || exit 0
+
+          for package_repo in *; do
+            git -C "./$package_repo" fetch --verbose --update-head-ok origin "+refs/heads/*:refs/heads/*"
+          done
+          EOT
+
+      - name: Deploy to ${{ inputs.deployment-target }} ${{ inputs.deployment-type }}
+        id: deploy
+        env:
+          SCOPES: ${{ steps.custom-scopes.outputs.space-separated }}
+          SCOPES_PATH: ${{ steps.path.outputs.spack-config }}/custom/cd
+        # ssh into deployment environment, create and activate the env, install the spack manifest.
+        run: |
+          ssh ${{ secrets.USER}}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
+          # Check that a suitable deployment location exists
+          if [ ! -d "${{ steps.path.outputs.root }}" ]; then
+            echo '::error::A deployment of spack does not exist in ${{ steps.path.outputs.root }} for ${{ inputs.deployment-target }} ${{ inputs.deployment-type}}'
+            exit 1
+          fi
+
+          # Enable spack
+          module use ${{ vars.ADMIN_MODULES_DIR }}
+          module load spack/${{ needs.check-config.outputs.spack-version }}
+
+          # Create and activate environment
+          spack env activate ${{ needs.check-spack-yaml.outputs.spack-env-name }} --create --envfile ${{ vars.SPACK_YAML_LOCATION }}/${{ inputs.expected-root-spec-name }}-${{ github.run_id }}.spack.yaml
+
+          # Update access-spack-packages repository before installation
+          spack repo set access_spack_packages
+          spack repo update access_spack_packages --commit ${{ needs.check-config.outputs.access-spack-packages-git-hash }}
+
+          # Finally, install the spack manifest
+          spack --debug \
+            $(for s in ${{ env.SCOPES }}; do echo -n "--config-scope=${{ env.SCOPES_PATH }}/$s "; done) \
+            install --fail-fast --fresh ${{ vars.SPACK_INSTALL_ADDITIONAL_ARGS }} || exit $?
+
+          spack \
+            $(for s in ${{ env.SCOPES }}; do echo -n "--config-scope=${{ env.SCOPES_PATH }}/$s "; done) \
+            module tcl refresh --upstream-modules -y
+          EOT
+
+      - name: Move spack logs
+        if: always() && (steps.deploy.outcome == 'success' || steps.deploy.outcome == 'failure')
+        run: |
+          ssh ${{ secrets.USER}}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
+          find . -maxdepth 1 -regex './spack-cc-.+' -exec mv {} ${{ steps.path.outputs.root }}/logs \;
+          EOT
+
+      - name: Export deployment target locations
+        id: location
+        run: |
+          echo "spack=${{ steps.path.outputs.spack }}" >> $GITHUB_OUTPUT
+          echo "modules=${{ vars.DEPLOYED_MODULES_DIR }}" >> $GITHUB_OUTPUT
+
+      - name: Get metadata from ${{ inputs.deployment-target }} ${{ inputs.deployment-type}}
+        id: metadata
+        if: inputs.deployment-type == 'Release'
+        # Get the metadata from the spack environment regarding build database packages
+        run: |
+          rsync --perms -e 'ssh -i ${{ steps.ssh.outputs.private-key-path }}' \
+            build-cd/scripts/release_provenance/get_data_from_deployment.py \
+            ${{ secrets.USER }}@${{ secrets.HOST }}:${{ steps.path.outputs.spack-environment }}/
+
+          ssh ${{ secrets.USER }}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
+
+          # Enable spack
+          module use ${{ vars.ADMIN_MODULES_DIR }}
+          module load spack/${{ needs.check-config.outputs.spack-version }}
+
+          ${{ steps.path.outputs.spack-environment }}/get_data_from_deployment.py \
+            --environment ${{ steps.path.outputs.spack-environment }} \
+            --deployment-name ${{ inputs.expected-root-spec-name }} \
+            --packages "${{ steps.config-packages.outputs.packages-for-provenance }}" \
+            --config-scopes "${{ steps.custom-scopes.outputs.comma-separated }}" \
+            --output ${{ steps.path.outputs.spack-environment }}
+          EOT
+
+          # Output root spec package hash from ssh session
+          echo "root-spec-pkg-hash=$(\
+            ssh ${{ secrets.USER }}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} \
+              'cat ${{ steps.path.outputs.spack-environment }}/root-spec-pkg-hash.txt' \
+          )" >> $GITHUB_OUTPUT
+
+      - name: Tar spack environment metadata
+        # We want to attempt to tar up the .spack-env directory even if the install fails, so we can save inodes.
+        if: always() && (steps.deploy.conclusion == 'success' || steps.deploy.conclusion == 'failure')
+        run: |
+          ssh ${{ secrets.USER }}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
+          if [ -d "${{ steps.path.outputs.spack-environment }}/.spack-env" ]; then
+            tar --remove-files --create --file ${{ steps.path.outputs.spack-environment }}/.spack-env.tar ${{ steps.path.outputs.spack-environment }}/.spack-env
+          else
+            echo "::warning::No .spack-env directory found in ${{ steps.path.outputs.spack-environment }}, not tarring. There may be an issue with the environment."
+          fi
+          EOT
+
+      # Release
+      - name: Get Release Metadata
+        # Copy both the spack.* files and the build-db-pkgs.json file (for Release) to the artifact
+        run: |
+          rsync -e 'ssh -i ${{ steps.ssh.outputs.private-key-path }}' \
+            '${{ secrets.USER }}@${{ secrets.HOST_DATA }}:${{ steps.path.outputs.spack-environment }}/spack.*' \
+            ./${{ env.ARTIFACT_NAME }}
+
+          if [[ "${{ inputs.deployment-type }}" == "Release" ]]; then
+            rsync -e 'ssh -i ${{ steps.ssh.outputs.private-key-path }}' \
+              '${{ secrets.USER }}@${{ secrets.HOST_DATA }}:${{ steps.path.outputs.spack-environment }}/build-db-pkgs.json' \
+              ./${{ env.ARTIFACT_NAME }}
+          fi
+
+          # Rename the files to include the deployment environment
+          cd ./${{ env.ARTIFACT_NAME }}
+          for file in *; do
+            mv "$file" "${{ inputs.deployment-target }}.$file"
+          done
+          cd -
+
+      - name: Upload Metadata Artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: ./${{ env.ARTIFACT_NAME }}/*
 
   outputs-upload:
     name: '${{ inputs.deployment-target }}:Outputs Upload'

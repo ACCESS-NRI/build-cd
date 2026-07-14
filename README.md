@@ -80,7 +80,7 @@ This entrypoint is used to handle the `!bump` Comment Command, which updates, co
 
 This entrypoint handles cleanup of existing Prerelease environments from the referenced PR.
 
-Similar to `ci.yml`, it parallelizes cleanups based on HPC target.
+It is responsible for removing all spack environments associated with a closed Pull Request for each HPC target. It removes the spack environments matching the closed PR's version pattern and garbage-collects orphaned packages.
 
 ### `cd.yml` - Release Deployment Entrypoint
 
@@ -88,37 +88,15 @@ This entrypoint is used to deploy Releases as part of merged Pull Requests into 
 
 Similar to `ci.yml`, it parallelizes deployments based on HPC target.
 
-## `deploy-*.yml` - Target Deployment Pipeline
+## `deploy.yml` - Target Deployment Pipeline
 
 This pipeline is responsible for deploying a given model, via [`spack`](https://spack.readthedocs.io/en/latest/), to a single HPC target. This pipeline is deployment-type-independent - it works for both Prereleases and Releases.
 
-### `deploy-1-setup.yml` - Checks and Configuration
+This workflow validates environment configuration information from both `build-cd` and the Model Deployment Repository's `config` directory; validates the Model Deployment Repository's `spack.yaml`; deploys the model to the target environment; and uploads deployment metadata/outputs artifacts for the entrypoint workflows (`ci.yml` / `cd.yml`).
 
-This workflow validates environment configuration information from both `build-cd` and the Model Deployment Repository's `config` directory; and also validates the Model Deployment Repository's `spack.yaml`. It then passes this validated information to the [next workflow](#deploy-2-startyml---deployment-and-metadata-retrieval) returning deployment information to [the caller](#deploy-yml---target-deployment-pipeline) via a target-specific file artifact.
+## `settings.yml` - `build-cd config` Update Pipeline
 
-### `deploy-2-start.yml` - Deployment and Metadata Retrieval
-
-This workflow deploys the climate model via spack to the given deployment target. It also collects metadata relating to the spack install and returns it to [the previous workflow](#deploy-1-setupyml---checks-and-configuration).
-
-## `undeploy-*.yml` - Target Deployment Removal Pipeline
-
-This pipeline is responsible for removing all spack environments associated with a closed Pull Request for a single HPC target.
-
-### `undeploy-1-start.yml` - Remove Prereleases from Target
-
-This workflow, currently being the single part of the pipeline, removes the spack environments given as a glob pattern, installed in a particular spack instance, on a particular HPC target.
-
-## `settings-*.yml` - `build-cd config` Update Pipeline
-
-This pipeline is responsible for validating and deploying changes based on protected deployment information in `build-cd`s `config` directory. More information on this folder is found in [`config/README.md`](./config/README.md).
-
-### `settings-1-update.yml` - Validate Updated Settings
-
-This workflow is responsible for validating modifications made to `config/settings.json` on Pull Request or push to `build-cd`. Additionally, it will setup matrixing [the deployment workflow](#settings-2-deployyml---deploy-updated-settings) if the workflow trigger is `on.push`.
-
-### `settings-2-deploy.yml` - Deploy Updated Settings
-
-This workflow will update the repositories referenced in `config/settings.json` to the refs in the file for a HPC target.
+This pipeline is responsible for validating and deploying spack changes on HPCs based on protected deployment information in `build-cd`s `config` directory. More information on this folder is found in [`config/README.md`](./config/README.md).
 
 ## (Legacy) JSON Validation Workflow - `validate-json.yml`
 

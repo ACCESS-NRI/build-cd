@@ -52,16 +52,66 @@ jobs:
           targets: ${{ vars.PRERELEASE_DEPLOYMENT_TARGETS }}
 
   undeploy-prereleases:
-    name: Undeploy Prereleases Matching ${{ needs.setup.outputs.version-pattern }}
+    name: Undeploy ${{ needs.setup.outputs.version-pattern }} from ${{ matrix.target }} Prerelease
     needs:
       - setup
     strategy:
       matrix:
         target: ${{ fromJson(needs.setup.outputs.targets) }}
       fail-fast: false
-    uses: access-nri/build-cd/.github/workflows/undeploy-1-start.yml@v8
-    with:
-      version-pattern: ${{ needs.setup.outputs.version-pattern }}
-      target: ${{ matrix.target }}
-      type: Prerelease
-    secrets: inherit
+    runs-on: ubuntu-latest
+    environment: ${{ matrix.target }} Prerelease
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Get Spack Version From config/versions.json
+        id: versions
+        run: echo "spack=$(jq --compact-output --raw-output '.spack' ./config/versions.json)" >> $GITHUB_OUTPUT
+
+      - name: Get ${{ matrix.target }} Remote Paths
+        id: path
+        uses: access-nri/build-cd/.github/actions/get-deploy-paths@v8
+        with:
+          spack-installs-root-path: ${{ vars.SPACK_INSTALLS_ROOT_LOCATION }}
+          spack-version: ${{ steps.versions.outputs.spack }}
+          deployment-target: ${{ matrix.target }}
+          deployment-type: Prerelease
+          spack-environment: ${{ needs.setup.outputs.version-pattern }}
+
+      - name: Setup SSH
+        id: ssh
+        uses: access-nri/actions/.github/actions/setup-ssh@main
+        with:
+          private-key: ${{ secrets.SSH_KEY }}
+          hosts: |
+            ${{ secrets.HOST }}
+            ${{ secrets.HOST_DATA }}
+
+      - name: Undeploy Environment
+        # ssh into deployment environment, create and activate the env, remove all the unneeded environments
+        run: |
+          ssh ${{ secrets.USER}}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
+
+          # Enable spack
+           module use ${{ vars.ADMIN_MODULES_DIR }}
+           module load spack/${{ steps.versions.outputs.spack }}
+
+           envs=$(find ${{ steps.path.outputs.spack }}/../environments -type d -name '${{ needs.setup.outputs.version-pattern }}' -printf '%f ')
+
+          for env in $envs; do
+            spack env rm $env --yes-to-all
+          done
+
+          # Base scope cleanup (most environments are in this scope)
+          spack gc --except-any-environment --keep-build-dependencies --yes-to-all
+
+          # Custom scopes cleanup (like restricted scopes, etc)
+          scopes=$(find ${{ steps.path.outputs.spack-config }}/custom/cd -mindepth 1 -maxdepth 1 -type d -printf '%p ')
+          for scope in $scopes; do
+            spack --config-scope $scope gc --except-any-environment --keep-build-dependencies --yes-to-all
+          done
+          EOT
+
+      - name: Undeploy Status Notifier
+        if: failure()
+        run: echo '::error::Deployment ${{ needs.setup.outputs.version-pattern }} could not be removed from ${{ matrix.target }} Prerelease, found at ${{ steps.path.outputs.spack }}. Please check manually.'
