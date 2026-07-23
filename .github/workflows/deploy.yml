@@ -151,9 +151,121 @@ on:
     #     description: |
     #       Directory containing the spack instance of the deployed model on the inputs.deployment-target
 jobs:
+  check-spack-yaml:
+    name: '${{ inputs.deployment-target }}: Check Spack Manifest'
+    runs-on: ubuntu-latest
+    env:
+      # Note: since this is a string representation of a boolean, it must be compared as a string.
+      # Yes, github.event.issue.draft refers to the pull request if the comment is made on a pull request!
+      IS_NOT_DRAFT: ${{ (github.event_name == 'pull_request' && !github.event.pull_request.draft) || (github.event_name == 'issue_comment' && !github.event.issue.draft) }}
+    permissions:
+      pull-requests: write
+    outputs:
+      # Release version of the deployment. Inferred if not given in inputs.deployment-version
+      release: ${{ steps.current.outputs.deployment-version }}
+      # Spack env name in form <model>-<version>
+      spack-env-name: ${{ steps.get-env-name.outputs.env-name }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.deployment-ref }}
+
+      - name: Checkout build-cd
+        uses: actions/checkout@v6
+        with:
+          repository: access-nri/build-cd
+          ref: ${{ job.workflow_sha }}
+          path: build-cd
+
+      - name: Validate ACCESS-NRI spack manifest restrictions
+        if: env.IS_NOT_DRAFT == 'true' || inputs.deployment-type == 'Release'
+        uses: access-nri/schema/.github/actions/validate-with-schema@main
+        with:
+          schema-version: ${{ inputs.spack-manifest-schema-version }}
+          schema-location: ${{ inputs.spack-manifest-schema-path }}
+          data-location: ${{ inputs.spack-manifest-path }}
+
+      - name: Get current (${{ inputs.deployment-ref }}) root spec version
+        id: current
+        uses: ./build-cd/.github/actions/get-spack-manifest
+        with:
+          spack-manifest-path: ${{ inputs.spack-manifest-path }}
+
+      - name: Disallow multi-spec Releases
+        if: inputs.deployment-type == 'Release'
+        # FIXME: Once the necessary infrastructure/guidance is in place, remove this step. See ACCESS-NRI/build-cd#344
+        run: |
+          root_specs=$(yq '.spack.specs | select(.[] == "${{ steps.current.outputs.deployment-name }}*") | length' ${{ inputs.spack-manifest-path }})
+
+          if [ "$root_specs" -gt 1 ]; then
+            echo "::error::We don't yet support multiple root specs with the same package name. Contact the Model Release Team for information."
+            exit 1
+          fi
+
+      - name: Checkout base (${{ inputs.prerelease-compare-ref }}) spack manifest
+        if: inputs.deployment-type != 'Release'
+        continue-on-error: true
+        id: checkout-base-spack
+        run: |
+          git checkout ${{ inputs.prerelease-compare-ref }}
+
+          if [ ! -f ${{ inputs.spack-manifest-path }} ]; then
+              echo "::notice::There is no previous version of ${{ inputs.spack-manifest-path }} to check at ${{ inputs.prerelease-compare-ref }}, continuing..."
+              exit 1
+          fi
+
+          # If the first commit in the repository is the template, there won't be anything defined in the speclist
+          # So we should skip checking the version!
+          if ! yq --exit-status '.spack.specs' ${{ inputs.spack-manifest-path }}; then
+            echo "::notice::${{ inputs.spack-manifest-path }} at ${{ inputs.prerelease-compare-ref }} is a template, continuing..."
+            exit 1
+          fi
+
+      - name: Get base root spec version
+        id: base
+        if: inputs.deployment-type != 'Release' && steps.checkout-base-spack.outcome != 'failure'
+        uses: ./build-cd/.github/actions/get-spack-manifest
+        with:
+          spack-manifest-path: ${{ inputs.spack-manifest-path }}
+
+      - name: Check Model Version Modified
+        # We don't want to fire off model deployment version checks if the PR is never going to be merged.
+        # We determine this by checking if either the pull request, or the pull request that a comment
+        # belongs to, is drafted.
+        if: inputs.deployment-type != 'Release' && steps.checkout-base-spack.outcome != 'failure' && env.IS_NOT_DRAFT == 'true'
+        id: version-modified
+        run: |
+          if [[ "${{ steps.base.outputs.deployment-version }}" == "${{ steps.current.outputs.deployment-version }}" ]]; then
+              echo "::warning::The version string in ${{ inputs.spack-manifest-path }} hasn't been modified in this PR, but needs to be before merging."
+              exit 1
+          fi
+
+      - name: Same Model Version Failure Notifier
+        if: failure() && steps.version-modified.outcome == 'failure'
+        # TODO: We don't yet support bumping files outside of ./spack.yaml, so this is a temporary solution.
+        env:
+          BUMP_COMMENT_BODY: |-
+            Alternatively, comment the following to have it updated and committed automatically:
+              * `!bump major` for feature releases
+              * `!bump minor` for bugfixes
+        uses: access-nri/actions/.github/actions/pr-comment@main
+        with:
+          comment: |
+              The model version in the `${{ inputs.spack-manifest-path }}` has not been updated.
+              You can update it manually.
+              ${{ inputs.spack-manifest-path != './spack.yaml' && env.BUMP_COMMENT_BODY || '' }}
+
+      - name: Set Spack Env Name String
+        id: get-env-name
+        # replace occurences of '.' with '_' in environment name as spack doesn't support '.'. Ex: 'access-om2-v1.0.0' -> 'access-om2-v1_0_0'.
+        run: echo "env-name=$(echo '${{ inputs.expected-root-spec-name }}-${{ inputs.deployment-version }}' | tr '.' '_')" >> $GITHUB_OUTPUT
+
   check-config:
     name: '${{ inputs.deployment-target }}: Check Config'
     runs-on: ubuntu-latest
+    needs:
+      - check-spack-yaml  # To get reserved definitions/information from manifest
     # A lot of outputs, versions for repositories are taken from different sources:
     #   Taken from central build-cd config/settings.json: spack (SHA), spack-config, builtin spack-packages
     #   Taken from caller config/versions.json: spack (branch), access-spack-packages
@@ -289,116 +401,6 @@ jobs:
         with:
           repository: ACCESS-NRI/upstream-spack-packages
           ref: ${{ steps.builtin-spack-packages.outputs.ref }}
-
-  check-spack-yaml:
-    name: '${{ inputs.deployment-target }}: Check Spack Manifest'
-    runs-on: ubuntu-latest
-    env:
-      # Note: since this is a string representation of a boolean, it must be compared as a string.
-      # Yes, github.event.issue.draft refers to the pull request if the comment is made on a pull request!
-      IS_NOT_DRAFT: ${{ (github.event_name == 'pull_request' && !github.event.pull_request.draft) || (github.event_name == 'issue_comment' && !github.event.issue.draft) }}
-    permissions:
-      pull-requests: write
-    outputs:
-      # Release version of the deployment. Inferred if not given in inputs.deployment-version
-      release: ${{ steps.current.outputs.deployment-version }}
-      # Spack env name in form <model>-<version>
-      spack-env-name: ${{ steps.get-env-name.outputs.env-name }}
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-          ref: ${{ inputs.deployment-ref }}
-
-      - name: Checkout build-cd
-        uses: actions/checkout@v6
-        with:
-          repository: access-nri/build-cd
-          ref: ${{ job.workflow_sha }}
-          path: build-cd
-
-      - name: Validate ACCESS-NRI spack manifest restrictions
-        if: env.IS_NOT_DRAFT == 'true' || inputs.deployment-type == 'Release'
-        uses: access-nri/schema/.github/actions/validate-with-schema@main
-        with:
-          schema-version: ${{ inputs.spack-manifest-schema-version }}
-          schema-location: ${{ inputs.spack-manifest-schema-path }}
-          data-location: ${{ inputs.spack-manifest-path }}
-
-      - name: Get current (${{ inputs.deployment-ref }}) root spec version
-        id: current
-        uses: ./build-cd/.github/actions/get-spack-manifest
-        with:
-          spack-manifest-path: ${{ inputs.spack-manifest-path }}
-
-      - name: Disallow multi-spec Releases
-        if: inputs.deployment-type == 'Release'
-        # FIXME: Once the necessary infrastructure/guidance is in place, remove this step. See ACCESS-NRI/build-cd#344
-        run: |
-          root_specs=$(yq '.spack.specs | select(.[] == "${{ steps.current.outputs.deployment-name }}*") | length' ${{ inputs.spack-manifest-path }})
-
-          if [ "$root_specs" -gt 1 ]; then
-            echo "::error::We don't yet support multiple root specs with the same package name. Contact the Model Release Team for information."
-            exit 1
-          fi
-
-      - name: Checkout base (${{ inputs.prerelease-compare-ref }}) spack manifest
-        if: inputs.deployment-type != 'Release'
-        continue-on-error: true
-        id: checkout-base-spack
-        run: |
-          git checkout ${{ inputs.prerelease-compare-ref }}
-
-          if [ ! -f ${{ inputs.spack-manifest-path }} ]; then
-              echo "::notice::There is no previous version of ${{ inputs.spack-manifest-path }} to check at ${{ inputs.prerelease-compare-ref }}, continuing..."
-              exit 1
-          fi
-
-          # If the first commit in the repository is the template, there won't be anything defined in the speclist
-          # So we should skip checking the version!
-          if ! yq --exit-status '.spack.specs' ${{ inputs.spack-manifest-path }}; then
-            echo "::notice::${{ inputs.spack-manifest-path }} at ${{ inputs.prerelease-compare-ref }} is a template, continuing..."
-            exit 1
-          fi
-
-      - name: Get base root spec version
-        id: base
-        if: inputs.deployment-type != 'Release' && steps.checkout-base-spack.outcome != 'failure'
-        uses: ./build-cd/.github/actions/get-spack-manifest
-        with:
-          spack-manifest-path: ${{ inputs.spack-manifest-path }}
-
-      - name: Check Model Version Modified
-        # We don't want to fire off model deployment version checks if the PR is never going to be merged.
-        # We determine this by checking if either the pull request, or the pull request that a comment
-        # belongs to, is drafted.
-        if: inputs.deployment-type != 'Release' && steps.checkout-base-spack.outcome != 'failure' && env.IS_NOT_DRAFT == 'true'
-        id: version-modified
-        run: |
-          if [[ "${{ steps.base.outputs.deployment-version }}" == "${{ steps.current.outputs.deployment-version }}" ]]; then
-              echo "::warning::The version string in ${{ inputs.spack-manifest-path }} hasn't been modified in this PR, but needs to be before merging."
-              exit 1
-          fi
-
-      - name: Same Model Version Failure Notifier
-        if: failure() && steps.version-modified.outcome == 'failure'
-        # TODO: We don't yet support bumping files outside of ./spack.yaml, so this is a temporary solution.
-        env:
-          BUMP_COMMENT_BODY: |-
-            Alternatively, comment the following to have it updated and committed automatically:
-              * `!bump major` for feature releases
-              * `!bump minor` for bugfixes
-        uses: access-nri/actions/.github/actions/pr-comment@main
-        with:
-          comment: |
-              The model version in the `${{ inputs.spack-manifest-path }}` has not been updated.
-              You can update it manually.
-              ${{ inputs.spack-manifest-path != './spack.yaml' && env.BUMP_COMMENT_BODY || '' }}
-
-      - name: Set Spack Env Name String
-        id: get-env-name
-        # replace occurences of '.' with '_' in environment name as spack doesn't support '.'. Ex: 'access-om2-v1.0.0' -> 'access-om2-v1_0_0'.
-        run: echo "env-name=$(echo '${{ inputs.expected-root-spec-name }}-${{ inputs.deployment-version }}' | tr '.' '_')" >> $GITHUB_OUTPUT
 
   deployment:
     name: '${{ inputs.deployment-target }}: Deployment'
