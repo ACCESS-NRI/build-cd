@@ -42,16 +42,6 @@ on:
         required: true
         description: |
           The version of the Spack manifest schema to use for validation, from the ACCESS-NRI/schema repository.
-      config-versions-schema-version:
-        type: string
-        required: true
-        description: |
-          The version of the config/versions.json schema to use for validation, from the ACCESS-NRI/schema repository.
-      config-packages-schema-version:
-        type: string
-        required: true
-        description: |
-          The version of the config/packages.json schema to use for validation, from the ACCESS-NRI/schema repository.
   # Callers usually have the trigger:
   # push:
   #   branches:
@@ -203,8 +193,6 @@ jobs:
       expected-root-spec-name: ${{ needs.init.outputs.deployment-name }}
       spack-manifest-schema-path: ${{ inputs.spack-manifest-schema-path }}
       spack-manifest-schema-version: ${{ inputs.spack-manifest-schema-version }}
-      config-versions-schema-version: ${{ inputs.config-versions-schema-version }}
-      config-packages-schema-version: ${{ inputs.config-packages-schema-version }}
     secrets: inherit
     permissions:
       contents: write
