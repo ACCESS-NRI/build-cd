@@ -87,6 +87,11 @@ class TestReservedDefinitionsGetter:
         with pytest.raises(NoSectionComponentError):
             reserved_definitions_getter.get("nonexistent_definition")
 
+    def test_get_list__missing_definition_with_default(self, manifest_with_reserved_definitions):
+        reserved_definitions_getter = ReservedDefinitions(manifest_with_reserved_definitions)
+
+        assert reserved_definitions_getter.get_list("custom-scopes", default=[]) == []
+
 
 class TestRootSpecGetter:
     def test___init___valid_multi_target_spec(self):
