@@ -405,18 +405,12 @@ jobs:
           ref: ${{ job.workflow_sha }}
           path: build-cd
 
-      - name: Get Scopes From config/versions.json
-        id: custom-scopes
-        run: |
-          echo "space-separated=$(jq --compact-output --raw-output '."custom-scopes" // [] | join(" ")' ./config/versions.json)" >> $GITHUB_OUTPUT
-          echo "comma-separated=$(jq --compact-output --raw-output '."custom-scopes" // [] | join(",")' ./config/versions.json)" >> $GITHUB_OUTPUT
-
       - name: Get ${{ inputs.deployment-target }} ${{ inputs.deployment-type }} Remote Paths
         id: path
         uses: ./build-cd/.github/actions/get-deploy-paths
         with:
           spack-installs-root-path: ${{ vars.SPACK_INSTALLS_ROOT_LOCATION }}
-          spack-version: ${{ needs.check-config.outputs.spack-version }}
+          spack-version: ${{ needs.check-spack-yaml.outputs.spack-version }}
           deployment-target: ${{ inputs.deployment-target }}
           deployment-type: ${{ inputs.deployment-type }}
           spack-environment: ${{ needs.check-spack-yaml.outputs.spack-env-name }}
@@ -440,38 +434,23 @@ jobs:
         working-directory: build-cd
         run: python -m pip install -r scripts/spack_manifest/injection/requirements.txt
 
-      - name: Spack Manifest - Get Provenance and Injection Packages
-        id: config-packages
-        run: |
-          packages_for_injection=$(jq -cr '.provenance + .injection | join(",")' config/packages.json)
-          packages_for_provenance=$(jq -cr '.provenance | join(",")' config/packages.json)
-
-          echo "Packages to be injected: $packages_for_injection"
-          echo "Packages for provenance: $packages_for_provenance"
-
-          echo "packages-for-injection=$packages_for_injection" >> $GITHUB_OUTPUT
-          echo "packages-for-provenance=$packages_for_provenance" >> $GITHUB_OUTPUT
-
       - name: Spack Manifest - Modules Injection
         # Injects relevant module projections and includes into the spack manifest so users don't have to
         working-directory: build-cd
         run: |
           python -m scripts.spack_manifest.injection.modules \
             --manifest ../${{ inputs.spack-manifest-path }} \
-            --packages "${{ steps.config-packages.outputs.packages-for-injection }}" \
+            --packages "${{ needs.check-spack-yaml.outputs.all-packages-for-injection }}" \
             --output ../${{ inputs.spack-manifest-path }}
 
       - name: Spack Manifest - Prerelease Injection
         if: inputs.deployment-type == 'Prerelease'
         # Modifies the name of the prerelease modulefile to the pr<number>-<deployment number>` style.
-        # Also adds a repos section that points to the prereleases specific access-spack-packages repo.
         working-directory: build-cd
         run: |
           python -m scripts.spack_manifest.injection.prerelease \
             --manifest ../${{ inputs.spack-manifest-path }} \
             --version ${{ inputs.deployment-version }} \
-            --spack-packages-path ${{ steps.path.outputs.spack-environment }}/access-spack-packages \
-            --spack-packages-version-sha ${{ needs.check-config.outputs.access-spack-packages-git-hash }} \
             --output ../${{ inputs.spack-manifest-path }}
 
       - name: Copy ${{ inputs.spack-manifest-path }}
@@ -501,7 +480,7 @@ jobs:
       - name: Deploy to ${{ inputs.deployment-target }} ${{ inputs.deployment-type }}
         id: deploy
         env:
-          SCOPES: ${{ steps.custom-scopes.outputs.space-separated }}
+          SCOPES: ${{ needs.check-spack-yaml.outputs.custom-scopes-space-separated }}
           SCOPES_PATH: ${{ steps.path.outputs.spack-config }}/custom/cd
         # ssh into deployment environment, create and activate the env, install the spack manifest.
         run: |
@@ -514,14 +493,10 @@ jobs:
 
           # Enable spack
           module use ${{ vars.ADMIN_MODULES_DIR }}
-          module load spack/${{ needs.check-config.outputs.spack-version }}
+          module load spack/${{ needs.check-spack-yaml.outputs.spack-version }}
 
           # Create and activate environment
           spack env activate ${{ needs.check-spack-yaml.outputs.spack-env-name }} --create --envfile ${{ vars.SPACK_YAML_LOCATION }}/${{ inputs.expected-root-spec-name }}-${{ github.run_id }}.spack.yaml
-
-          # Update access-spack-packages repository before installation
-          spack repo set access_spack_packages
-          spack repo update access_spack_packages --commit ${{ needs.check-config.outputs.access-spack-packages-git-hash }}
 
           # Finally, install the spack manifest
           spack --debug \
@@ -559,13 +534,13 @@ jobs:
 
           # Enable spack
           module use ${{ vars.ADMIN_MODULES_DIR }}
-          module load spack/${{ needs.check-config.outputs.spack-version }}
+          module load spack/${{ needs.check-spack-yaml.outputs.spack-version }}
 
           ${{ steps.path.outputs.spack-environment }}/get_data_from_deployment.py \
             --environment ${{ steps.path.outputs.spack-environment }} \
             --deployment-name ${{ inputs.expected-root-spec-name }} \
-            --packages "${{ steps.config-packages.outputs.packages-for-provenance }}" \
-            --config-scopes "${{ steps.custom-scopes.outputs.comma-separated }}" \
+            --packages "${{ needs.check-spack-yaml.outputs.packages-for-provenance }}" \
+            --config-scopes "${{ needs.check-spack-yaml.outputs.custom-scopes-comma-separated }}" \
             --output ${{ steps.path.outputs.spack-environment }}
           EOT
 

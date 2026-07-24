@@ -31,9 +31,7 @@ yaml.add_representer(YamlExplicitFlowStyleSequence, yaml_explicit_flow_style_seq
 
 def inject_prerelease_information(
     manifest_path: str,
-    version: str,
-    spack_packages_path: str | None = None,
-    spack_packages_version_sha: str | None = None,
+    version: str
 ) -> str:
     # In comparison to the projections script, this returns a string rather than a dict because we need to
     # add spack-specific, non-standard 'repo::' sections, which the yaml dumper does not support.
@@ -41,7 +39,7 @@ def inject_prerelease_information(
         manifest: dict[str, Any] = yaml.safe_load(manifest_file)
 
     reserved_definitions_from_manifest = ReservedDefinitions(manifest)
-    root_spec_name = reserved_definitions_from_manifest.get("name")
+    root_spec_name: str | list[str] = reserved_definitions_from_manifest.get("name")
 
     updated_manifest: dict[str, Any] = deepcopy(manifest)
 
@@ -56,12 +54,6 @@ def inject_prerelease_information(
     updated_manifest = add_namespace_to_other_projection_versions(
         updated_manifest, root_spec_name, version
     )
-
-    if spack_packages_path:
-        # Add the 'repo:' section for prerelease spack packages if provided
-        updated_manifest = add_prerelease_repos_section(
-            updated_manifest, spack_packages_path, spack_packages_version_sha
-        )
 
     updated_manifest = enforce_explicit_flow_style_definitions(updated_manifest)
 
@@ -133,24 +125,6 @@ def update_root_spec_projections_version(
     return manifest
 
 
-def add_prerelease_repos_section(
-    manifest: dict[str, Any], spack_packages_path: str, spack_packages_version_sha: str | None = None
-) -> dict[str, Any]:
-
-    manifest.setdefault("spack", {}).setdefault("repos", {})
-    manifest["spack"]["repos"] = {
-        "access_spack_packages": {
-            "git": "https://github.com/ACCESS-NRI/access-spack-packages.git",
-            "destination": spack_packages_path,
-        }
-    }
-
-    if spack_packages_version_sha:
-        manifest["spack"]["repos"]["access_spack_packages"]["commit"] = spack_packages_version_sha
-
-    return manifest
-
-
 def parse_args(args: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Script for injecting prerelease information into spack manifest files."
@@ -171,20 +145,6 @@ def parse_args(args: list[str]) -> argparse.Namespace:
         help="Version to be used for projections in the manifest",
     )
 
-    parser.add_argument(
-        "--spack-packages-path",
-        type=str,
-        required=False,
-        help="Local path to a spack-packages repository that is added to the manifests repos section",
-    )
-
-    parser.add_argument(
-        "--spack-packages-version-sha",
-        type=str,
-        required=False,
-        help="Git SHA of the spack-packages repository that is added to the manifests repos section",
-    )
-
     # Args dealing with outputs
     parser.add_argument(
         "--output",
@@ -201,9 +161,7 @@ def main():
 
     injected_manifest: str = inject_prerelease_information(
         args.manifest,
-        args.version,
-        args.spack_packages_path,
-        args.spack_packages_version_sha,
+        args.version
     )
 
     print(injected_manifest)
