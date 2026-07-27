@@ -560,6 +560,12 @@ jobs:
           else
             echo "::warning::No .spack-env directory found in ${{ steps.path.outputs.spack-environment }}, not tarring. There may be an issue with the environment."
           fi
+
+          if [ -d "${{ steps.path.outputs.spack-environment }}/.package_repos" ]; then
+            tar --remove-files --create --file ${{ steps.path.outputs.spack-environment }}/.package_repos.tar ${{ steps.path.outputs.spack-environment }}/.package_repos
+          else
+            echo "::warning::No .package_repos directory found in ${{ steps.path.outputs.spack-environment }}, not tarring. There may be an issue with the environment."
+          fi
           EOT
 
       # Release
