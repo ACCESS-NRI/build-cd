@@ -2,11 +2,6 @@ name: Configs
 on:
   workflow_call:
     inputs:
-      model:
-        type: string
-        # FIXME: Formally deprecate via major update in future - unused
-        required: false
-        description: The model that is being tested and deployed
       spack-manifest-path:
         type: string
         required: false
