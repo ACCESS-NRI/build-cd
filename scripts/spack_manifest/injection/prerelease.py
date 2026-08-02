@@ -39,7 +39,7 @@ def inject_prerelease_information(
         manifest: dict[str, Any] = yaml.safe_load(manifest_file)
 
     reserved_definitions_from_manifest = ReservedDefinitions(manifest)
-    root_spec_name: str | list[str] = reserved_definitions_from_manifest.get("name")
+    root_spec_name: str = reserved_definitions_from_manifest.get("name")
 
     updated_manifest: dict[str, Any] = deepcopy(manifest)
 

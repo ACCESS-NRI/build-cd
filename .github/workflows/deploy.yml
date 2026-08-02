@@ -161,7 +161,7 @@ jobs:
       spack-version: ${{ steps.current.outputs.spack-version }}  # _spack-version
       custom-scopes-space-separated: ${{ steps.current.outputs.custom-scopes-space-separated }}  # _custom-scopes
       custom-scopes-comma-separated: ${{ steps.current.outputs.custom-scopes-comma-separated }}  # _custom-scopes
-      packages-for-provenance: ${{ steps.current.outputs.packages }}  # _provenance
+      packages-for-provenance: ${{ steps.current.outputs.provenance }}  # _provenance
       all-packages-for-injection: ${{ steps.current.outputs.injection }}  # the packages for injection are actually _provenance + _injection
       # Info from spack.repos section of the manifest
       access-spack-packages-version: ${{ steps.current.outputs.access-spack-packages-version }}

@@ -2,7 +2,6 @@ import pytest
 
 from scripts.spack_manifest.injection.prerelease import (
     inject_prerelease_information,
-    add_prerelease_repos_section,
     update_root_spec_projections_version,
     add_namespace_to_other_projection_versions,
     parse_args
@@ -188,9 +187,6 @@ class TestUpdateRootSpecProjectionsVersion:
         assert updated_projections["access-issm+ad"] == f"{{name}}-AD/{root_spec_version}"
         assert updated_projections["access-issm~ad"] == f"{{name}}/{root_spec_version}"
         assert updated_projections["dependency"] == "{name}/2025.12.001"
-
-class TestAddPrereleaseReposSection:
-    def test_add_prerelease_repos_section__valid(self):
         manifest = {
             "spack": {
                 "specs": [
@@ -214,11 +210,9 @@ class TestInjectPrereleaseInformation:
     def test_inject_prerelease_information__valid_custom_projection(self):
         manifest_path = "tests/scripts/spack_manifest/injection/inputs/prerelease.spack.yaml"
         root_spec_version = "pr12-12"
-        spack_packages_path = "/some/spack-packages"
-        spack_packages_version_sha = "e8713551c6eee57caf9603543e6dd6daf3c93922"
 
         updated_manifest_str: str = inject_prerelease_information(
-            manifest_path, root_spec_version, spack_packages_path, spack_packages_version_sha
+            manifest_path, root_spec_version
         )
 
         expected_manifest_path = "tests/scripts/spack_manifest/injection/outputs/expected.prerelease.spack.yaml"
