@@ -499,6 +499,9 @@ jobs:
 
       - name: Copy ${{ inputs.spack-manifest-path }}
         run: |
+          # TODO: Remove once we have enough failing IP addresses for NCI HELP-209915
+          curl ifconfig.me
+
           rsync -e 'ssh -i ${{ steps.ssh.outputs.private-key-path }}' \
             ${{ inputs.spack-manifest-path }} \
             ${{ secrets.USER }}@${{ secrets.HOST_DATA }}:${{ vars.SPACK_YAML_LOCATION }}/${{ inputs.expected-root-spec-name }}-${{ github.run_id }}.spack.yaml
@@ -507,6 +510,9 @@ jobs:
         # Workaround for ACCESS-NRI/spack#2.
         # TODO: Remove once underlying spack issue is fixed
         run: |
+          # TODO: Remove once we have enough failing IP addresses for NCI HELP-209915
+          curl ifconfig.me
+
           ssh ${{ secrets.USER }}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
 
           if [ ! -d "${{ steps.path.outputs.root }}/spack-admin-cache/git_repos" ]; then
@@ -528,6 +534,9 @@ jobs:
           SCOPES_PATH: ${{ steps.path.outputs.spack-config }}/custom/cd
         # ssh into deployment environment, create and activate the env, install the spack manifest.
         run: |
+          # TODO: Remove once we have enough failing IP addresses for NCI HELP-209915
+          curl ifconfig.me
+
           ssh ${{ secrets.USER}}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
           # Check that a suitable deployment location exists
           if [ ! -d "${{ steps.path.outputs.root }}" ]; then
