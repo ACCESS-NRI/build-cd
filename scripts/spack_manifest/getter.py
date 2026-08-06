@@ -47,7 +47,7 @@ class Specs:
             )
 
     @classmethod
-    def from_file(cls, manifest_path: str) -> "RootSpec":
+    def from_file(cls, manifest_path: str) -> "Specs":
         from yaml import safe_load
 
         with open(manifest_path, "r") as file:
@@ -65,11 +65,9 @@ class ReservedDefinitions:
     def __init__(self, manifest: dict[str, Any]):
         self.manifest: dict[str, Any] = manifest
 
-        self.reserved_definitions: list[dict[str, Any]] = (
-            self._get_reserved_definitions_from_manifest_or_raise()
-        )
+        self.reserved_definitions: dict[str, list[str]] = self._get_reserved_definitions_from_manifest_or_raise()
 
-    def _get_reserved_definitions_from_manifest_or_raise(self) -> dict[str, Any]:
+    def _get_reserved_definitions_from_manifest_or_raise(self) -> dict[str, list[str]]:
         definitions: list[dict[str, Any]] = self.manifest.get("spack", {}).get(
             "definitions", []
         )
@@ -83,19 +81,23 @@ class ReservedDefinitions:
         # {'definitions': [
         #   {'_name': ['access-om2']},
         #   {'_version': ['2025.02.100']},
+        #   {'_custom-scopes': ['custom-scope1', 'custom-scope2']}
         #   {'something': ['else']}
         # ]}
         # Into a much easier to parse:
-        # {'name': 'access-om2', 'version': '2025.02.100'}
-        # Stripping out non-reserved definitions and unneeded single-element lists
+        # {'name': ['access-om2'], 'version': ['2025.02.100'], 'custom-scopes': ['custom-scope1', 'custom-scope2']}
+        # Stripping out non-reserved definitions
         reserved_definitions: dict[str, Any] = {}
         for definition in definitions:
-            if len(definition) > 0:
-                reserved_name, reserved_value_list = list(definition.items())[0]
-                if reserved_name.startswith("_") and len(reserved_value_list) > 0:
-                    reserved_name_no_underscore = reserved_name.lstrip("_")
-                    # In future if we want to handle other reserved defs as lists, we can add a case statement here
-                    reserved_definitions[reserved_name_no_underscore] = reserved_value_list[0]
+            if len(definition) == 0:
+                continue
+
+            reserved_name, reserved_value_list = list(definition.items())[0]
+            if not reserved_name.startswith("_"):
+                continue
+
+            reserved_name_no_underscore = reserved_name.lstrip("_")
+            reserved_definitions[reserved_name_no_underscore] = reserved_value_list
 
         return reserved_definitions
 
@@ -108,14 +110,19 @@ class ReservedDefinitions:
 
         return cls(manifest)
 
-    def get(self, definition: str) -> str:
+    def get_list(self, definition: str, default: list[str] | None = None) -> list[str]:
         if definition not in self.reserved_definitions:
+            if default is not None:
+                return default
+
             raise NoSectionComponentError(
                 f"Reserved definition '{definition}' not found in the manifest spack.definitions section."
             )
 
         return self.reserved_definitions[definition]
 
+    def get(self, definition: str) -> str:
+        return self.get_list(definition)[0]
 
 class RootSpec:
     def __init__(self, manifest: dict[str, Any]):
@@ -244,11 +251,9 @@ class Packages:
     def __init__(self, manifest: dict[str, Any]):
         self.manifest: dict[str, Any] = manifest
 
-        self.packages: list[str] = self._get_packages_from_manifest_or_raise()
+        self.packages: dict[str, Any] = self._get_packages_from_manifest_or_raise()
 
     def _get_packages_from_manifest_or_raise(self) -> dict[str, Any]:
-        packages = self.manifest.get("spack", {}).get("packages", {})
-
         if "packages" not in self.manifest.get("spack", {}):
             raise NoSectionError(f"spack.packages section not found in the manifest.")
 
@@ -384,3 +389,29 @@ class Projections:
             for partial, projection in self.projections.items()
             if pattern.match(partial)
         }
+
+class Repos:
+    def __init__(self, manifest: dict[str, Any]):
+        self.manifest: dict[str, Any] = manifest
+        self.repos: dict[str, Any] = (
+            manifest.get("spack", {})
+            .get("repos", {})
+        )
+
+    # Can also pass in a path to a yaml manifest instead of a python object
+    @classmethod
+    def from_file(cls, manifest_path: str) -> "Repos":
+        from yaml import safe_load
+
+        with open(manifest_path, "r") as file:
+            manifest = safe_load(file)
+
+        return cls(manifest)
+
+    def get(self, repo_name: str) -> dict[str, Any]:
+        return self.repos.get(repo_name, {})
+
+    def get_ref_of(self, repo_name: str) -> str | None:
+        repo_info: dict[str, Any] = self.repos.get(repo_name, {})
+
+        return repo_info.get("commit") or repo_info.get("tag") or repo_info.get("branch")
