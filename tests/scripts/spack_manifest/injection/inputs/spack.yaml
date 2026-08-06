@@ -7,6 +7,9 @@ spack:
   definitions:
     - _name: ["access-om2"]
     - _version: ["2024.03.0"]
+    - _spack-version: ['1.1']
+    - _provenance: [mom5]
+    - _injection: []
   specs:
     - access-om2
   packages:
@@ -56,3 +59,8 @@ spack:
           # cice5: '{name}/2023.10.19-{hash:7}'
           # libaccessom2: '{name}/2023.10.26-{hash:7}'
           # oasis3-mct: '{name}/2023.11.09-{hash:7}''
+  repos:
+    access_spack_packages:
+      git: https://github.com/ACCESS-NRI/access-spack-packages.git
+      tag: 2026.05.001
+      destination: $env/.package_repos/access-spack-packages

@@ -15,6 +15,30 @@ outputs:
     description: |
       The version of the deployment as specified in the reserved definition _version, in the spack manifest file.
     value: ${{ steps.defs.outputs.version }}
+  spack-version:
+    description: |
+      The Spack version as specified in the reserved definition _spack-version, in the spack manifest file.
+    value: ${{ steps.defs.outputs.spack-version }}
+  access-spack-packages-version:
+    description: |
+      The version of the access-spack-packages repo as specified in the spack.repos section of the spack manifest file.
+    value: ${{ steps.repos.outputs.access-spack-packages-version }}
+  provenance:
+    description: |
+      The provenance information as specified in the reserved definition _provenance, in the spack manifest file.
+    value: ${{ steps.defs.outputs.provenance }}
+  injection:
+    description: |
+      The injection information as specified in the reserved definition _injection, in the spack manifest file.
+    value: ${{ steps.defs.outputs.injection }}
+  custom-scopes-space-separated:
+    description: |
+      The custom scopes as specified in the reserved definition _custom-scopes, in the spack manifest file, as a space-separated string.
+    value: ${{ steps.defs.outputs.custom-scopes-space-separated }}
+  custom-scopes-comma-separated:
+    description: |
+      The custom scopes as specified in the reserved definition _custom-scopes, in the spack manifest file, as a comma-separated string.
+    value: ${{ steps.defs.outputs.custom-scopes-comma-separated }}
 runs:
   using: composite
   steps:
@@ -38,7 +62,35 @@ runs:
         )
         name = defs.get("name")
         version = defs.get("version")
+        spack_version = defs.get("spack-version")
+        custom_scopes = defs.get_list("custom-scopes", default=[])
+        provenance = defs.get_list("provenance")
+        # Packages eligible for injection are both the packages needed for provenance and additional injection packages
+        injection = defs.get_list("provenance") + defs.get_list("injection")
 
         with open(os.environ['GITHUB_OUTPUT'], 'a') as o:
           o.write(f"name={name}\n")
           o.write(f"version={version}\n")
+          o.write(f"spack-version={spack_version}\n")
+          o.write(f"custom-scopes-space-separated={" ".join(custom_scopes)}\n")
+          o.write(f"custom-scopes-comma-separated={",".join(custom_scopes)}\n")
+          o.write(f"provenance={",".join(provenance)}\n")
+          o.write(f"injection={",".join(injection)}\n")
+
+    - name: Get repos info
+      id: repos
+      env:
+        PYTHONPATH: ${{ steps.root.outputs.path }}
+      shell: python
+      run: |
+        from scripts.spack_manifest.getter import Repos
+        import os
+
+        repos = Repos.from_file(
+          os.path.join(os.environ['GITHUB_WORKSPACE'], "${{ inputs.spack-manifest-path }}")
+        )
+
+        access_spack_packages_version = repos.get_ref_of("access_spack_packages")
+
+        with open(os.environ['GITHUB_OUTPUT'], 'a') as o:
+          o.write(f"access-spack-packages-version={access_spack_packages_version}\n")
