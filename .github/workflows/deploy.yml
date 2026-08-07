@@ -531,7 +531,7 @@ jobs:
         id: deploy
         env:
           SCOPES: ${{ steps.custom-scopes.outputs.space-separated }}
-          SCOPES_PATH: ${{ steps.path.outputs.spack-config }}/custom/cd
+          SCOPES_PATH: ${{ steps.path.outputs.spack-config }}/custom/cd/${{ needs.check-spack-yaml.outputs.spack-version }}/${{ inputs.deployment-target }}
         # ssh into deployment environment, create and activate the env, install the spack manifest.
         run: |
           # TODO: Remove once we have enough failing IP addresses for NCI HELP-209915
