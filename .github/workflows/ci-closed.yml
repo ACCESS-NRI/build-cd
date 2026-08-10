@@ -78,16 +78,18 @@ jobs:
           ref: ${{ job.workflow_sha }}
           path: build-cd
 
-      - name: Get Spack Version From config/versions.json
+      - name: Get Spack Version From manifest
         id: versions
-        run: echo "spack=$(jq --compact-output --raw-output '.spack' ./config/versions.json)" >> $GITHUB_OUTPUT
+        uses: ./build-cd/.github/actions/get-spack-manifest
+        with:
+          spack-manifest-path: ${{ inputs.spack-manifest-path }}
 
       - name: Get ${{ matrix.target }} Remote Paths
         id: path
         uses: ./build-cd/.github/actions/get-deploy-paths
         with:
           spack-installs-root-path: ${{ vars.SPACK_INSTALLS_ROOT_LOCATION }}
-          spack-version: ${{ steps.versions.outputs.spack }}
+          spack-version: ${{ steps.versions.outputs.spack-version }}
           deployment-target: ${{ matrix.target }}
           deployment-type: Prerelease
           spack-environment: ${{ needs.setup.outputs.version-pattern }}
@@ -108,7 +110,7 @@ jobs:
 
           # Enable spack
            module use ${{ vars.ADMIN_MODULES_DIR }}
-           module load spack/${{ steps.versions.outputs.spack }}
+           module load spack/${{ steps.versions.outputs.spack-version }}
 
            envs=$(find ${{ steps.path.outputs.spack }}/../environments -type d -name '${{ needs.setup.outputs.version-pattern }}' -printf '%f ')
 
@@ -122,7 +124,7 @@ jobs:
           # Custom scopes cleanup (like restricted scopes, etc)
           target=${{ matrix.target }}
           lowered_target="${target,,}"
-          scopes=$(find ${{ steps.path.outputs.spack-config }}/custom/cd/v${{ steps.versions.outputs.spack }}/${lowered_target} -mindepth 1 -maxdepth 1 -type d -printf '%p ')
+          scopes=$(find ${{ steps.path.outputs.spack-config }}/custom/cd/v${{ steps.versions.outputs.spack-version }}/${lowered_target} -mindepth 1 -maxdepth 1 -type d -printf '%p ')
           for scope in $scopes; do
             spack --config-scope $scope gc --except-any-environment --keep-build-dependencies --yes-to-all
           done
