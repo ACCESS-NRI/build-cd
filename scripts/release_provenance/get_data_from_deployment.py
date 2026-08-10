@@ -21,13 +21,14 @@ import spack.main
 def main():
     args = parse_args(sys.argv[1:])
     packages: List[str] = args.packages.split(",") if args.packages else []
-    config_scopes_base_dir: str = args.config_scopes_base_dir if args.config_scopes_base_dir else ""
+    config_scopes_base_dir: str = args.config_scopes_base_dir
     config_scopes: List[str] = args.config_scopes.split(",") if args.config_scopes else []
     output_path = Path(args.output)
 
     # Custom scopes added via spack --config-scope for install need to be added back here
     # so we can find those packages!
-    add_custom_spack_config_scopes(config_scopes_base_dir, config_scopes)
+    if config_scopes_base_dir:
+        add_custom_spack_config_scopes(config_scopes_base_dir, config_scopes)
 
     # Activate the spack environment so we can get relevant specs for this deployment
     spack_env = activate_spack_environment(args.environment)
@@ -65,14 +66,13 @@ def add_custom_spack_config_scopes(config_scopes_dir: str, config_scopes: List[s
     Adds paths to custom spack config scopes to the command_line scope so we can find binaries for
     certain environments that use custom installation directories.
 
-    :param config_scopes_dir: Path relative to the root of the ACCESS-NRI/spack-config repo that contains custom spack configuration scopes given by --custom-scopes
+    :param config_scopes_dir: Absolute path that contains custom spack configuration scopes given by --custom-scopes
     :type config_scopes_dir: str
     :param config_scopes: Names of custom scopes from spack-configs custom/cd directory.
     :type config_scopes: List[str]
     """
-    spack_config_custom_scopes_path: Path = Path(spack.paths.spack_root).parent / "spack-config" / config_scopes_dir
-
-    config_scope_paths: List[str] = [str(spack_config_custom_scopes_path / s) for s in config_scopes]
+    config_scopes_path = Path(config_scopes_dir)
+    config_scope_paths: List[str] = [str(config_scopes_path / s) for s in config_scopes]
 
     print(f"Attempting to load custom scopes: {config_scope_paths}")
 
@@ -213,7 +213,7 @@ def parse_args(args: List[str]) -> argparse.Namespace:
         "--config-scopes-base-dir",
         type=str,
         required=False,
-        help="Path relative to the root of the ACCESS-NRI/spack-config repo that contains custom spack configuration scopes given by --custom-scopes"
+        help="Absolute path to a directory that contains custom spack configuration scopes given by --custom-scopes"
     )
 
     parser.add_argument(
