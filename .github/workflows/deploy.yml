@@ -531,8 +531,9 @@ jobs:
         id: spack-config-scopes
         run: |
           deployment_target="${{ inputs.deployment-target }}"
-          lowered_deployment_target="${deployment_target,,}"
-          deployment_path="${{ steps.path.outputs.spack-config }}/custom/cd/v${{ needs.check-config.outputs.spack-version }}/${lowered_deployment_target}"
+          # The below command is parameter substitution that lowercases the variable
+          lowercase_deployment_target="${deployment_target,,}"
+          deployment_path="${{ steps.path.outputs.spack-config }}/custom/cd/v${{ needs.check-config.outputs.spack-version }}/${lowercase_deployment_target}"
 
           echo "$deployment_path"
 
