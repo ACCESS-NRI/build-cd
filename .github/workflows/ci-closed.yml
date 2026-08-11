@@ -120,7 +120,9 @@ jobs:
           spack gc --except-any-environment --keep-build-dependencies --yes-to-all
 
           # Custom scopes cleanup (like restricted scopes, etc)
-          scopes=$(find ${{ steps.path.outputs.spack-config }}/custom/cd -mindepth 1 -maxdepth 1 -type d -printf '%p ')
+          target=${{ matrix.target }}
+          lowercase_target="${target,,}"
+          scopes=$(find ${{ steps.path.outputs.spack-config }}/custom/cd/v${{ steps.versions.outputs.spack }}/${lowercase_target} -mindepth 1 -maxdepth 1 -type d -printf '%p ')
           for scope in $scopes; do
             spack --config-scope $scope gc --except-any-environment --keep-build-dependencies --yes-to-all
           done

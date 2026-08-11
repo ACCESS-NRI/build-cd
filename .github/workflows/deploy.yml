@@ -527,11 +527,22 @@ jobs:
           done
           EOT
 
+      - name: Set spack-config scopes path
+        id: spack-config-scopes
+        run: |
+          deployment_target="${{ inputs.deployment-target }}"
+          # The below command is parameter substitution that lowercases the variable
+          lowercase_deployment_target="${deployment_target,,}"
+          deployment_path="${{ steps.path.outputs.spack-config }}/custom/cd/v${{ needs.check-config.outputs.spack-version }}/${lowercase_deployment_target}"
+
+          echo "$deployment_path"
+
+          echo "path=$deployment_path" >> $GITHUB_OUTPUT
+
       - name: Deploy to ${{ inputs.deployment-target }} ${{ inputs.deployment-type }}
         id: deploy
         env:
           SCOPES: ${{ steps.custom-scopes.outputs.space-separated }}
-          SCOPES_PATH: ${{ steps.path.outputs.spack-config }}/custom/cd
         # ssh into deployment environment, create and activate the env, install the spack manifest.
         run: |
           # TODO: Remove once we have enough failing IP addresses for NCI HELP-209915
@@ -557,11 +568,11 @@ jobs:
 
           # Finally, install the spack manifest
           spack --debug \
-            $(for s in ${{ env.SCOPES }}; do echo -n "--config-scope=${{ env.SCOPES_PATH }}/$s "; done) \
+            $(for s in ${{ env.SCOPES }}; do echo -n "--config-scope=${{ steps.spack-config-scopes.outputs.path }}/$s "; done) \
             install --fail-fast --fresh ${{ vars.SPACK_INSTALL_ADDITIONAL_ARGS }} || exit $?
 
           spack \
-            $(for s in ${{ env.SCOPES }}; do echo -n "--config-scope=${{ env.SCOPES_PATH }}/$s "; done) \
+            $(for s in ${{ env.SCOPES }}; do echo -n "--config-scope=${{ steps.spack-config-scopes.outputs.path }}/$s "; done) \
             module tcl refresh --upstream-modules -y
           EOT
 
@@ -597,6 +608,7 @@ jobs:
             --environment ${{ steps.path.outputs.spack-environment }} \
             --deployment-name ${{ inputs.expected-root-spec-name }} \
             --packages "${{ steps.config-packages.outputs.packages-for-provenance }}" \
+            --config-scopes-base-dir "${{ steps.spack-config-scopes.outputs.path }}" \
             --config-scopes "${{ steps.custom-scopes.outputs.comma-separated }}" \
             --output ${{ steps.path.outputs.spack-environment }}
           EOT
