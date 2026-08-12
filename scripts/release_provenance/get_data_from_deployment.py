@@ -12,7 +12,6 @@ import spack.environment
 import spack.error
 import spack.cmd
 import spack.config
-import spack.paths
 import spack.spec
 import spack.repo
 import spack.main
@@ -131,24 +130,29 @@ def _get_package_repo_info(package: spack.spec.Spec) -> Tuple[str, str]:
     """
     package_name = package.name
 
-    if package_name == "um":
-        um_class = spack.repo.PATH.get_pkg_class(package_name)
-        um_git_url = um_class._project_cfg[package_name].get('url')
-        um_git_ref = package.variants.get("um_ref")
-
-        if not um_git_url or not um_git_ref:
-            raise RuntimeError("The package 'um' needs to have a git url specified in _resource_cfg and the um_ref variant for provenance.")
-
-        return (
-            um_git_url,
-            um_git_ref.value
-        )
+    if package.name == "um":
+        return _get_package_repo_info_of_um(package)
     else:
-        return (
-            spack.repo.PATH.get_pkg_class(package_name).git,
-            package.format("{version}")
-        )
+        return _get_package_repo_info_of_package(package)
 
+def _get_package_repo_info_of_um(package: spack.spec.Spec) -> Tuple[str, str]:
+    um_class = spack.repo.PATH.get_pkg_class(package.name)
+    um_git_url = um_class._project_cfg[package.name].get('url')
+    um_git_ref = package.variants.get("um_ref")
+
+    if not um_git_url or not um_git_ref:
+        raise RuntimeError("The package 'um' needs to have a git url specified in _project_cfg and the um_ref variant for provenance.")
+
+    return (
+        um_git_url,
+        um_git_ref.value
+    )
+
+def _get_package_repo_info_of_package(package: spack.spec.Spec) -> Tuple[str, str]:
+    return (
+        spack.repo.PATH.get_pkg_class(package.name).git,
+        package.format("{version}")
+    )
 
 def generate_md5s_for_package_binaries(package: spack.spec.Spec) -> List[Dict[str, str]]:
     md5s: List[Dict[str, str]] = []
