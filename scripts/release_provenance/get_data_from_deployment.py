@@ -5,8 +5,7 @@ import json
 import hashlib
 import os
 from pathlib import Path
-# Need to import these as spack python is on 3.6, before __future__ annotations or typing improvements
-from typing import Any, List, Dict, Tuple
+from typing import Any
 
 import spack.environment
 import spack.error
@@ -19,9 +18,9 @@ import spack.main
 
 def main():
     args = parse_args(sys.argv[1:])
-    packages: List[str] = args.packages.split(",") if args.packages else []
+    packages: list[str] = args.packages.split(",") if args.packages else []
     config_scopes_base_dir: str = args.config_scopes_base_dir
-    config_scopes: List[str] = args.config_scopes.split(",") if args.config_scopes else []
+    config_scopes: list[str] = args.config_scopes.split(",") if args.config_scopes else []
     output_path = Path(args.output)
 
     # Custom scopes added via spack --config-scope for install need to be added back here
@@ -33,13 +32,13 @@ def main():
     spack_env = activate_spack_environment(args.environment)
 
     # Get paths for all packages in the environment, output as a spack.location file
-    all_specs: List[spack.spec.Spec] = spack_env.all_specs()
+    all_specs: list[spack.spec.Spec] = spack_env.all_specs()
 
     with open(output_path / "spack.location", 'w') as f:
         spack.cmd.display_specs(all_specs, paths=True, output=f)
 
     # Get spack root specs in the environment
-    root_specs: List[spack.spec.Spec] = [spec for spec in all_specs if spec.satisfies(args.deployment_name)]
+    root_specs: list[spack.spec.Spec] = [spec for spec in all_specs if spec.satisfies(args.deployment_name)]
 
     if len(root_specs) == 0:
         raise RuntimeError("There are no root specs matching the deployment name in the environment")
@@ -53,14 +52,14 @@ def main():
         f.write(root_spec.format('{hash}'))
 
     # Generate package metadata for the specified packages
-    packages_metadata: List[Dict[str, Any]] = generate_packages_metadata(packages, root_spec)
+    packages_metadata: list[dict[str, Any]] = generate_packages_metadata(packages, root_spec)
 
     print(packages_metadata)
 
     with open(output_path / "build-db-pkgs.json", 'w') as f:
         json.dump(packages_metadata, f)
 
-def add_custom_spack_config_scopes(config_scopes_dir: str, config_scopes: List[str]) -> None:
+def add_custom_spack_config_scopes(config_scopes_dir: str, config_scopes: list[str]) -> None:
     """
     Adds paths to custom spack config scopes to the command_line scope so we can find binaries for
     certain environments that use custom installation directories.
@@ -68,10 +67,10 @@ def add_custom_spack_config_scopes(config_scopes_dir: str, config_scopes: List[s
     :param config_scopes_dir: Absolute path that contains custom spack configuration scopes given by --custom-scopes
     :type config_scopes_dir: str
     :param config_scopes: Names of custom scopes from spack-configs custom/cd directory.
-    :type config_scopes: List[str]
+    :type config_scopes: list[str]
     """
     config_scopes_path = Path(config_scopes_dir)
-    config_scope_paths: List[str] = [str(config_scopes_path / s) for s in config_scopes]
+    config_scope_paths: list[str] = [str(config_scopes_path / s) for s in config_scopes]
 
     print(f"Attempting to load custom scopes: {config_scope_paths}")
 
@@ -92,8 +91,8 @@ def activate_spack_environment(spack_env_path: str) -> spack.environment.Environ
     return spack_env
 
 
-def generate_packages_metadata(package_names: List[str], root_spec: spack.spec.Spec) -> List[Dict[str, Any]]:
-    metadata: List[Dict[str, Any]] = []
+def generate_packages_metadata(package_names: list[str], root_spec: spack.spec.Spec) -> list[dict[str, Any]]:
+    metadata: list[dict[str, Any]] = []
 
     for package_name in package_names:
         try:
@@ -154,8 +153,8 @@ def _get_package_repo_info_of_package(package: spack.spec.Spec) -> Tuple[str, st
         package.format("{version}")
     )
 
-def generate_md5s_for_package_binaries(package: spack.spec.Spec) -> List[Dict[str, str]]:
-    md5s: List[Dict[str, str]] = []
+def generate_md5s_for_package_binaries(package: spack.spec.Spec) -> list[dict[str, str]]:
+    md5s: list[dict[str, str]] = []
 
     bin_paths = [
         directory
@@ -186,7 +185,7 @@ def generate_md5s_for_package_binaries(package: spack.spec.Spec) -> List[Dict[st
     return md5s
 
 
-def parse_args(args: List[str]) -> argparse.Namespace:
+def parse_args(args: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Script for generating package build metadata for tracking services release provenance database."
     )
