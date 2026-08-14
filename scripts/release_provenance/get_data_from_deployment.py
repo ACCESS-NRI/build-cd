@@ -103,10 +103,17 @@ def generate_packages_metadata(package_names: list[str], root_spec: spack.spec.S
 
     for package_name in package_names:
         try:
-            package: spack.spec.Spec = root_spec[package_name]
+            queried_package: spack.spec.Spec | spack.spec.SpecBuildInterface = root_spec[package_name]
         except KeyError:
-            print(f"{package} is not in the dependency chain of {root_spec}, can't upload to build database. Exiting...")
+            print(f"{package_name} is not in the dependency chain of {root_spec}, can't upload to build database. Exiting...")
             raise
+
+        # Concrete specs might be returned wrapped in a `SpecBuildInterface`, so  we unwrap to get the `Spec` itself
+        package: spack.spec.Spec = (
+            queried_package.wrapped_obj
+            if isinstance(queried_package, spack.spec.SpecBuildInterface)
+            else queried_package
+        )
 
         package_hash: str  = package.format('{hash}')
         package_location: str = package.format('{prefix}')
