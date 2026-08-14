@@ -4,103 +4,12 @@ from pathlib import Path
 from unittest.mock import patch, Mock
 
 from scripts.release_provenance.tracking_services_data import (
-    get_repo_url_at_ref_or_raise,
     _format_tracking_services_header,
     _format_telemetry_of_model,
     _format_telemetry_of_deployment_target,
     _format_telemetry_of_model_components,
-    get_ref_from_spack_spec_version_or_raise
 )
 from scripts.release_provenance.tracking_services_data import TRACKING_SERVICES_JSON_SCHEMA_VERSION
-
-class TestGetRepoUrlAtVersion:
-
-    @patch("scripts.release_provenance.tracking_services_data._get_release_url_from_ref")
-    def test__get_repo_url_at_ref_or_raise__valid_repo_and_version_release(self, release_url_mock):
-        # Test with a valid repository and version tag (that is a GitHub release)
-        repo_url = "https://github.com/access-nri/access-om2"
-        repo = "access-nri/access-om2"
-        version = "2024.03.0"
-
-        expected_release_url = f"https://github.com/{repo}/releases/tag/{version}"
-
-        # Mock the return value of _get_release_url_from_ref
-        release_url_mock.return_value = expected_release_url
-
-        actual_url = get_repo_url_at_ref_or_raise(repo_url, version)
-
-        assert actual_url == expected_release_url, f"Expected tag-based {expected_release_url}, but got {actual_url}"
-
-    @patch("scripts.release_provenance.tracking_services_data._get_tag_url_from_ref")
-    @patch("scripts.release_provenance.tracking_services_data._get_release_url_from_ref")
-    def test__get_repo_url_at_ref_or_raise__valid_repo_and_version_tag(self, release_url_mock, tag_url_mock):
-        # Test with a valid repository and version tag (that is a GitHub release)
-        repo_url = "https://github.com/access-nri/access-om2"
-        repo = "access-nri/access-om2"
-        version = "2024.03.0"
-
-        expected_tag_url = f"https://github.com/{repo}/releases/tag/{version}"
-
-        # Mock the return values
-        release_url_mock.return_value = None
-        tag_url_mock.return_value = expected_tag_url
-
-        actual_url = get_repo_url_at_ref_or_raise(repo_url, version)
-
-        assert actual_url == expected_tag_url, f"Expected tag-based {expected_tag_url}, but got {actual_url}"
-
-    @patch("scripts.release_provenance.tracking_services_data._get_sha_url_from_ref")
-    @patch("scripts.release_provenance.tracking_services_data._get_tag_url_from_ref")
-    @patch("scripts.release_provenance.tracking_services_data._get_release_url_from_ref")
-    def test_get_repo_url_at_ref_or_raise__valid_repo_and_version_sha(self, release_url_mock, tag_url_mock, sha_url_mock):
-        # Test with a valid repository and version SHA
-        repo_url = "https://github.com/access-nri/access-om2"
-        repo = "access-nri/access-om2"
-        version = "bf1f97ca75b942dd08506b88197cf0feaa1c694d"
-
-        expected_sha_url = f"https://github.com/{repo}/commit/{version}"
-
-        # Mock the return values
-        release_url_mock.return_value = None
-        tag_url_mock.return_value = None
-        sha_url_mock.return_value = expected_sha_url
-
-        # Call the function with the mocked return values
-        actual_url = get_repo_url_at_ref_or_raise(repo_url, version)
-
-        assert actual_url == expected_sha_url, f"Expected sha-based {expected_sha_url}, but got {actual_url}"
-
-    def test_get_repo_url_at_ref_or_raise__invalid_repo_url(self):
-        # Test with an invalid repository
-        repo_url = "https://github.invalid.com/access-nri/access-om2"
-        version = "2024.03.0"
-
-        with pytest.raises(ValueError):
-            get_repo_url_at_ref_or_raise(repo_url, version)
-
-    def test_get_repo_url_at_ref_or_raise__invalid_repo_structure(self):
-        # Test with an invalid repository
-        repo_url = "https://github.com/not-access-nri/not-access-om2"
-        version = "2024.03.0"
-
-        with pytest.raises(ValueError):
-            get_repo_url_at_ref_or_raise(repo_url, version)
-
-    @patch("scripts.release_provenance.tracking_services_data._get_sha_url_from_ref")
-    @patch("scripts.release_provenance.tracking_services_data._get_tag_url_from_ref")
-    @patch("scripts.release_provenance.tracking_services_data._get_release_url_from_ref")
-    def test_get_repo_url_at_ref_or_raise__invalid_version(self, release_url_mock, tag_url_mock, sha_url_mock):
-        # Test with an invalid version tag
-        repo_url = "https://github.com/access-nri/access-om2"
-        version = "invalid-tag"
-
-        # Mock the return values
-        release_url_mock.return_value = None
-        tag_url_mock.return_value = None
-        sha_url_mock.return_value = None
-
-        with pytest.raises(ValueError):
-            get_repo_url_at_ref_or_raise(repo_url, version)
 
 class TestFormatTrackingServicesHeader():
     def test__format_tracking_services_header__valid(self):
@@ -185,35 +94,16 @@ class TestFormatTelemetryOfModelComponents():
                 "spack_package_hash": "uyhr286gh2jyrh2uy3r2t6rg7236tr726t",
                 "version": "2025.04.000",
                 "install_location": "/g/data/vk83/releases/some/thing",
-                "repository_url": "https://github.com/access-nri/access-test-component/releases/tag/2025.04.000",
+                "repository_url": "https://github.com/access-nri/access-test-component/commit/bf1f97ca75b942dd08506b88197cf0feaa1c694d",
+                "md5s": [
+                    {
+                        "path": "/g/data/vk83/releases/some/thing/bin/access-test-component",
+                        "md5": "d41d8cd98f00b204e9800998ecf8427e"
+                    }
+                ],
             },
         ]
 
         actual_telemetry = _format_telemetry_of_model_components("Gadi", Path("tests/scripts/release_provenance/inputs/deploy-access-test-metadata.Gadi"))
 
         assert actual_telemetry == expected_telemetry, f"Expected {expected_telemetry}, but got {actual_telemetry}"
-
-class TestGetRefFromSpackSpecVersionOrRaise():
-    def test_get_ref_from_spack_spec_version_or_raise__valid_no_git_no_version(self):
-        spack_spec_version = "2025.01.2"
-        expected_ref = "2025.01.2"
-
-        actual_ref = get_ref_from_spack_spec_version_or_raise(spack_spec_version)
-
-        assert actual_ref == expected_ref, f"Expected {expected_ref}, but got {actual_ref}"
-
-    def test_get_ref_from_spack_spec_version_or_raise__valid_with_git_no_version(self):
-        spack_spec_version = "git.2025.01.2"
-        expected_ref = "2025.01.2"
-
-        actual_ref = get_ref_from_spack_spec_version_or_raise(spack_spec_version)
-
-        assert actual_ref == expected_ref, f"Expected {expected_ref}, but got {actual_ref}"
-
-    def test_get_ref_from_spack_spec_version_or_raise__valid_with_git_with_version(self):
-        spack_spec_version = "git.2025.01.2=access-esm1.6"
-        expected_ref = "2025.01.2"
-
-        actual_ref = get_ref_from_spack_spec_version_or_raise(spack_spec_version)
-
-        assert actual_ref == expected_ref, f"Expected {expected_ref}, but got {actual_ref}"
