@@ -4,6 +4,7 @@ import argparse
 import json
 import hashlib
 import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -12,8 +13,14 @@ import spack.error
 import spack.cmd
 import spack.config
 import spack.spec
-import spack.repo
 import spack.main
+import spack.util.git
+
+# Matches the ref portion of a spack spec version, eg. `git.2025.01.2=access-esm1.6` -> `2025.01.2`
+SPEC_VERSION_REF_REGEX = r'^(?:git\.)?(?P<ref>[^=+~ ]+)'
+
+# Matches the OWNER/REPO portion of a GitHub url
+GITHUB_OWNER_REPO_REGEX = r"(?:github\.com)[:/](?P<owner_repo>[^/]+/[^/]+?)(?:\.git)?$"
 
 
 def main():
@@ -103,55 +110,131 @@ def generate_packages_metadata(package_names: list[str], root_spec: spack.spec.S
 
         package_hash: str  = package.format('{hash}')
         package_location: str = package.format('{prefix}')
-        package_repo_url: str
-        package_repo_version: str
-        package_repo_url, package_repo_version = _get_package_repo_info(package)
+        package_version: str
+        package_repository_url: str
+        package_version, package_repository_url = _get_package_repo_info(package)
 
         md5s_of_binaries = generate_md5s_for_package_binaries(package)
 
         metadata.append({
             "name": package_name,
-            "version": package_repo_version,
+            "version": package_version,
             "hash": package_hash,
             "location": package_location,
-            "url": package_repo_url,
+            "repository_url": package_repository_url,
             "md5s": md5s_of_binaries
         })
 
     return metadata
 
-def _get_package_repo_info(package: spack.spec.Spec) -> Tuple[str, str]:
+def _get_package_repo_info(spec: spack.spec.Spec) -> tuple[str, str]:
     """
     Get package repo information from the package.py file.
     This is different for certain packages like the um, which have variants and structs in the
     package.py file that have that information.
-    Returns: A pair composed of a git url and a git ref
+    Returns: A pair composed of a human-readable version and a url to the exact commit the
+    package was built from.
     """
-    package_name = package.name
-
-    if package.name == "um":
-        return _get_package_repo_info_of_um(package)
+    if spec.name == "um":
+        return _get_package_repo_info_of_um(spec)
     else:
-        return _get_package_repo_info_of_package(package)
+        return _get_package_repo_info_of_package(spec)
 
-def _get_package_repo_info_of_um(package: spack.spec.Spec) -> Tuple[str, str]:
-    um_class = spack.repo.PATH.get_pkg_class(package.name)
-    um_git_url = um_class._project_cfg[package.name].get('url')
-    um_git_ref = package.variants.get("um_ref")
+def _get_package_repo_info_of_um(spec: spack.spec.Spec) -> tuple[str, str]:
+    """
+    The 'um' builds its sources as spack resources rather than as a spack version, so there is no
+    `commit` variant to read. Instead, the `um_ref` variant holds a branch/tag/commit that we
+    resolve against the remote ourselves.
+    Returns: A pair composed of a human-readable version and a commit url
+    """
+    um_git_url = spec.package._project_cfg[spec.name].get('url') # type: ignore (It's not a spack.package_base.PackageBase but a UmBasePackage subclass from ASP)
+    um_ref_variant = spec.variants.get("um_ref")
 
-    if not um_git_url or not um_git_ref:
+    if not um_git_url or not um_ref_variant:
         raise RuntimeError("The package 'um' needs to have a git url specified in _project_cfg and the um_ref variant for provenance.")
 
+    um_git_url = str(um_git_url)
+    um_ref = str(um_ref_variant.value)
+
+    commit_sha = _resolve_ref_to_commit_sha(um_git_url, um_ref)
+
     return (
-        um_git_url,
-        um_git_ref.value
+        _version_from_spec_version(um_ref),
+        _github_commit_url(um_git_url, commit_sha)
     )
 
-def _get_package_repo_info_of_package(package: spack.spec.Spec) -> Tuple[str, str]:
+def _get_package_repo_info_of_package(spec: spack.spec.Spec) -> tuple[str, str]:
+    """
+    Get the version of a spec, and a url to the commit that spack resolved that version to
+    during concretization.
+    Returns: A pair composed of a human-readable version and a commit url
+    """
+    version = spec.version
+
+    # `version()` directives can override the package-level `git` url (not that we expect that to happen with our packages)
+    git_url = spec.package.version_or_package_attr("git", version, None)
+
+    if not git_url:
+        raise RuntimeError(
+            f"The package '{spec.name}' needs a git url specified on the package or on the "
+            f"`version()` directive of version '{version}' for provenance."
+        )
+
+    # A concretized spec records the commit sha it resolved the version to in the `commit` variant.
+    # Spack only warns when it can't resolve one (but it will pull correctly at install time),
+    # so we have to fail here to avoid recording a mutable ref like a branch name.
+    commit_variant = spec.variants.get("commit")
+
+    if not commit_variant:
+        raise RuntimeError(
+            f"The package '{spec.name}' has no `commit` variant even though it has a git repository,"
+            f"meaning spack could not resolve version '{version}' to a commit sha during concretization, but it installed correctly."
+        )
+
+    git_ref = commit_variant.value
+
     return (
-        spack.repo.PATH.get_pkg_class(package.name).git,
-        package.format("{version}")
+        _version_from_spec_version(str(version)),
+        _github_commit_url(str(git_url), str(git_ref))
     )
+
+def _version_from_spec_version(spec_version: str) -> str:
+    """
+    Extracts a human-readable version from a spack spec version string, stripping the `git.` prefix
+    and any `=version` suffix used by specs that are still pinned to an explicit git ref.
+    eg. `git.2025.01.2=access-esm1.6` -> `2025.01.2`, or `CICE6.0-1` -> `CICE6.0-1`
+    """
+    match = re.search(SPEC_VERSION_REF_REGEX, spec_version)
+
+    if not match:
+        raise RuntimeError(f"Invalid spec version: {spec_version}")
+
+    return match.group("ref")
+
+def _github_commit_url(git_url: str, commit_sha: str) -> str:
+    """
+    Builds a url pointing at an exact commit of a GitHub repository.
+    """
+    match = re.search(GITHUB_OWNER_REPO_REGEX, git_url)
+
+    if not match:
+        raise RuntimeError(f"Invalid GitHub repository url: {git_url}")
+
+    return f"https://github.com/{match.group('owner_repo')}/commit/{commit_sha}"
+
+def _resolve_ref_to_commit_sha(git_url: str, ref: str) -> str:
+    """
+    Resolves a branch/tag/commit to a full commit sha by querying the remote.
+    """
+    if spack.util.git.is_git_commit_sha(ref):
+        return ref
+
+    sha_of_ref: str | None = spack.util.git.get_commit_sha(git_url, ref)
+    if not sha_of_ref:
+        raise RuntimeError(
+            f"Could not resolve ref '{ref}' of '{git_url}' to a commit sha. A resolved commit sha is required for provenance."
+        )
+    return sha_of_ref
 
 def generate_md5s_for_package_binaries(package: spack.spec.Spec) -> list[dict[str, str]]:
     md5s: list[dict[str, str]] = []
