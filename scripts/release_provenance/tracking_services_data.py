@@ -141,18 +141,20 @@ def _format_telemetry_of_model_components(
 ) -> list[dict[str, str]]:
     model_components_telemetry: list[dict[str, str]] = []
 
+    build_database_packages_filename = f"{deployment_target}.build-db-pkgs.json"
     with open(
-        metadata_folder_path / f"{deployment_target}.build-db-pkgs.json", "r"
+        metadata_folder_path / build_database_packages_filename, "r"
     ) as outputs_file:
         # Load relevant json files
-        outputs: dict[str, Any] = json.load(outputs_file)
+        outputs: list[dict[str, Any]] = json.load(outputs_file)
+
+        if any("error" in component for component in outputs):
+            raise ValueError(
+                f"Errors found in model components metadata for deployment target {deployment_target}. Check {build_database_packages_filename}, fix and manually upload."
+            )
 
         for component in outputs:
             version = get_ref_from_spack_spec_version_or_raise(component["version"])
-
-            repo_url_at_version = get_repo_url_at_ref_or_raise(
-                component["url"], version
-            )
 
             model_components_telemetry.append(
                 {
@@ -160,7 +162,7 @@ def _format_telemetry_of_model_components(
                     "spack_package_hash": component["hash"],
                     "version": version,
                     "install_location": component["location"],
-                    "repository_url": repo_url_at_version,
+                    "repository_url": component["url"],
                     "md5s": component["md5s"]
                 }
             )
@@ -170,13 +172,10 @@ def _format_telemetry_of_model_components(
 def get_ref_from_spack_spec_version_or_raise(spec_version: str) -> str:
     """
     Extracts the git ref from a Spack spec version string.
-
     Args:
         spec_version (str): The Spack spec version string.
-
     Returns:
         str: The extracted git ref.
-
     Raises:
         ValueError: If the spec version string is invalid.
     """
@@ -187,106 +186,6 @@ def get_ref_from_spack_spec_version_or_raise(spec_version: str) -> str:
         raise ValueError(f"Invalid spec version: {spec_version}")
 
     return match.group("ref")
-
-
-def get_repo_url_at_ref_or_raise(repository_url: str, ref: str) -> str:
-    # Convert github URL to OWNER/REPO format
-    owner_repo_pattern = r"(?:github\.com)[:/]([^/]+/[^/.]+)(?:\.git)?$"
-    match = re.search(owner_repo_pattern, repository_url)
-    if not match:
-        raise ValueError(f"Invalid GitHub repository URL: {repository_url}")
-
-    repository = match.groups()[0]
-
-    # Set up request headers
-    repo_request_headers: dict[str, str] = {
-        "Accept": "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
-    }
-
-    # CI can use an optional token to pull private repositories data
-    if os.getenv("TRACKING_SERVICES_REPO_FETCH_TOKEN") is not None and os.getenv("TRACKING_SERVICES_REPO_FETCH_TOKEN") != "":
-        repo_request_headers["Authorization"] = f"Bearer {os.getenv('TRACKING_SERVICES_REPO_FETCH_TOKEN')}"
-    elif os.getenv("GITHUB_TOKEN") is not None:
-        repo_request_headers["Authorization"] = f"Bearer {os.getenv('GITHUB_TOKEN')}"
-
-    # Check if the version is a release, tag, or commit SHA
-    if url := _get_release_url_from_ref(repository, repo_request_headers, ref):
-        return url
-
-    if url := _get_tag_url_from_ref(repository, repo_request_headers, ref):
-        return url
-
-    if url := _get_sha_url_from_ref(repository, repo_request_headers, ref):
-        return url
-
-    raise ValueError(f"Failed to get tag or sha ref from {repository} at {ref}")
-
-def _get_release_url_from_ref(repository: str, headers: dict[str, str], version: str) -> str | None:
-    """
-    Fetches the release URL from the GitHub API for a given repository and version.
-
-    Args:
-        repository (str): The repository in OWNER/REPO format.
-        headers (dict[str, str]): The request headers for the GitHub API.
-        version (str): The version to fetch.
-
-    Returns:
-        str | None: The release URL if found, otherwise None.
-    """
-    release_request = requests.get(
-        f"https://api.github.com/repos/{repository}/releases/tags/{version}",
-        headers=headers,
-    )
-
-    if release_request.status_code == 200:
-        return f"https://github.com/{repository}/releases/tag/{version}"
-
-    return None
-
-def _get_tag_url_from_ref(repository: str, headers: dict[str, str], version: str) -> str | None:
-    """
-    Fetches the tag URL from the GitHub API for a given repository and version.
-
-    Args:
-        repository (str): The repository in OWNER/REPO format.
-        headers (dict[str, str]): The request headers for the GitHub API.
-        version (str): The version to fetch.
-
-    Returns:
-        str | None: The tag URL if found, otherwise None.
-    """
-    tag_request = requests.get(
-        f"https://api.github.com/repos/{repository}/git/refs/tags/{version}",
-        headers=headers,
-    )
-
-    if tag_request.status_code == 200:
-        return f"https://github.com/{repository}/releases/tag/{version}"
-
-    return None
-
-def _get_sha_url_from_ref(repository: str, headers: dict[str, str], version: str) -> str | None:
-    """
-    Fetches the commit URL from the GitHub API for a given repository and version.
-
-    Args:
-        repository (str): The repository in OWNER/REPO format.
-        headers (dict[str, str]): The request headers for the GitHub API.
-        version (str): The version to fetch.
-
-    Returns:
-        str | None: The commit URL if found, otherwise None.
-    """
-    sha_request = requests.get(
-        f"https://api.github.com/repos/{repository}/commits/{version}",
-        headers=headers,
-    )
-
-    if sha_request.status_code == 200:
-        return f"https://github.com/{repository}/commit/{version}"
-
-    return None
 
 def validate_deployment_information_against_schema(
     deployment_information: dict[str, Any]
