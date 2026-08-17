@@ -5,18 +5,152 @@ import json
 import hashlib
 import os
 from pathlib import Path
-# Need to import these as spack python is on 3.6, before __future__ annotations or typing improvements
-from typing import Any, List, Dict, Tuple
+from typing import Any
+from abc import ABC, abstractmethod
 
 import spack.environment
 import spack.error
 import spack.cmd
 import spack.config
-import spack.paths
 import spack.spec
-import spack.repo
 import spack.main
+import spack.variant
+import spack.util.git
 
+class SpecInfo(ABC):
+    def __init__(self, spec: spack.spec.Spec):
+        self.spec = spec
+
+    # We have the below two abstract methods because getting package versions and commit URLs are very
+    # different for UM vs non-UM packages.
+    @abstractmethod
+    def get_package_version(self) -> str:
+        pass
+
+    @abstractmethod
+    def get_commit_url(self) -> str:
+        pass
+
+    def get_prefix(self) -> str:
+        return self.spec.prefix
+
+    def get_hash(self) -> str:
+        return self.spec.dag_hash()
+
+    def _build_commit_url(self, url: str, commit: str) -> str:
+        """
+        Builds a web-browsable commit url from a git url.
+
+        Git urls are commonly suffixed with '.git', which is valid for cloning but 404s when
+        used to build a '/commit/<sha>' url, so it is stripped here.
+
+        :param url: Git url of the repository
+        :type url: str
+        :param commit: Full commit sha
+        :type commit: str
+        """
+        return f"{url.rstrip('/').removesuffix('.git')}/commit/{commit}"
+
+    def generate_md5s_for_package_binaries(self) -> list[dict[str, str]]:
+        md5s: list[dict[str, str]] = []
+
+        bin_paths = [
+            directory
+            for directory in Path(self.spec.prefix).rglob("bin")
+            if directory.is_dir()
+        ]
+
+        if not bin_paths:
+            return md5s
+
+        executables = [
+            executable
+            for bin_path in bin_paths
+            for executable in bin_path.rglob('*')
+            if executable.is_file() and os.access(executable, os.X_OK)
+        ]
+
+        for executable in executables:
+            with open(executable, 'rb') as executable_file, open(executable.with_suffix(executable.suffix + ".md5"), 'w') as md5_file:
+                hash = hashlib.md5(executable_file.read()).hexdigest()
+                md5_file.write(hash)
+
+            md5s.append({
+                "path": str(executable),
+                "md5": hash
+            })
+
+        return md5s
+
+
+class UmSpecInfo(SpecInfo):
+    def __init__(self, spec: spack.spec.Spec):
+        super().__init__(spec)
+
+    def get_package_version(self) -> str:
+        um_ref_variant: spack.variant.VariantValue | None = self.spec.variants.get("um_ref")
+
+        if not um_ref_variant:
+            raise RuntimeError(f"The package 'um' needs a um_ref defined in the environment for provenance.")
+
+        um_ref: str = str(um_ref_variant.value)
+
+        return um_ref
+
+    def get_commit_url(self) -> str:
+        um_ref = self.get_package_version()
+
+        um_git_url = self.spec.package._project_cfg[self.spec.name].get('url') # type: ignore (because we are using access-spack-packages UmBasePackage not BasePackage)
+
+        if not um_git_url:
+            raise RuntimeError("The package 'um' needs to have a git url specified in _project_cfg for provenance.")
+
+        um_commit = self._get_commit_from(um_git_url, um_ref)
+        um_git_commit_url = self._build_commit_url(um_git_url, um_commit)
+
+        return um_git_commit_url
+
+    def _get_commit_from(self, url: str, ref: str) -> str:
+        """
+        Resolves a git ref (branch, tag or commit) to a full commit sha by querying the remote.
+
+        :param url: Git url of the repository to query
+        :type url: str
+        :param ref: Branch, tag or commit sha to resolve
+        :type ref: str
+        """
+        if spack.util.git.is_git_commit_sha(ref):
+            return ref
+
+        commit_sha: str | None = spack.util.git.get_commit_sha(url, ref)
+
+        if not commit_sha:
+            raise RuntimeError(f"Failed to resolve the ref '{ref}' against '{url}', can't determine commit for provenance.")
+
+        return commit_sha
+
+
+class PackageSpecInfo(SpecInfo):
+    def __init__(self, spec: spack.spec.Spec):
+        super().__init__(spec)
+
+    def get_package_version(self) -> str:
+        return str(self.spec.version)
+
+    def get_commit_url(self) -> str:
+        git_url = self.spec.package.version_or_package_attr("git", self.spec.version, None)
+        if not git_url:
+            raise RuntimeError(f"The package '{self.spec.name}' needs to have a git url as part of the version or the git attribute for provenance.")
+
+        commit_variant: spack.variant.VariantValue | None = self.spec.variants.get("commit")
+        if not commit_variant:
+            raise RuntimeError(f"The package '{self.spec.name}' needs to have a reserved commit variant for provenance.")
+
+        commit = str(commit_variant.value)
+
+        commit_url: str = self._build_commit_url(str(git_url), commit)
+
+        return commit_url
 
 def main():
     args = parse_args(sys.argv[1:])
@@ -92,97 +226,58 @@ def activate_spack_environment(spack_env_path: str) -> spack.environment.Environ
 
     return spack_env
 
+def _generate_error_info_for_metadata(name: str, error: str) -> dict[str, str]:
+    return {"name": name, "error": error}
 
 def generate_packages_metadata(package_names: list[str], root_spec: spack.spec.Spec) -> list[dict[str, Any]]:
     metadata: list[dict[str, Any]] = []
 
     for package_name in package_names:
         try:
-            package: spack.spec.Spec = root_spec[package_name]
+            spec_wrapper: spack.spec.Spec | spack.spec.SpecBuildInterface = root_spec[package_name]
         except KeyError:
-            print(f"{package} is not in the dependency chain of {root_spec}, can't upload to build database. Exiting...")
-            raise
+            error_msg=f"{package_name} is not in the dependency chain of {root_spec}, can't upload to build database."
+            print(f"::warning::{error_msg}")
+            metadata.append(_generate_error_info_for_metadata(package_name, error_msg))
+            continue
 
-        package_hash: str  = package.format('{hash}')
-        package_location: str = package.format('{prefix}')
-        package_repo_url: str
-        package_repo_version: str
-        package_repo_url, package_repo_version = _get_package_repo_info(package)
+        concrete_spec: spack.spec.Spec = spec_wrapper.wrapped_obj if isinstance(spec_wrapper, spack.spec.SpecBuildInterface) else spec_wrapper
 
-        md5s_of_binaries = generate_md5s_for_package_binaries(package)
+        spec: SpecInfo = UmSpecInfo(concrete_spec) if concrete_spec.name == "um" else PackageSpecInfo(concrete_spec)
+
+        package_hash: str  = spec.get_hash()
+        package_location: str = spec.get_prefix()
+
+        # Try and get the package version of a given package
+        try:
+            package_repo_version: str = spec.get_package_version()
+        except RuntimeError as e:
+            print(f"::warning::{e}")
+            metadata.append(_generate_error_info_for_metadata(package_name, str(e)))
+            continue
+
+        # Try and get the commit URL of a given package
+        try:
+            package_commit_url: str = spec.get_commit_url()
+        except RuntimeError as e:
+            print(f"::warning::{e}")
+            metadata.append(_generate_error_info_for_metadata(package_name, str(e)))
+            continue
+
+        md5s_of_binaries = spec.generate_md5s_for_package_binaries()
 
         metadata.append({
             "name": package_name,
             "version": package_repo_version,
             "hash": package_hash,
             "location": package_location,
-            "url": package_repo_url,
+            "url": package_commit_url,
             "md5s": md5s_of_binaries
         })
 
     return metadata
 
-def _get_package_repo_info(package: spack.spec.Spec) -> Tuple[str, str]:
-    """
-    Get package repo information from the package.py file.
-    This is different for certain packages like the um, which have variants and structs in the
-    package.py file that have that information.
-    Returns: A pair composed of a git url and a git ref
-    """
-    package_name = package.name
-
-    if package_name == "um":
-        um_class = spack.repo.PATH.get_pkg_class(package_name)
-        um_git_url = um_class._project_cfg[package_name].get('url')
-        um_git_ref = package.variants.get("um_ref")
-
-        if not um_git_url or not um_git_ref:
-            raise RuntimeError("The package 'um' needs to have a git url specified in _resource_cfg and the um_ref variant for provenance.")
-
-        return (
-            um_git_url,
-            um_git_ref.value
-        )
-    else:
-        return (
-            spack.repo.PATH.get_pkg_class(package_name).git,
-            package.format("{version}")
-        )
-
-
-def generate_md5s_for_package_binaries(package: spack.spec.Spec) -> List[Dict[str, str]]:
-    md5s: List[Dict[str, str]] = []
-
-    bin_paths = [
-        directory
-        for directory in Path(package.prefix).rglob("bin")
-        if directory.is_dir()
-    ]
-
-    if not bin_paths:
-        return md5s
-
-    executables = [
-        executable
-        for bin_path in bin_paths
-        for executable in bin_path.rglob('*')
-        if executable.is_file() and os.access(executable, os.X_OK)
-    ]
-
-    for executable in executables:
-        with open(executable, 'rb') as executable_file, open(executable.with_suffix(executable.suffix + ".md5"), 'w') as md5_file:
-            hash = hashlib.md5(executable_file.read()).hexdigest()
-            md5_file.write(hash)
-
-        md5s.append({
-            "path": str(executable),
-            "md5": hash
-        })
-
-    return md5s
-
-
-def parse_args(args: List[str]) -> argparse.Namespace:
+def parse_args(args: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Script for generating package build metadata for tracking services release provenance database."
     )
