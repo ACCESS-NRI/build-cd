@@ -15,20 +15,21 @@ import spack.config
 import spack.spec
 import spack.main
 import spack.variant
+import spack.version
 import spack.util.git
 
 class SpecInfo(ABC):
     def __init__(self, spec: spack.spec.Spec):
         self.spec = spec
 
-    # We have the below two abstract methods because getting package versions and commit URLs are very
+    # We have the below two abstract methods because getting package versions and ref URLs are very
     # different for UM vs non-UM packages.
     @abstractmethod
     def get_package_version(self) -> str:
         pass
 
     @abstractmethod
-    def get_commit_url(self) -> str:
+    def get_ref_url(self) -> str:
         pass
 
     def get_prefix(self) -> str:
@@ -36,20 +37,6 @@ class SpecInfo(ABC):
 
     def get_hash(self) -> str:
         return self.spec.dag_hash()
-
-    def _build_commit_url(self, url: str, commit: str) -> str:
-        """
-        Builds a web-browsable commit url from a git url.
-
-        Git urls are commonly suffixed with '.git', which is valid for cloning but 404s when
-        used to build a '/commit/<sha>' url, so it is stripped here.
-
-        :param url: Git url of the repository
-        :type url: str
-        :param commit: Full commit sha
-        :type commit: str
-        """
-        return f"{url.rstrip('/').removesuffix('.git')}/commit/{commit}"
 
     def generate_md5s_for_package_binaries(self) -> list[dict[str, str]]:
         md5s: list[dict[str, str]] = []
@@ -82,6 +69,57 @@ class SpecInfo(ABC):
 
         return md5s
 
+    def _get_ref_type(self, url: str, ref: str) -> str:
+        """
+        Determines the type of a git ref (branch, tag, or commit) for a given url and ref.
+
+        Uses `git ls-remote` so the repository does not need to be cloned. If the ref matches
+        neither a remote branch nor a remote tag, it is assumed to be a commit sha.
+
+        :param url: Git url of the repository
+        :type url: str
+        :param ref: Branch name, tag name or commit sha
+        :type ref: str
+        """
+        if spack.util.git.is_git_commit_sha(ref):
+            return "commit"
+
+        git_exe = spack.util.git.git(required=True)
+
+        # A branch maps to refs/heads/ and a tag maps to refs/tags/.
+        for ref_type, namespace in (("tag", "tags"), ("branch", "heads")):
+            git_exe(
+                "ls-remote",
+                "--exit-code",
+                f"--{namespace}",
+                url,
+                f"refs/{namespace}/{ref}",
+                output=os.devnull,
+                error=os.devnull,
+                fail_on_error=False,
+            )
+
+            if git_exe.returncode == 0:
+                return ref_type
+
+        return "unknown"
+
+    def _build_ref_url(self, url: str, ref: str, ref_type: str) -> str:
+        """
+        Builds a web-browsable url for a ref, based on the type of that ref.
+        """
+        base_url = url.rstrip('/').removesuffix('.git')
+
+        match ref_type:
+            case "tag":
+                return f"{base_url}/releases/tag/{ref}"
+            case "branch":
+                return f"{base_url}/tree/{ref}"
+            case "commit":
+                return f"{base_url}/commit/{ref}"
+            case _:
+                raise RuntimeError(f"Unknown git ref type '{ref_type}' for ref '{ref}' of {url}.")
+
 
 class UmSpecInfo(SpecInfo):
     def __init__(self, spec: spack.spec.Spec):
@@ -97,7 +135,7 @@ class UmSpecInfo(SpecInfo):
 
         return um_ref
 
-    def get_commit_url(self) -> str:
+    def get_ref_url(self) -> str:
         um_ref = self.get_package_version()
 
         um_git_url = self.spec.package._project_cfg[self.spec.name].get('url') # type: ignore (because we are using access-spack-packages UmBasePackage not BasePackage)
@@ -105,29 +143,10 @@ class UmSpecInfo(SpecInfo):
         if not um_git_url:
             raise RuntimeError("The package 'um' needs to have a git url specified in _project_cfg for provenance.")
 
-        um_commit = self._get_commit_from(um_git_url, um_ref)
-        um_git_commit_url = self._build_commit_url(um_git_url, um_commit)
+        ref_type = self._get_ref_type(um_git_url, um_ref)
+        um_git_ref_url = self._build_ref_url(um_git_url, um_ref, ref_type)
 
-        return um_git_commit_url
-
-    def _get_commit_from(self, url: str, ref: str) -> str:
-        """
-        Resolves a git ref (branch, tag or commit) to a full commit sha by querying the remote.
-
-        :param url: Git url of the repository to query
-        :type url: str
-        :param ref: Branch, tag or commit sha to resolve
-        :type ref: str
-        """
-        if spack.util.git.is_git_commit_sha(ref):
-            return ref
-
-        commit_sha: str | None = spack.util.git.get_commit_sha(url, ref)
-
-        if not commit_sha:
-            raise RuntimeError(f"Failed to resolve the ref '{ref}' against '{url}', can't determine commit for provenance.")
-
-        return commit_sha
+        return um_git_ref_url
 
 
 class PackageSpecInfo(SpecInfo):
@@ -137,20 +156,37 @@ class PackageSpecInfo(SpecInfo):
     def get_package_version(self) -> str:
         return str(self.spec.version)
 
-    def get_commit_url(self) -> str:
-        git_url = self.spec.package.version_or_package_attr("git", self.spec.version, None)
-        if not git_url:
-            raise RuntimeError(f"The package '{self.spec.name}' needs to have a git url as part of the version or the git attribute for provenance.")
+    def get_ref_url(self) -> str:
+        git_url = str(self.spec.package.version_or_package_attr("git", self.spec.version))
 
-        commit_variant: spack.variant.VariantValue | None = self.spec.variants.get("commit")
-        if not commit_variant:
-            raise RuntimeError(f"The package '{self.spec.name}' needs to have a reserved commit variant for provenance.")
+        resolved_ref = self._resolve_spack_ref(git_url)
+        ref_type: str = self._get_ref_type(git_url, resolved_ref)
 
-        commit = str(commit_variant.value)
+        url: str = self._build_ref_url(git_url, resolved_ref, ref_type)
 
-        commit_url: str = self._build_commit_url(str(git_url), commit)
+        return url
 
-        return commit_url
+    def _resolve_spack_ref(self, url: str) -> str:
+        # ConcreteVersion superclasses StandardVersion (@2025.01.001) and GitVersion (@git.REF) - we need to handle either case
+        version: spack.version.ConcreteVersion = self.spec.version
+
+        if isinstance(version, spack.version.StandardVersion):
+            # Fetch the version info from the version() function in the package.py
+            pkg_version = self.spec.package.versions.get(version)
+            if pkg_version is None:
+                raise RuntimeError(f"Package {self.spec.name} is missing a version() for {version}, despite installing successfully")
+
+            resolved_ref = pkg_version.get("tag") or pkg_version.get("branch") or pkg_version.get("commit")
+
+            if resolved_ref:
+                return resolved_ref
+            else:
+                raise RuntimeError(f"Unknown standard version format for {self.spec.name} version {version}")
+
+        elif isinstance(version, spack.version.GitVersion) and version.ref:
+            return version.ref
+        else:
+            raise NotImplementedError(f"Haven't yet handled a non-GitVersion/StandardVersion for {self.spec.name} version {version}")
 
 def main():
     args = parse_args(sys.argv[1:])
@@ -256,9 +292,9 @@ def generate_packages_metadata(package_names: list[str], root_spec: spack.spec.S
             metadata.append(_generate_error_info_for_metadata(package_name, str(e)))
             continue
 
-        # Try and get the commit URL of a given package
+        # Try and get the ref URL of a given package
         try:
-            package_commit_url: str = spec.get_commit_url()
+            package_ref_url: str = spec.get_ref_url()
         except RuntimeError as e:
             print(f"::warning::{e}")
             metadata.append(_generate_error_info_for_metadata(package_name, str(e)))
@@ -271,7 +307,7 @@ def generate_packages_metadata(package_names: list[str], root_spec: spack.spec.S
             "version": package_repo_version,
             "hash": package_hash,
             "location": package_location,
-            "url": package_commit_url,
+            "url": package_ref_url,
             "md5s": md5s_of_binaries
         })
 
