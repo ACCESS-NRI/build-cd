@@ -8,7 +8,8 @@ import re
 from pathlib import Path
 from typing import Any
 
-TRACKING_SERVICES_JSON_SCHEMA_VERSION = "3-0-0"
+# TODO: Change this to 2-1-0 once the tracking services side supports such a schema
+TRACKING_SERVICES_JSON_SCHEMA_VERSION = "2-0-0"
 TRACKING_SERVICES_JSON_SCHEMA_URL = f"https://raw.githubusercontent.com/ACCESS-NRI/schema/main/au.org.access-nri/tracking_services/release_provenance/telemetry/{TRACKING_SERVICES_JSON_SCHEMA_VERSION}.json"
 
 
