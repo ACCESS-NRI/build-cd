@@ -8,7 +8,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-TRACKING_SERVICES_JSON_SCHEMA_VERSION = "2-0-0"
+TRACKING_SERVICES_JSON_SCHEMA_VERSION = "3-0-0"
 TRACKING_SERVICES_JSON_SCHEMA_URL = f"https://raw.githubusercontent.com/ACCESS-NRI/schema/main/au.org.access-nri/tracking_services/release_provenance/telemetry/{TRACKING_SERVICES_JSON_SCHEMA_VERSION}.json"
 
 
@@ -161,6 +161,7 @@ def _format_telemetry_of_model_components(
                     "name": component["name"],
                     "spack_package_hash": component["hash"],
                     "version": version,
+                    "commit_hash": component["commit"],
                     "install_location": component["location"],
                     "repository_url": component["url"],
                     "md5s": component["md5s"]
