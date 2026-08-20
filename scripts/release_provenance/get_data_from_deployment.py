@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 from typing import Any
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 
 import spack.environment
 import spack.error
@@ -18,25 +19,44 @@ import spack.variant
 import spack.version
 import spack.util.git
 
+
+
+@dataclass(frozen=True)
+class SpecProvenance():
+    """
+    We require git provenance of our spack specs, so we need to know the version, commit hash,
+    and a web-browsable url for the ref.
+    """
+    version: str
+    commit_hash: str
+    ref_url: str
+
 class SpecInfo(ABC):
     def __init__(self, spec: spack.spec.Spec):
         self.spec = spec
 
-    # We have the below two abstract methods because getting package versions and ref URLs are very
+    def to_metadata(self) -> dict[str, Any]:
+        try:
+            provenance: SpecProvenance = self._resolve_provenance()
+        except RuntimeError as e:
+            print(f"::warning::{e}")
+            return {"name": self.spec.name, "error": str(e)}
+
+        return {
+            "name": self.spec.name,
+            "version": provenance.version,
+            "commit": provenance.commit_hash,
+            "hash": self.spec.dag_hash(),
+            "location": str(self.spec.prefix),
+            "url": provenance.ref_url,
+            "md5s": self.generate_md5s_for_package_binaries()
+        }
+
+    # We have this abstract method because getting provenance is very
     # different for UM vs non-UM packages.
     @abstractmethod
-    def get_package_version(self) -> str:
+    def _resolve_provenance(self) -> SpecProvenance:
         pass
-
-    @abstractmethod
-    def get_ref_url(self) -> str:
-        pass
-
-    def get_prefix(self) -> str:
-        return self.spec.prefix
-
-    def get_hash(self) -> str:
-        return self.spec.dag_hash()
 
     def generate_md5s_for_package_binaries(self) -> list[dict[str, str]]:
         md5s: list[dict[str, str]] = []
@@ -125,6 +145,17 @@ class UmSpecInfo(SpecInfo):
     def __init__(self, spec: spack.spec.Spec):
         super().__init__(spec)
 
+    def _resolve_provenance(self) -> SpecProvenance:
+        version = self.get_package_version()
+        ref_url = self.get_ref_url(version)
+        commit_hash = self.get_commit_hash(version, ref_url)
+
+        return SpecProvenance(
+            version=version,
+            commit_hash=commit_hash,
+            ref_url=ref_url,
+        )
+
     def get_package_version(self) -> str:
         um_ref_variant: spack.variant.VariantValue | None = self.spec.variants.get("um_ref")
 
@@ -135,26 +166,49 @@ class UmSpecInfo(SpecInfo):
 
         return um_ref
 
-    def get_ref_url(self) -> str:
-        um_ref = self.get_package_version()
-
+    def get_ref_url(self, version: str) -> str:
         um_git_url = self.spec.package._project_cfg[self.spec.name].get('url') # type: ignore (because we are using access-spack-packages UmBasePackage not BasePackage)
 
         if not um_git_url:
             raise RuntimeError("The package 'um' needs to have a git url specified in _project_cfg for provenance.")
 
-        ref_type = self._get_ref_type(um_git_url, um_ref)
-        um_git_ref_url = self._build_ref_url(um_git_url, um_ref, ref_type)
+        ref_type = self._get_ref_type(um_git_url, version)
+        um_git_ref_url = self._build_ref_url(um_git_url, version, ref_type)
 
         return um_git_ref_url
 
+    def get_commit_hash(self, version: str, url: str) -> str:
+        um_sha = spack.util.git.get_commit_sha(url, version)
+
+        if not um_sha:
+            raise RuntimeError(f"Unable to get SHA from ref for {self.spec.name}")
+
+        return um_sha
 
 class PackageSpecInfo(SpecInfo):
     def __init__(self, spec: spack.spec.Spec):
         super().__init__(spec)
 
+    def _resolve_provenance(self) -> SpecProvenance:
+        version = self.get_package_version()
+        ref_url = self.get_ref_url()
+        commit_hash = self.get_commit_hash()
+
+        return SpecProvenance(
+            version=version,
+            commit_hash=commit_hash,
+            ref_url=ref_url,
+        )
+
     def get_package_version(self) -> str:
         return str(self.spec.version)
+
+    def get_commit_hash(self) -> str:
+        commit_variant: spack.variant.VariantValue | None = self.spec.variants.get("commit")
+        if not commit_variant:
+            raise RuntimeError(f"The package '{self.spec.name}' needs to have a reserved commit variant for provenance.")
+
+        return str(commit_variant.value)
 
     def get_ref_url(self) -> str:
         git_url = str(self.spec.package.version_or_package_attr("git", self.spec.version))
@@ -281,35 +335,7 @@ def generate_packages_metadata(package_names: list[str], root_spec: spack.spec.S
 
         spec: SpecInfo = UmSpecInfo(concrete_spec) if concrete_spec.name == "um" else PackageSpecInfo(concrete_spec)
 
-        package_hash: str  = spec.get_hash()
-        package_location: str = spec.get_prefix()
-
-        # Try and get the package version of a given package
-        try:
-            package_repo_version: str = spec.get_package_version()
-        except RuntimeError as e:
-            print(f"::warning::{e}")
-            metadata.append(_generate_error_info_for_metadata(package_name, str(e)))
-            continue
-
-        # Try and get the ref URL of a given package
-        try:
-            package_ref_url: str = spec.get_ref_url()
-        except RuntimeError as e:
-            print(f"::warning::{e}")
-            metadata.append(_generate_error_info_for_metadata(package_name, str(e)))
-            continue
-
-        md5s_of_binaries = spec.generate_md5s_for_package_binaries()
-
-        metadata.append({
-            "name": package_name,
-            "version": package_repo_version,
-            "hash": package_hash,
-            "location": package_location,
-            "url": package_ref_url,
-            "md5s": md5s_of_binaries
-        })
+        metadata.append(spec.to_metadata())
 
     return metadata
 
