@@ -3,7 +3,14 @@
     "name": "access-test-component",
     "version": "2025.04.000",
     "hash": "uyhr286gh2jyrh2uy3r2t6rg7236tr726t",
+    "commit": "3b2b38f2d4bbecaf72020a4c162b64d68c63ee67",
     "location": "/g/data/vk83/releases/some/thing",
-    "url": "https://github.com/access-nri/access-test-component.git"
+    "url": "https://github.com/access-nri/access-test-component/releases/tag/2025.04.000",
+    "md5s": [
+      {
+        "path": "/g/data/vk83/releases/some/thing/bin/access-test-component",
+        "md5": "0cc175b9c0f1b6a831c399e269772661"
+      }
+    ]
   }
 ]

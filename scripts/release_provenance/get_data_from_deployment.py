@@ -5,24 +5,249 @@ import json
 import hashlib
 import os
 from pathlib import Path
-# Need to import these as spack python is on 3.6, before __future__ annotations or typing improvements
-from typing import Any, List, Dict, Tuple
+from typing import Any
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
 
 import spack.environment
 import spack.error
 import spack.cmd
 import spack.config
-import spack.paths
 import spack.spec
-import spack.repo
 import spack.main
+import spack.variant
+import spack.version
+import spack.util.git
 
+
+
+@dataclass(frozen=True)
+class SpecProvenance():
+    """
+    We require git provenance of our spack specs, so we need to know the version, commit hash,
+    and a web-browsable url for the ref.
+    """
+    version: str
+    commit_hash: str
+    ref_url: str
+
+class SpecInfo(ABC):
+    def __init__(self, spec: spack.spec.Spec):
+        self.spec = spec
+
+    def to_metadata(self) -> dict[str, Any]:
+        try:
+            provenance: SpecProvenance = self._resolve_provenance()
+        except RuntimeError as e:
+            print(f"::warning::{e}")
+            return {"name": self.spec.name, "error": str(e)}
+
+        return {
+            "name": self.spec.name,
+            "version": provenance.version,
+            "commit": provenance.commit_hash,
+            "hash": self.spec.dag_hash(),
+            "location": str(self.spec.prefix),
+            "url": provenance.ref_url,
+            "md5s": self.generate_md5s_for_package_binaries()
+        }
+
+    # We have this abstract method because getting provenance is very
+    # different for UM vs non-UM packages.
+    @abstractmethod
+    def _resolve_provenance(self) -> SpecProvenance:
+        pass
+
+    def generate_md5s_for_package_binaries(self) -> list[dict[str, str]]:
+        md5s: list[dict[str, str]] = []
+
+        bin_paths = [
+            directory
+            for directory in Path(self.spec.prefix).rglob("bin")
+            if directory.is_dir()
+        ]
+
+        if not bin_paths:
+            return md5s
+
+        executables = [
+            executable
+            for bin_path in bin_paths
+            for executable in bin_path.rglob('*')
+            if executable.is_file() and os.access(executable, os.X_OK)
+        ]
+
+        for executable in executables:
+            with open(executable, 'rb') as executable_file, open(executable.with_suffix(executable.suffix + ".md5"), 'w') as md5_file:
+                hash = hashlib.md5(executable_file.read()).hexdigest()
+                md5_file.write(hash)
+
+            md5s.append({
+                "path": str(executable),
+                "md5": hash
+            })
+
+        return md5s
+
+    def _get_ref_type(self, url: str, ref: str) -> str:
+        """
+        Determines the type of a git ref (branch, tag, or commit) for a given url and ref.
+
+        Uses `git ls-remote` so the repository does not need to be cloned. If the ref matches
+        a full-length commit, this is returned, otherwise we check for the ref under
+        refs/tags and refs/heads for tags and braches respectively.
+        
+        :param url: Git url of the repository
+        :type url: str
+        :param ref: Branch name, tag name or commit sha
+        :type ref: str
+        """
+        if spack.util.git.is_git_commit_sha(ref):
+            return "commit"
+
+        git_exe = spack.util.git.git(required=True)
+
+        # A branch maps to refs/heads/ and a tag maps to refs/tags/.
+        for ref_type, namespace in (("tag", "tags"), ("branch", "heads")):
+            git_exe(
+                "ls-remote",
+                "--exit-code",
+                f"--{namespace}",
+                url,
+                f"refs/{namespace}/{ref}",
+                output=os.devnull,
+                error=os.devnull,
+                fail_on_error=False,
+            )
+
+            if git_exe.returncode == 0:
+                return ref_type
+
+        return "unknown"
+
+    def _build_ref_url(self, url: str, ref: str, ref_type: str) -> str:
+        """
+        Builds a web-browsable url for a ref, based on the type of that ref.
+        """
+        base_url = url.rstrip('/').removesuffix('.git')
+
+        match ref_type:
+            case "tag":
+                return f"{base_url}/releases/tag/{ref}"
+            case "branch":
+                return f"{base_url}/tree/{ref}"
+            case "commit":
+                return f"{base_url}/commit/{ref}"
+            case _:
+                raise RuntimeError(f"Unknown git ref type '{ref_type}' for ref '{ref}' of {url}.")
+
+
+class UmSpecInfo(SpecInfo):
+    def __init__(self, spec: spack.spec.Spec):
+        super().__init__(spec)
+
+    def _resolve_provenance(self) -> SpecProvenance:
+        version = self.get_package_version()
+        ref_url = self.get_ref_url(version)
+        commit_hash = self.get_commit_hash(version, ref_url)
+
+        return SpecProvenance(
+            version=version,
+            commit_hash=commit_hash,
+            ref_url=ref_url,
+        )
+
+    def get_package_version(self) -> str:
+        um_ref_variant: spack.variant.VariantValue | None = self.spec.variants.get("um_ref")
+
+        if not um_ref_variant:
+            raise RuntimeError(f"The package 'um' needs a um_ref defined in the environment for provenance.")
+
+        um_ref: str = str(um_ref_variant.value)
+
+        return um_ref
+
+    def get_ref_url(self, version: str) -> str:
+        um_git_url = self.spec.package._project_cfg[self.spec.name].get('url') # type: ignore (because we are using access-spack-packages UmBasePackage not BasePackage)
+
+        if not um_git_url:
+            raise RuntimeError("The package 'um' needs to have a git url specified in _project_cfg for provenance.")
+
+        ref_type = self._get_ref_type(um_git_url, version)
+        um_git_ref_url = self._build_ref_url(um_git_url, version, ref_type)
+
+        return um_git_ref_url
+
+    def get_commit_hash(self, version: str, url: str) -> str:
+        um_sha = spack.util.git.get_commit_sha(url, version)
+
+        if not um_sha:
+            raise RuntimeError(f"Unable to get SHA from ref for {self.spec.name}")
+
+        return um_sha
+
+class PackageSpecInfo(SpecInfo):
+    def __init__(self, spec: spack.spec.Spec):
+        super().__init__(spec)
+
+    def _resolve_provenance(self) -> SpecProvenance:
+        version = self.get_package_version()
+        ref_url = self.get_ref_url()
+        commit_hash = self.get_commit_hash()
+
+        return SpecProvenance(
+            version=version,
+            commit_hash=commit_hash,
+            ref_url=ref_url,
+        )
+
+    def get_package_version(self) -> str:
+        return str(self.spec.version)
+
+    def get_commit_hash(self) -> str:
+        commit_variant: spack.variant.VariantValue | None = self.spec.variants.get("commit")
+        if not commit_variant:
+            raise RuntimeError(f"The package '{self.spec.name}' needs to have a reserved commit variant for provenance.")
+
+        return str(commit_variant.value)
+
+    def get_ref_url(self) -> str:
+        git_url = str(self.spec.package.version_or_package_attr("git", self.spec.version))
+
+        resolved_ref = self._resolve_spack_ref(git_url)
+        ref_type: str = self._get_ref_type(git_url, resolved_ref)
+
+        url: str = self._build_ref_url(git_url, resolved_ref, ref_type)
+
+        return url
+
+    def _resolve_spack_ref(self, url: str) -> str:
+        # ConcreteVersion superclasses StandardVersion (@2025.01.001) and GitVersion (@git.REF) - we need to handle either case
+        version: spack.version.ConcreteVersion = self.spec.version
+
+        if isinstance(version, spack.version.StandardVersion):
+            # Fetch the version info from the version() function in the package.py
+            pkg_version = self.spec.package.versions.get(version)
+            if pkg_version is None:
+                raise RuntimeError(f"Package {self.spec.name} is missing a version() for {version}, despite installing successfully")
+
+            resolved_ref = pkg_version.get("tag") or pkg_version.get("branch") or pkg_version.get("commit")
+
+            if resolved_ref:
+                return resolved_ref
+            else:
+                raise RuntimeError(f"Unknown standard version format for {self.spec.name} version {version}")
+
+        elif isinstance(version, spack.version.GitVersion) and version.ref:
+            return version.ref
+        else:
+            raise NotImplementedError(f"Haven't yet handled a non-GitVersion/StandardVersion for {self.spec.name} version {version}")
 
 def main():
     args = parse_args(sys.argv[1:])
-    packages: List[str] = args.packages.split(",") if args.packages else []
+    packages: list[str] = args.packages.split(",") if args.packages else []
     config_scopes_base_dir: str = args.config_scopes_base_dir
-    config_scopes: List[str] = args.config_scopes.split(",") if args.config_scopes else []
+    config_scopes: list[str] = args.config_scopes.split(",") if args.config_scopes else []
     output_path = Path(args.output)
 
     # Custom scopes added via spack --config-scope for install need to be added back here
@@ -34,13 +259,13 @@ def main():
     spack_env = activate_spack_environment(args.environment)
 
     # Get paths for all packages in the environment, output as a spack.location file
-    all_specs: List[spack.spec.Spec] = spack_env.all_specs()
+    all_specs: list[spack.spec.Spec] = spack_env.all_specs()
 
     with open(output_path / "spack.location", 'w') as f:
         spack.cmd.display_specs(all_specs, paths=True, output=f)
 
     # Get spack root specs in the environment
-    root_specs: List[spack.spec.Spec] = [spec for spec in all_specs if spec.satisfies(args.deployment_name)]
+    root_specs: list[spack.spec.Spec] = [spec for spec in all_specs if spec.satisfies(args.deployment_name)]
 
     if len(root_specs) == 0:
         raise RuntimeError("There are no root specs matching the deployment name in the environment")
@@ -54,14 +279,14 @@ def main():
         f.write(root_spec.format('{hash}'))
 
     # Generate package metadata for the specified packages
-    packages_metadata: List[Dict[str, Any]] = generate_packages_metadata(packages, root_spec)
+    packages_metadata: list[dict[str, Any]] = generate_packages_metadata(packages, root_spec)
 
     print(packages_metadata)
 
     with open(output_path / "build-db-pkgs.json", 'w') as f:
         json.dump(packages_metadata, f)
 
-def add_custom_spack_config_scopes(config_scopes_dir: str, config_scopes: List[str]) -> None:
+def add_custom_spack_config_scopes(config_scopes_dir: str, config_scopes: list[str]) -> None:
     """
     Adds paths to custom spack config scopes to the command_line scope so we can find binaries for
     certain environments that use custom installation directories.
@@ -69,10 +294,10 @@ def add_custom_spack_config_scopes(config_scopes_dir: str, config_scopes: List[s
     :param config_scopes_dir: Absolute path that contains custom spack configuration scopes given by --custom-scopes
     :type config_scopes_dir: str
     :param config_scopes: Names of custom scopes from spack-configs custom/cd directory.
-    :type config_scopes: List[str]
+    :type config_scopes: list[str]
     """
     config_scopes_path = Path(config_scopes_dir)
-    config_scope_paths: List[str] = [str(config_scopes_path / s) for s in config_scopes]
+    config_scope_paths: list[str] = [str(config_scopes_path / s) for s in config_scopes]
 
     print(f"Attempting to load custom scopes: {config_scope_paths}")
 
@@ -92,97 +317,30 @@ def activate_spack_environment(spack_env_path: str) -> spack.environment.Environ
 
     return spack_env
 
+def _generate_error_info_for_metadata(name: str, error: str) -> dict[str, str]:
+    return {"name": name, "error": error}
 
-def generate_packages_metadata(package_names: List[str], root_spec: spack.spec.Spec) -> List[Dict[str, Any]]:
-    metadata: List[Dict[str, Any]] = []
+def generate_packages_metadata(package_names: list[str], root_spec: spack.spec.Spec) -> list[dict[str, Any]]:
+    metadata: list[dict[str, Any]] = []
 
     for package_name in package_names:
         try:
-            package: spack.spec.Spec = root_spec[package_name]
+            spec_wrapper: spack.spec.Spec | spack.spec.SpecBuildInterface = root_spec[package_name]
         except KeyError:
-            print(f"{package} is not in the dependency chain of {root_spec}, can't upload to build database. Exiting...")
-            raise
+            error_msg=f"{package_name} is not in the dependency chain of {root_spec}, can't upload to build database."
+            print(f"::warning::{error_msg}")
+            metadata.append(_generate_error_info_for_metadata(package_name, error_msg))
+            continue
 
-        package_hash: str  = package.format('{hash}')
-        package_location: str = package.format('{prefix}')
-        package_repo_url: str
-        package_repo_version: str
-        package_repo_url, package_repo_version = _get_package_repo_info(package)
+        concrete_spec: spack.spec.Spec = spec_wrapper.wrapped_obj if isinstance(spec_wrapper, spack.spec.SpecBuildInterface) else spec_wrapper
 
-        md5s_of_binaries = generate_md5s_for_package_binaries(package)
+        spec: SpecInfo = UmSpecInfo(concrete_spec) if concrete_spec.name == "um" else PackageSpecInfo(concrete_spec)
 
-        metadata.append({
-            "name": package_name,
-            "version": package_repo_version,
-            "hash": package_hash,
-            "location": package_location,
-            "url": package_repo_url,
-            "md5s": md5s_of_binaries
-        })
+        metadata.append(spec.to_metadata())
 
     return metadata
 
-def _get_package_repo_info(package: spack.spec.Spec) -> Tuple[str, str]:
-    """
-    Get package repo information from the package.py file.
-    This is different for certain packages like the um, which have variants and structs in the
-    package.py file that have that information.
-    Returns: A pair composed of a git url and a git ref
-    """
-    package_name = package.name
-
-    if package_name == "um":
-        um_class = spack.repo.PATH.get_pkg_class(package_name)
-        um_git_url = um_class._project_cfg[package_name].get('url')
-        um_git_ref = package.variants.get("um_ref")
-
-        if not um_git_url or not um_git_ref:
-            raise RuntimeError("The package 'um' needs to have a git url specified in _resource_cfg and the um_ref variant for provenance.")
-
-        return (
-            um_git_url,
-            um_git_ref.value
-        )
-    else:
-        return (
-            spack.repo.PATH.get_pkg_class(package_name).git,
-            package.format("{version}")
-        )
-
-
-def generate_md5s_for_package_binaries(package: spack.spec.Spec) -> List[Dict[str, str]]:
-    md5s: List[Dict[str, str]] = []
-
-    bin_paths = [
-        directory
-        for directory in Path(package.prefix).rglob("bin")
-        if directory.is_dir()
-    ]
-
-    if not bin_paths:
-        return md5s
-
-    executables = [
-        executable
-        for bin_path in bin_paths
-        for executable in bin_path.rglob('*')
-        if executable.is_file() and os.access(executable, os.X_OK)
-    ]
-
-    for executable in executables:
-        with open(executable, 'rb') as executable_file, open(executable.with_suffix(executable.suffix + ".md5"), 'w') as md5_file:
-            hash = hashlib.md5(executable_file.read()).hexdigest()
-            md5_file.write(hash)
-
-        md5s.append({
-            "path": str(executable),
-            "md5": hash
-        })
-
-    return md5s
-
-
-def parse_args(args: List[str]) -> argparse.Namespace:
+def parse_args(args: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Script for generating package build metadata for tracking services release provenance database."
     )
