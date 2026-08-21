@@ -94,8 +94,9 @@ class SpecInfo(ABC):
         Determines the type of a git ref (branch, tag, or commit) for a given url and ref.
 
         Uses `git ls-remote` so the repository does not need to be cloned. If the ref matches
-        neither a remote branch nor a remote tag, it is assumed to be a commit sha.
-
+        a full-length commit, this is returned, otherwise we check for the ref under
+        refs/tags and refs/heads for tags and braches respectively.
+        
         :param url: Git url of the repository
         :type url: str
         :param ref: Branch name, tag name or commit sha
