@@ -4,28 +4,20 @@ This repository houses reusable workflows, actions and scripts for the building 
 
 ## Repositories Serviced By `build-cd`
 
-These are the repositories with the `deployment` topic.
+These are the repositories with the `deployment` and `spack` topics, called MDRs (Model Deployment Repositories).
 
-To find the most up to date deployment repositories, use [this search URL](https://github.com/orgs/ACCESS-NRI/repositories?q=topic%3Adeployment+-topic%3Atemplate) or run:
+To find the most up to date deployment repositories, use [this search URL](https://github.com/orgs/ACCESS-NRI/repositories?q=topic%3Adeployment+topic%3Aspack+-topic%3Atemplate) or run:
 
 ```bash
-gh search repos --owner access-nri --json name --jq '[.[].name] | @sh' -- topic:deployment -topic:template
+gh search repos --owner access-nri --json name --jq '[.[].name] | @sh' -- topic:deployment topic:spack -topic:template
 ```
 
-### Model Deployment Repositories
+### Template Repositories
 
-* [ACCESS-NRI/ACCESS-OM2](https://github.com/ACCESS-NRI/ACCESS-OM2)
-* [ACCESS-NRI/ACCESS-OM2-BGC](https://github.com/ACCESS-NRI/ACCESS-OM2-BGC)
-* [ACCESS-NRI/ACCESS-OM3](https://github.com/ACCESS-NRI/ACCESS-OM3)
-* [ACCESS-NRI/ACCESS-ESM1.5](https://github.com/ACCESS-NRI/ACCESS-ESM1.5)
-* [ACCESS-NRI/ACCESS-ESM1.6](https://github.com/ACCESS-NRI/ACCESS-ESM1.6)
-* [ACCESS-NRI/ACCESS-ISSM](https://github.com/ACCESS-NRI/ACCESS-ISSM)
-* [ACCESS-NRI/CABLE-standalone](https://github.com/ACCESS-NRI/CABLE-standalone)
+These repositories are templates that MDRs are based on:
 
-### Testing and Template Repositories
-
-* [ACCESS-NRI/ACCESS-TEST](https://github.com/ACCESS-NRI/ACCESS-TEST)
 * [ACCESS-NRI/model-deployment-template](https://github.com/ACCESS-NRI/model-deployment-template)
+* [ACCESS-NRI/software-deployment-template](https://github.com/ACCESS-NRI/software-deployment-template)
 
 ## Overview
 
@@ -42,6 +34,23 @@ This repository is broken down into the following top-level folders:
 `.github/workflows` houses validation and reusable deployment workflows that are called by ACCESS-NRI model deployment repositories, or within `build-cd` itself.
 
 `.github/actions` houses custom actions used by deployment workflows. More information on these actions can be found in `.github/actions/*/README.md`.
+
+## Provenance
+
+Provenance for model builds contain the following:
+
+* `spack.yaml`, used in the build to create the environment - the abstract list of requirements and constraints on the build created by users.
+* `spack.lock`, generated from Spacks concretization process - a concrete list of the full dependency chain and their associated versions, requirements and constraints. This will be able to recreate a build exactly in `spack`, if it is lost.
+* `spack.location`, a list of dependencies and their paths on the HPC.
+* `build-db-pkgs.json`, a list of important packages and their provenance information, including MD5sums of their executables, as well as URLs to the exact version built.
+* `deploy-MODEL-outputs.HPC`, a json-formatted list of metadata related to the build, including the version of `ACCESS-NRI/spack`, `ACCESS-NRI/upstream-spack-packages` and `ACCESS-NRI/access-spack-packages` used, among other things.
+
+For Releases, MDRs have their provenance assured by both GitHub Releases in the MDR itself, and via our [Release Provenance Database](https://reporting.access-nri-store.cloud.edu.au/release-provenance/releases).
+
+For Prereleases, a subset of this information is available in the workflow run (AKA, the deployment of a particular commit). The run of a particular commit is given by the checkmark next to the commit, or in the PR status down the bottom of the PR. The artifacts (named `deploy-MODEL-[outputs|metadata].HPC`) are in the summary of the entire run, down the bottom, and can be downloaded and inspected. Alternatively, if you have the run number, you can do `gh run download RUN_NUMBER`.
+
+> [!NOTE]
+> Prerelease Workflow run artifacts are only available for 90 days since the run, and expire afterwards. One can regenerate them by `!redeploy`ing the build (see [this section](#redeploy))
 
 ## Versioning in This Repository
 
