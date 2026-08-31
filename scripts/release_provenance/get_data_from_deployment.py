@@ -58,6 +58,10 @@ class SpecInfo(ABC):
     def _resolve_provenance(self) -> SpecProvenance:
         pass
 
+    @abstractmethod
+    def get_git_url(self) -> str:
+        pass
+
     def generate_md5s_for_package_binaries(self) -> list[dict[str, str]]:
         md5s: list[dict[str, str]] = []
 
@@ -96,7 +100,7 @@ class SpecInfo(ABC):
         Uses `git ls-remote` so the repository does not need to be cloned. If the ref matches
         a full-length commit, this is returned, otherwise we check for the ref under
         refs/tags and refs/heads for tags and braches respectively.
-        
+
         :param url: Git url of the repository
         :type url: str
         :param ref: Branch name, tag name or commit sha
@@ -148,8 +152,9 @@ class UmSpecInfo(SpecInfo):
 
     def _resolve_provenance(self) -> SpecProvenance:
         version = self.get_package_version()
-        ref_url = self.get_ref_url(version)
-        commit_hash = self.get_commit_hash(version, ref_url)
+        git_url = self.get_git_url()
+        ref_url = self.get_ref_url(git_url, version)
+        commit_hash = self.get_commit_hash(version, git_url)
 
         return SpecProvenance(
             version=version,
@@ -167,14 +172,17 @@ class UmSpecInfo(SpecInfo):
 
         return um_ref
 
-    def get_ref_url(self, version: str) -> str:
+    def get_git_url(self) -> str:
         um_git_url = self.spec.package._project_cfg[self.spec.name].get('url') # type: ignore (because we are using access-spack-packages UmBasePackage not BasePackage)
 
         if not um_git_url:
             raise RuntimeError("The package 'um' needs to have a git url specified in _project_cfg for provenance.")
 
-        ref_type = self._get_ref_type(um_git_url, version)
-        um_git_ref_url = self._build_ref_url(um_git_url, version, ref_type)
+        return um_git_url
+
+    def get_ref_url(self, git_url: str, version: str) -> str:
+        ref_type = self._get_ref_type(git_url, version)
+        um_git_ref_url = self._build_ref_url(git_url, version, ref_type)
 
         return um_git_ref_url
 
@@ -182,7 +190,7 @@ class UmSpecInfo(SpecInfo):
         um_sha = spack.util.git.get_commit_sha(url, version)
 
         if not um_sha:
-            raise RuntimeError(f"Unable to get SHA from ref for {self.spec.name}")
+            raise RuntimeError(f"Unable to get SHA from ref {version} at {url} for {self.spec.name}")
 
         return um_sha
 
@@ -201,6 +209,9 @@ class PackageSpecInfo(SpecInfo):
             ref_url=ref_url,
         )
 
+    def get_git_url(self) -> str:
+        return str(self.spec.package.version_or_package_attr("git", self.spec.version))
+
     def get_package_version(self) -> str:
         return str(self.spec.version)
 
@@ -212,7 +223,7 @@ class PackageSpecInfo(SpecInfo):
         return str(commit_variant.value)
 
     def get_ref_url(self) -> str:
-        git_url = str(self.spec.package.version_or_package_attr("git", self.spec.version))
+        git_url = self.get_git_url()
 
         resolved_ref = self._resolve_spack_ref(git_url)
         ref_type: str = self._get_ref_type(git_url, resolved_ref)
