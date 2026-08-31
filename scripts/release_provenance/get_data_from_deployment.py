@@ -58,6 +58,10 @@ class SpecInfo(ABC):
     def _resolve_provenance(self) -> SpecProvenance:
         pass
 
+    @abstractmethod
+    def get_git_url(self) -> str:
+        pass
+
     def generate_md5s_for_package_binaries(self) -> list[dict[str, str]]:
         md5s: list[dict[str, str]] = []
 
@@ -205,6 +209,9 @@ class PackageSpecInfo(SpecInfo):
             ref_url=ref_url,
         )
 
+    def get_git_url(self) -> str:
+        return str(self.spec.package.version_or_package_attr("git", self.spec.version))
+
     def get_package_version(self) -> str:
         return str(self.spec.version)
 
@@ -216,7 +223,7 @@ class PackageSpecInfo(SpecInfo):
         return str(commit_variant.value)
 
     def get_ref_url(self) -> str:
-        git_url = str(self.spec.package.version_or_package_attr("git", self.spec.version))
+        git_url = self.get_git_url()
 
         resolved_ref = self._resolve_spack_ref(git_url)
         ref_type: str = self._get_ref_type(git_url, resolved_ref)
