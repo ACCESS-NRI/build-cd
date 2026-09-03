@@ -596,11 +596,9 @@ jobs:
             '${{ secrets.USER }}@${{ secrets.HOST_DATA }}:${{ steps.path.outputs.spack-environment }}/spack.*' \
             ./${{ env.ARTIFACT_NAME }}
 
-          if [[ "${{ inputs.deployment-type }}" == "Release" ]]; then
-            rsync -e 'ssh -i ${{ steps.ssh.outputs.private-key-path }}' \
-              '${{ secrets.USER }}@${{ secrets.HOST_DATA }}:${{ steps.path.outputs.spack-environment }}/build-db-pkgs.json' \
-              ./${{ env.ARTIFACT_NAME }}
-          fi
+          rsync -e 'ssh -i ${{ steps.ssh.outputs.private-key-path }}' \
+            '${{ secrets.USER }}@${{ secrets.HOST_DATA }}:${{ steps.path.outputs.spack-environment }}/build-db-pkgs.json' \
+            ./${{ env.ARTIFACT_NAME }}
 
           # Rename the files to include the deployment environment
           cd ./${{ env.ARTIFACT_NAME }}
