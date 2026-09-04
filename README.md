@@ -47,7 +47,7 @@ Provenance for model builds contain the following:
 
 For Releases, MDRs have their provenance assured by both GitHub Releases in the MDR itself, and via our [Release Provenance Database](https://reporting.access-nri-store.cloud.edu.au/release-provenance/releases).
 
-For Prereleases, a subset of this information is available in the workflow run (AKA, the deployment of a particular commit). The run of a particular commit is given by the checkmark next to the commit, or in the PR status down the bottom of the PR. The artifacts (named `deploy-MODEL-[outputs|metadata].HPC`) are in the summary of the entire run, down the bottom, and can be downloaded and inspected. Alternatively, if you have the run number, you can do `gh run download RUN_NUMBER`.
+For Prereleases, a subset of this information is available in the workflow run (AKA, the deployment of a particular commit). The run of a particular commit is given by the checkmark next to the commit, click on it and then "Details". Otherwise you can find the run by the link next to the rocket in the PR status down the bottom of the PR. The artifacts (named `deploy-MODEL-[outputs|metadata].HPC`) are in the summary of the entire run, down the bottom, and can be downloaded and inspected. Alternatively, if you have the run number, you can do `gh run download RUN_NUMBER`.
 
 > [!NOTE]
 > Prerelease Workflow run artifacts are only available for 90 days since the run, and expire afterwards. One can regenerate them by `!redeploy`ing the build (see [this section](#redeploy))
