@@ -1,19 +1,21 @@
 extends: default
 rules:
-  line-length:
-    max: 120
-    level: warning
+  braces:
+    min-spaces-inside: 0
+    max-spaces-inside: 0
+  brackets:
+    min-spaces-inside: 0
+    max-spaces-inside: 0
+  comments-indentation: {}
+  document-start:
+    present: false
   indentation:
     spaces: consistent
     indent-sequences: consistent
     check-multi-line-strings: true
-  comments-indentation: {}
+  line-length:
+    max: 120
+    level: warning
   truthy:
     allowed-values: ['true', 'false']
     check-keys: false
-  brackets:
-    min-spaces-inside: 0
-    max-spaces-inside: 0
-  braces:
-    min-spaces-inside: 0
-    max-spaces-inside: 0
