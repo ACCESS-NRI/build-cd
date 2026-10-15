@@ -9,7 +9,7 @@ rules:
     check-multi-line-strings: false
   comments-indentation: {}
   truthy:
-    allowed: ['true', 'false']
+    allowed-values: ['true', 'false']
     check-keys: false
   brackets:
     min-spaces-inside: 0
