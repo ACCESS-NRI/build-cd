@@ -6,16 +6,14 @@ rules:
   brackets:
     min-spaces-inside: 0
     max-spaces-inside: 0
-  comments-indentation: {}
+  comments-indentation: disable
   document-start:
     present: false
   indentation:
     spaces: consistent
     indent-sequences: consistent
     check-multi-line-strings: true
-  line-length:
-    max: 120
-    level: warning
+  line-length: disable
   truthy:
     allowed-values: ['true', 'false']
     check-keys: false
