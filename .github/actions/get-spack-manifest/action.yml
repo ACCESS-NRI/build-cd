@@ -47,6 +47,13 @@ runs:
       # Navigate from the action's directory (.github/actions/get-spack-manifest) up to the build-cd repo root
       shell: bash
       run: echo "path=$(realpath "${{ github.action_path }}/../../..")" >> $GITHUB_OUTPUT
+    
+    - name: Validate spack manifest yaml
+      id: validate-yaml
+      uses: ibiqlik/action-yamllint@2576378a8e339169678f9939646ee3ee325e845c # v3.1.1
+      with:
+        file_or_dir: ${{ inputs.spack-manifest-path }}
+        config_file: ${{ github.action_path }}/yamllint_config.yml
 
     - name: Get reserved definitions
       id: defs
