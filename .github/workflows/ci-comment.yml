@@ -116,8 +116,20 @@ jobs:
           git_tag_gpgsign: true
 
       - name: Update, Commit and Push the Bump
+        env:
+          ORIGINAL_VERSION: ${{ steps.original.outputs.deployment-version }}
+          NEW_VERSION: ${{ steps.bump.outputs.after }}
         run: |
-          yq -i '.spack.definitions[]._version[0] = "${{ steps.bump.outputs.after }}"' ${{ inputs.spack-manifest-path }}
+          # Substituting via `sed` on the `_version` line only, rather than assigning with `yq` as `yq` doesn't handle this correctly.
+          # This finds lines that start with '- _version:', and substitutes the original version (escaping regex '.') with the new version.
+          sed -i -E "/^[[:space:]]*-[[:space:]]*_version:/s/${ORIGINAL_VERSION//./\\.}/${NEW_VERSION}/" ${{ inputs.spack-manifest-path }}
+
+          # Validate that the new version was set appropriately.
+          if [[ "$(yq '.spack.definitions[] | select(has("_version")) | ._version[0]' ${{ inputs.spack-manifest-path }})" != "$NEW_VERSION" ]]; then
+            echo "::error::Failed to update the _version reserved definition in ${{ inputs.spack-manifest-path }}"
+            exit 1
+          fi
+
           git add ${{ inputs.spack-manifest-path }}
           git commit -m "${{ inputs.spack-manifest-path }}: Updated deployment version from ${{ steps.original.outputs.deployment-version }} to ${{ steps.bump.outputs.after }}"
           git push
