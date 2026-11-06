@@ -49,8 +49,41 @@ env:
   RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
   PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
 jobs:
+  authorize:
+    name: Authorize Command
+    # Comment-triggered runs must be authorized before any other job runs, since
+    # subsequent jobs check out and build the (untrusted) PR head with inherited secrets.
+    if: github.event_name == 'issue_comment'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Check commenter permissions
+        id: commenter
+        uses: access-nri/actions/.github/actions/commenter-permission-check@main
+        with:
+          # This means that commenters who use `!redeploy` must have at least `write` perms
+          # in the repository.
+          minimum-permission: write
+
+      - name: React to Comment
+        uses: access-nri/actions/.github/actions/react-to-comment@main
+        with:
+          token: ${{ github.token }}
+          reaction: ${{ steps.commenter.outputs.has-permission == 'true' && 'rocket' || '-1' }}
+
+      - name: Exit if no write permissions
+        if: steps.commenter.outputs.has-permission == 'false'
+        run: |
+          echo "::error::User ${{ github.event.comment.user.login }} doesn't have 'write' permission on ${{ github.repository }}, not allowing deployment"
+          exit 1
+
   init:
     name: Setup CI
+    needs:
+      - authorize
+    # `authorize` is skipped for non-comment events, which would otherwise skip this job too.
+    if: ${{ !cancelled() && (github.event_name != 'issue_comment' || needs.authorize.result == 'success') }}
     # We set the PR and branch metadata here because it's used in multiple places,
     # including the deploy reusable workflow, which can't access the `env` context.
     runs-on: ubuntu-latest
@@ -139,37 +172,17 @@ jobs:
     name: '!redeploy Pending'
     if: github.event_name == 'issue_comment' && startsWith(github.event.comment.body, '!redeploy')
     needs:
+      - authorize
       - init
     runs-on: ubuntu-latest
     permissions:
       statuses: write
-      pull-requests: write
     outputs:
       # String to differentiate the status of redeploys vs other checks
       commit-status-context: ${{ steps.commit-status-args.outputs.context }}
       # String to describe the overall check
       commit-status-description: ${{ steps.commit-status-args.outputs.description }}
     steps:
-      - name: Check commenter permissions
-        id: commenter
-        uses: access-nri/actions/.github/actions/commenter-permission-check@main
-        with:
-          # This means that commenters who use `!redeploy` must have at least `write` perms
-          # in the repository. `write` is probably the best fit.
-          minimum-permission: write
-
-      - name: React to Comment
-        uses: access-nri/actions/.github/actions/react-to-comment@main
-        with:
-          token: ${{ github.token }}
-          reaction: ${{ steps.commenter.outputs.has-permission == 'true' && 'rocket' || '-1' }}
-
-      - name: Exit if no write permissions
-        if: steps.commenter.outputs.has-permission == 'false'
-        run: |
-          echo "::error::User ${{ github.event.comment.user.login }} doesn't have 'write' permission on ${{ github.repository }}, not allowing deployment"
-          exit 1
-
       - name: Set Commit Status Args
         id: commit-status-args
         # We don't want to use history expansion (the '!')

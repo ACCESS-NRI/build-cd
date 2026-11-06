@@ -35,6 +35,28 @@ jobs:
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
+      - name: Check commenter permissions
+        id: commenter
+        # This must happen before any checkout, since the steps below check out the
+        # (untrusted) PR head using a privileged token.
+        uses: access-nri/actions/.github/actions/commenter-permission-check@main
+        with:
+          # This means that commenters who use `!bump` must have at least `write` perms
+          # in the repository. `write` is probably the best fit.
+          minimum-permission: write
+
+      - name: React to Comment
+        uses: access-nri/actions/.github/actions/react-to-comment@main
+        with:
+          token: ${{ github.token }}
+          reaction: ${{ steps.commenter.outputs.has-permission == 'true' && 'rocket' || '-1' }}
+
+      - name: Exit if no write permissions
+        if: steps.commenter.outputs.has-permission == 'false'
+        run: |
+          echo "::error::User ${{ github.event.comment.user.login }} doesn't have 'write' permission on ${{ github.repository }}, not allowing version bump"
+          exit 1
+
       - name: Get branch from issue
         id: issue
         # We have to do a bit more interrogation of the issue number to get the branch name to check out
@@ -65,6 +87,10 @@ jobs:
         # outputs:
         #   version: The version that will be bumped (could be latest tag instead of original-version)
         #   bump: The bump type (major, minor or current as specified in the bump-version action)
+        env:
+          # Untrusted input - must never be interpolated directly into the script below
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          ORIGINAL_VERSION: ${{ steps.original.outputs.deployment-version }}
         run: |
           if [[ "${{ contains(github.event.comment.body, 'major') }}" == "true" ]]; then
             # Compare the current date (year-month) with the latest git tag (year-month)
@@ -84,14 +110,14 @@ jobs:
               echo "version=${tag_date}" >> $GITHUB_OUTPUT
               echo "bump=major" >> $GITHUB_OUTPUT
             else
-              echo "version=${{ steps.original.outputs.deployment-version }}" >> $GITHUB_OUTPUT
+              echo "version=$ORIGINAL_VERSION" >> $GITHUB_OUTPUT
               echo "bump=current" >> $GITHUB_OUTPUT
             fi
           elif [[ "${{ contains(github.event.comment.body, 'minor')}}" == "true" ]]; then
-            echo "version=${{ steps.original.outputs.deployment-version }}" >> $GITHUB_OUTPUT
+            echo "version=$ORIGINAL_VERSION" >> $GITHUB_OUTPUT
             echo "bump=minor" >> $GITHUB_OUTPUT
           else
-            echo "::warning::Usage: `!bump [major|minor]`, got `${{ github.event.comment.body }}`"
+            echo "::warning::Usage: '!bump [major|minor]', got '$COMMENT_BODY'"
             exit 1
           fi
 
