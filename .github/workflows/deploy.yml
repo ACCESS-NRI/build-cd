@@ -206,9 +206,21 @@ jobs:
           ACCESS_SPACK_PACKAGES_VERSION: ${{ steps.current.outputs.access-spack-packages-version }}
         run: |
           fail=0
+
+          # Shell-safe characters, deliberately excluding whitespace so that a value can
+          # never split into extra arguments in the remote commands below.
+          GENERAL='^[A-Za-z0-9._/+,:-]+$'
+          # _custom-scopes is a space-separated list that is intentionally word-split on
+          # the remote, so spaces are allowed between otherwise shell-safe scope names.
+          SCOPES='^[A-Za-z0-9._-]+( [A-Za-z0-9._-]+)*$'
+
           check() {
-            local name="$1" value="$2"
-            if [[ ! "$value" =~ ^[A-Za-z0-9._-,/+ ]*$ ]]; then
+            local name="$1" value="$2" pattern="${3:-$GENERAL}"
+
+            # An empty value is shell-safe, and several of these definitions are optional.
+            [[ -z "$value" ]] && return 0
+
+            if [[ ! "$value" =~ $pattern ]]; then
               echo "::error::Invalid value for $name in ${{ inputs.spack-manifest-path }}: '$value'"
               fail=1
             fi
@@ -217,7 +229,7 @@ jobs:
           check "_name" "$DEPLOYMENT_NAME"
           check "_version" "$DEPLOYMENT_VERSION"
           check "_spack-version" "$SPACK_VERSION"
-          check "_custom-scopes" "$CUSTOM_SCOPES"
+          check "_custom-scopes" "$CUSTOM_SCOPES" "$SCOPES"
           check "_provenance" "$PROVENANCE"
           check "_injection" "$INJECTION"
           check "spack.repos.access_spack_packages ref" "$ACCESS_SPACK_PACKAGES_VERSION"
