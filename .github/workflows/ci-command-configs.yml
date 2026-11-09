@@ -75,6 +75,7 @@ jobs:
         id: parse
         env:
           USAGE: '!update-configs [profile=PROFILE]'
+          COMMENT_BODY: ${{ github.event.comment.body }}
         # We don't like ! event expansion here
         shell: bash +H {0}
         run: |
@@ -82,7 +83,7 @@ jobs:
           profile="default"
 
           # Parse comment into command args
-          comment='${{ github.event.comment.body }}'
+          comment="$COMMENT_BODY"
           read -r command <<< "$comment"
           args=${command#!update-configs}
 
@@ -96,6 +97,12 @@ jobs:
                 *) echo "::error::Unknown argument '$arg'. Usage: $USAGE"; exit 1;;
               esac
             done
+          fi
+
+          # The profile is used in later jq programs and shell commands, so constrain it
+          if [[ ! "$profile" =~ ^[A-Za-z0-9._-]+$ ]]; then
+            echo "::error::Invalid profile name '$profile'. Must match ^[A-Za-z0-9._-]+$. Usage: $USAGE"
+            exit 1
           fi
 
           # Output processed args
@@ -127,19 +134,22 @@ jobs:
 
       - name: Read auto configs PR configuration
         id: read-config
+        env:
+          PROFILE: ${{ steps.parse.outputs.profile }}
+          PR_REF: ${{ steps.pr.outputs.ref }}
         run: |
-          if ! jq --exit-status '.profiles."${{ steps.parse.outputs.profile }}"' config/auto-configs-pr.json; then
-            echo "::error::Profile ${{ steps.parse.outputs.profile }} does not exist in config/auto-configs-pr.json at ref ${{ steps.pr.outputs.ref }}"
+          if ! jq --exit-status --arg profile "$PROFILE" '.profiles[$profile]' config/auto-configs-pr.json; then
+            echo "::error::Profile ${PROFILE} does not exist in config/auto-configs-pr.json at ref ${PR_REF}"
             exit 1
           fi
 
-          configs=$(jq -cr '.profiles."${{ steps.parse.outputs.profile }}".configs | keys' config/auto-configs-pr.json)
-          configs_formatted=$(jq -cr '.profiles."${{ steps.parse.outputs.profile }}".configs | keys | join(" ")' config/auto-configs-pr.json)
-          configs_repo=$(jq -cr '.profiles."${{ steps.parse.outputs.profile }}".configs_repo' config/auto-configs-pr.json)
+          configs=$(jq -cr --arg profile "$PROFILE" '.profiles[$profile].configs | keys' config/auto-configs-pr.json)
+          configs_formatted=$(jq -cr --arg profile "$PROFILE" '.profiles[$profile].configs | keys | join(" ")' config/auto-configs-pr.json)
+          configs_repo=$(jq -cr --arg profile "$PROFILE" '.profiles[$profile].configs_repo' config/auto-configs-pr.json)
           # Defaults to 'payu' to ensure backwards compatibility
-          workflow_manager=$(jq -cr '.profiles."${{ steps.parse.outputs.profile }}".workflow_manager // "payu"' config/auto-configs-pr.json)
+          workflow_manager=$(jq -cr --arg profile "$PROFILE" '.profiles[$profile].workflow_manager // "payu"' config/auto-configs-pr.json)
           # Defaults to 'gadi' to ensure backwards compatibility
-          target=$(jq -cr '.profiles."${{ steps.parse.outputs.profile }}".target // "gadi"' config/auto-configs-pr.json)
+          target=$(jq -cr --arg profile "$PROFILE" '.profiles[$profile].target // "gadi"' config/auto-configs-pr.json)
 
           echo "$configs"
           echo "$configs_formatted"
@@ -278,10 +288,13 @@ jobs:
 
       - name: Determine if repro check required
         id: repro-check
+        env:
+          PROFILE: ${{ needs.setup.outputs.profile }}
         run: |
           require_repro_check=$(jq --compact-output --raw-output \
             --arg config "${{ env.CONFIG }}" \
-            '.profiles."${{ needs.setup.outputs.profile }}".configs.["${{ env.CONFIG }}"].checks.repro' \
+            --arg profile "$PROFILE" \
+            '.profiles[$profile].configs[$config].checks.repro' \
             caller/config/auto-configs-pr.json
           )
           echo "Repro check required: $require_repro_check"

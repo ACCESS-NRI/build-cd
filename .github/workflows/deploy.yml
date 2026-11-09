@@ -192,11 +192,57 @@ jobs:
         with:
           spack-manifest-path: ${{ inputs.spack-manifest-path }}
 
+      - name: Validate manifest-derived values
+        # These values are controlled by whoever authored the manifest in the PR, and are
+        # later interpolated into shell commands that run on the deployment target.
+        # Enforce a strict allowlist so that shell metacharacters can never reach them.
+        env:
+          DEPLOYMENT_NAME: ${{ steps.current.outputs.deployment-name }}
+          DEPLOYMENT_VERSION: ${{ steps.current.outputs.deployment-version }}
+          SPACK_VERSION: ${{ steps.current.outputs.spack-version }}
+          CUSTOM_SCOPES: ${{ steps.current.outputs.custom-scopes-space-separated }}
+          PROVENANCE: ${{ steps.current.outputs.provenance }}
+          INJECTION: ${{ steps.current.outputs.injection }}
+          ACCESS_SPACK_PACKAGES_VERSION: ${{ steps.current.outputs.access-spack-packages-version }}
+        run: |
+          fail=0
+
+          # Shell-safe characters, deliberately excluding whitespace so that a value can
+          # never split into extra arguments in the remote commands below.
+          GENERAL='^[A-Za-z0-9._/+,:-]+$'
+          # _custom-scopes is a space-separated list that is intentionally word-split on
+          # the remote, so spaces are allowed between otherwise shell-safe scope names.
+          SCOPES='^[A-Za-z0-9._-]+( [A-Za-z0-9._-]+)*$'
+
+          check() {
+            local name="$1" value="$2" pattern="${3:-$GENERAL}"
+
+            # An empty value is shell-safe, and several of these definitions are optional.
+            [[ -z "$value" ]] && return 0
+
+            if [[ ! "$value" =~ $pattern ]]; then
+              echo "::error::Invalid value for $name in ${{ inputs.spack-manifest-path }}: '$value'"
+              fail=1
+            fi
+          }
+
+          check "_name" "$DEPLOYMENT_NAME"
+          check "_version" "$DEPLOYMENT_VERSION"
+          check "_spack-version" "$SPACK_VERSION"
+          check "_custom-scopes" "$CUSTOM_SCOPES" "$SCOPES"
+          check "_provenance" "$PROVENANCE"
+          check "_injection" "$INJECTION"
+          check "spack.repos.access_spack_packages ref" "$ACCESS_SPACK_PACKAGES_VERSION"
+
+          exit $fail
+
       - name: Disallow multi-spec Releases
         if: inputs.deployment-type == 'Release'
         # FIXME: Once the necessary infrastructure/guidance is in place, remove this step. See ACCESS-NRI/build-cd#344
+        env:
+          DEPLOYMENT_NAME: ${{ steps.current.outputs.deployment-name }}
         run: |
-          root_specs=$(yq '.spack.specs | select(.[] == "${{ steps.current.outputs.deployment-name }}*") | length' ${{ inputs.spack-manifest-path }})
+          root_specs=$(yq ".spack.specs | select(.[] == \"${DEPLOYMENT_NAME}*\") | length" ${{ inputs.spack-manifest-path }})
 
           if [ "$root_specs" -gt 1 ]; then
             echo "::error::We don't yet support multiple root specs with the same package name. Contact the Model Release Team for information."
@@ -259,7 +305,10 @@ jobs:
       - name: Set Spack Env Name String
         id: get-env-name
         # replace occurences of '.' with '_' in environment name as spack doesn't support '.'. Ex: 'access-om2-v1.0.0' -> 'access-om2-v1_0_0'.
-        run: echo "env-name=$(echo '${{ inputs.expected-root-spec-name }}-${{ inputs.deployment-version }}' | tr '.' '_')" >> $GITHUB_OUTPUT
+        env:
+          ROOT_SPEC_NAME: ${{ inputs.expected-root-spec-name }}
+          DEPLOYMENT_VERSION: ${{ inputs.deployment-version }}
+        run: echo "env-name=$(echo "${ROOT_SPEC_NAME}-${DEPLOYMENT_VERSION}" | tr '.' '_')" >> $GITHUB_OUTPUT
 
   check-config:
     name: '${{ inputs.deployment-target }}: Check Config'
