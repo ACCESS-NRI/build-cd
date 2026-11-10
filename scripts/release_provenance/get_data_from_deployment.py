@@ -290,6 +290,14 @@ def main():
     with open(output_path / "root-spec-pkg-hash.txt", 'w') as f:
         f.write(root_spec.format('{hash}'))
 
+    # Generate package metadata for the specified packages
+    packages_metadata: list[dict[str, Any]] = generate_packages_metadata(packages, root_spec)
+
+    print(packages_metadata)
+
+    with open(output_path / "build-db-pkgs.json", 'w') as f:
+        json.dump(packages_metadata, f)
+
     # Get the name of the root spec module (with projections applied), as used in `module load`
     root_spec_module_name: str | None = spack.modules.get_module(
         "tcl", root_spec, get_full_path=False
@@ -300,14 +308,6 @@ def main():
 
     with open(output_path / "root-spec-module-name.txt", 'w') as f:
         f.write(root_spec_module_name)
-
-    # Generate package metadata for the specified packages
-    packages_metadata: list[dict[str, Any]] = generate_packages_metadata(packages, root_spec)
-
-    print(packages_metadata)
-
-    with open(output_path / "build-db-pkgs.json", 'w') as f:
-        json.dump(packages_metadata, f)
 
 def add_custom_spack_config_scopes(config_scopes_dir: str, config_scopes: list[str]) -> None:
     """
