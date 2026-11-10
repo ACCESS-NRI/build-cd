@@ -1,3 +1,5 @@
+# Copyright 2026 ACCESS-NRI and contributors.
+# SPDX-License-Identifier: Apache-2.0
 name: PR Closed Cleanup
 run-name: PR Closed Cleanup
 # Remove prereleases that were part of a closed PR, so we save space

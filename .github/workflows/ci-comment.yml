@@ -1,3 +1,5 @@
+# Copyright 2026 ACCESS-NRI and contributors.
+# SPDX-License-Identifier: Apache-2.0
 name: Comment Command
 run-name: ${{ inputs.model }} Comment Command
 

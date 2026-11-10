@@ -1,3 +1,5 @@
+# Copyright 2026 ACCESS-NRI and contributors.
+# SPDX-License-Identifier: Apache-2.0
 name: Get PR Deployments
 description: Action that returns how many deployments were made in a PR (both from commits and !redeploys)
 author: Tommy Gatti
