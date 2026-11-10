@@ -13,6 +13,7 @@ import spack.environment
 import spack.error
 import spack.cmd
 import spack.config
+import spack.modules
 import spack.spec
 import spack.main
 import spack.variant
@@ -288,6 +289,17 @@ def main():
 
     with open(output_path / "root-spec-pkg-hash.txt", 'w') as f:
         f.write(root_spec.format('{hash}'))
+
+    # Get the name of the root spec module (with projections applied), as used in `module load`
+    root_spec_module_name: str | None = spack.modules.get_module(
+        "tcl", root_spec, get_full_path=False
+    )
+
+    if not root_spec_module_name:
+        raise RuntimeError(f"Unable to find a tcl module for {root_spec}")
+
+    with open(output_path / "root-spec-module-name.txt", 'w') as f:
+        f.write(root_spec_module_name)
 
     # Generate package metadata for the specified packages
     packages_metadata: list[dict[str, Any]] = generate_packages_metadata(packages, root_spec)
