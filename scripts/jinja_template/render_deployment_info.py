@@ -37,7 +37,6 @@ def _build_deployments_context_from_folder(
                 "access_spack_packages_version": data["access_spack_packages_version"],
                 "access_spack_packages_git_hash": data["access_spack_packages_git_hash"],
                 "modules_location": data["deployment_modules_location"],
-                "spack_location": data["deployment_spack_location"],
             }
             deployments.append(deployment)
 
