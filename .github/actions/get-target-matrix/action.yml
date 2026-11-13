@@ -1,3 +1,5 @@
+# Copyright 2026 ACCESS-NRI and contributors.
+# SPDX-License-Identifier: Apache-2.0
 name: Get Deployment Target Matrix
 description: Action that returns a matrix of deployment targets based on the caller's input and the valid targets in the build-cd repository.
 author: Tommy Gatti

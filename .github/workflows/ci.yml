@@ -1,3 +1,5 @@
+# Copyright 2026 ACCESS-NRI and contributors.
+# SPDX-License-Identifier: Apache-2.0
 name: CI
 run-name: ${{ inputs.model }} CI
 # NOTE: This workflow requires:

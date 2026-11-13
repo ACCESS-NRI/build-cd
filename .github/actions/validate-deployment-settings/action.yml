@@ -1,3 +1,5 @@
+# Copyright 2026 ACCESS-NRI and contributors.
+# SPDX-License-Identifier: Apache-2.0
 name: Validate Environment Deployment Settings
 description: Action that validates various `ACCESS-NRI/build-cd` deployment settings
 inputs:

@@ -1,3 +1,5 @@
+# Copyright 2026 ACCESS-NRI and contributors.
+# SPDX-License-Identifier: Apache-2.0
 name: Get Deployment Paths
 description: Action that returns important paths for a spack install on a deployment target.
 author: Tommy Gatti
