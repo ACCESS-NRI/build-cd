@@ -136,6 +136,10 @@ on:
     #     value: ${{ jobs.deployment.outputs.module-location }}
     #     description: |
     #       Directory containing the modules of the deployed model on the inputs.deployment-target
+    #   deployment-module-name:
+    #     value: ${{ jobs.deployment.outputs.module-name }}
+    #     description: |
+    #       Name of the root spec module (with projections applied), as used in `module load`
     #   deployment-spack-location:
     #     value: ${{ jobs.deployment.outputs.spack-location }}
     #     description: |
@@ -439,6 +443,7 @@ jobs:
     outputs:
       spack-location: ${{ steps.location.outputs.spack }}
       modules-location: ${{ steps.location.outputs.modules }}
+      module-name: ${{ steps.metadata.outputs.root-spec-module-name }}
       root-spec-pkg-hash: ${{ steps.metadata.outputs.root-spec-pkg-hash }}
       general-metadata-artifact-glob: ${{ env.ARTIFACT_NAME }}
     steps:
@@ -619,6 +624,12 @@ jobs:
               'cat ${{ steps.path.outputs.spack-environment }}/root-spec-pkg-hash.txt' \
           )" >> $GITHUB_OUTPUT
 
+          # Output root spec module name from ssh session
+          echo "root-spec-module-name=$(\
+            ssh ${{ secrets.USER }}@${{ secrets.HOST }} -i ${{ steps.ssh.outputs.private-key-path }} \
+              'cat ${{ steps.path.outputs.spack-environment }}/root-spec-module-name.txt' \
+          )" >> $GITHUB_OUTPUT
+
       - name: Tar spack environment metadata
         # We want to attempt to tar up the .spack-env directory even if the install fails, so we can save inodes.
         if: always() && (steps.deploy.conclusion == 'success' || steps.deploy.conclusion == 'failure')
@@ -700,6 +711,7 @@ jobs:
             root_spec_pkg_hash: "${{ needs.deployment.outputs.root-spec-pkg-hash }}",
             deployment_result: "${{ needs.deployment.result }}",
             deployment_modules_location: "${{ needs.deployment.outputs.modules-location }}",
+            deployment_module_name: "${{ needs.deployment.outputs.module-name }}",
             deployment_spack_location: "${{ needs.deployment.outputs.spack-location }}"
           }' > ./${{ env.UPLOAD_FILE_NAME }}
 

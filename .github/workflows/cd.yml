@@ -248,7 +248,6 @@ jobs:
         env:
           J2_MODEL: ${{ inputs.model }}
           J2_VERSION: ${{ needs.get-deployment-version.outputs.version }}
-          J2_ROOT_SBD: ${{ needs.init.outputs.deployment-name }}
         run: |
           python -m scripts.jinja_template.render_deployment_info \
             --template scripts/jinja_template/templates/release-body.md.j2 \

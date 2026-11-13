@@ -203,6 +203,8 @@ jobs:
     name: Deploy
     needs:
       - init
+    # `authorize` (a dependent job via `init`) is skipped for non-comment events, which would otherwise skip this job too.
+    if: ${{ !cancelled() && needs.init.result == 'success' }}
     strategy:
       fail-fast: false
       matrix:

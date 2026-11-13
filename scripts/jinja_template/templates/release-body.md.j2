@@ -10,6 +10,6 @@ Deployed as a module accessible using:
 
 ```bash
 module use {{ deployment.modules_location }}
-module load {{ root_sbd }}/{{ version }}
+module load {{ deployment.module_name }}
 ```
 {% endfor %}
