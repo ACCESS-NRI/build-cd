@@ -4,6 +4,7 @@ import yaml
 from scripts.spack_manifest.injection.modules import (
     inject_projections,
     inject_includes,
+    inject_exclude_implicits,
 
     generate_projection_for_root_spec_from_scratch,
     order_projections,
@@ -353,6 +354,7 @@ class TestInjectProjections:
                             "include": [
                                 "mom5",
                             ],
+                            "exclude_implicits": True,
                             "projections": {
                                 "access-om2": "{name}/2024.03.0",
                                 "cice5": "{name}/2023.10.19-{hash:7}",
@@ -369,6 +371,20 @@ class TestInjectProjections:
         assert (
             output == expected_output
         ), "Injected projections should match the expected output."
+
+
+class TestInjectExcludeImplicits:
+    def test_inject_exclude_implicits__valid(self):
+        manifest_path = "tests/scripts/spack_manifest/injection/inputs/spack.yaml"
+
+        with open(manifest_path, "r") as file:
+            manifest = yaml.safe_load(file)
+
+        output = inject_exclude_implicits(manifest)
+
+        assert (
+            output["spack"]["modules"]["default"]["tcl"]["exclude_implicits"] is True
+        ), "exclude_implicits should be injected as True."
 
 
 class TestInjectIncludes:
