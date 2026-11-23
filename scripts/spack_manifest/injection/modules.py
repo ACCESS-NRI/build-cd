@@ -38,21 +38,23 @@ def main():
 
     deployment_name: str = ReservedDefinitions(manifest).get("name")
 
-    manifest_with_projections: dict[str, Any] = inject_projections(
+    manifest = inject_projections(
         manifest=manifest, root_spec=deployment_name, packages=packages
     )
 
-    manifest_with_projections_and_includes: dict[str, Any] = inject_includes(
-        manifest=manifest_with_projections, root_spec=deployment_name, packages=packages
+    manifest = inject_includes(
+        manifest=manifest, root_spec=deployment_name, packages=packages
     )
 
-    finalized_manifest: dict[str, Any] = enforce_explicit_flow_style_definitions(
-        manifest_with_projections_and_includes
+    manifest = enforce_explicit_flow_style_definitions(
+        manifest
     )
+
+    manifest = inject_exclude_implicits(manifest)
 
     # Output the modified manifest
     dumped_manifest: str = yaml.dump(
-        finalized_manifest,
+        manifest,
         default_flow_style=False,
         sort_keys=False,
     )
@@ -127,6 +129,14 @@ def inject_includes(
     # Finally, inject the includes into a new copy of the manifest, which is returned
     injected_manifest: dict[str, Any] = dict(manifest)
     injected_manifest.setdefault("spack", {}).setdefault("modules", {}).setdefault("default", {}).setdefault("tcl", {})["include"] = sorted_includes
+
+    return injected_manifest
+
+
+def inject_exclude_implicits(manifest: dict[str, Any]) -> dict[str, Any]:
+    # We want to inject the exclude_implicits flag into the manifest, as it is a build-cd-specific requirement.
+    injected_manifest: dict[str, Any] = dict(manifest)
+    injected_manifest.setdefault("spack", {}).setdefault("modules", {}).setdefault("default", {}).setdefault("tcl", {})["exclude_implicits"] = True
 
     return injected_manifest
 
