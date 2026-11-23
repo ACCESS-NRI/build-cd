@@ -354,7 +354,6 @@ class TestInjectProjections:
                             "include": [
                                 "mom5",
                             ],
-                            "exclude_implicits": True,
                             "projections": {
                                 "access-om2": "{name}/2024.03.0",
                                 "cice5": "{name}/2023.10.19-{hash:7}",
