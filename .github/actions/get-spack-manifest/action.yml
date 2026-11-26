@@ -33,14 +33,6 @@ outputs:
     description: |
       The injection information as specified in the reserved definition _injection, in the spack manifest file.
     value: ${{ steps.defs.outputs.injection }}
-  custom-scopes-space-separated:
-    description: |
-      The custom scopes as specified in the reserved definition _custom-scopes, in the spack manifest file, as a space-separated string.
-    value: ${{ steps.defs.outputs.custom-scopes-space-separated }}
-  custom-scopes-comma-separated:
-    description: |
-      The custom scopes as specified in the reserved definition _custom-scopes, in the spack manifest file, as a comma-separated string.
-    value: ${{ steps.defs.outputs.custom-scopes-comma-separated }}
 runs:
   using: composite
   steps:
@@ -72,7 +64,6 @@ runs:
         name = defs.get("name")
         version = defs.get("version")
         spack_version = defs.get("spack-version")
-        custom_scopes = defs.get_list("custom-scopes", default=[])
         provenance = defs.get_list("provenance")
         # Packages eligible for injection are both the packages needed for provenance and additional injection packages
         injection = defs.get_list("provenance") + defs.get_list("injection", default=[])
@@ -81,8 +72,6 @@ runs:
           o.write(f"name={name}\n")
           o.write(f"version={version}\n")
           o.write(f"spack-version={spack_version}\n")
-          o.write(f"custom-scopes-space-separated={" ".join(custom_scopes)}\n")
-          o.write(f"custom-scopes-comma-separated={",".join(custom_scopes)}\n")
           o.write(f"provenance={",".join(provenance)}\n")
           o.write(f"injection={",".join(injection)}\n")
 
