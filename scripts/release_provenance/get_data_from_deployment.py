@@ -10,12 +10,9 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
 import spack.environment
-import spack.error
 import spack.cmd
-import spack.config
 import spack.modules
 import spack.spec
-import spack.main
 import spack.variant
 import spack.version
 import spack.util.git
@@ -258,14 +255,7 @@ class PackageSpecInfo(SpecInfo):
 def main():
     args = parse_args(sys.argv[1:])
     packages: list[str] = args.packages.split(",") if args.packages else []
-    config_scopes_base_dir: str = args.config_scopes_base_dir
-    config_scopes: list[str] = args.config_scopes.split(",") if args.config_scopes else []
     output_path = Path(args.output)
-
-    # Custom scopes added via spack --config-scope for install need to be added back here
-    # so we can find those packages!
-    if config_scopes_base_dir:
-        add_custom_spack_config_scopes(config_scopes_base_dir, config_scopes)
 
     # Activate the spack environment so we can get relevant specs for this deployment
     spack_env = activate_spack_environment(args.environment)
@@ -281,11 +271,8 @@ def main():
 
     if len(root_specs) == 0:
         raise RuntimeError("There are no root specs matching the deployment name in the environment")
-    else:
-        # FIXME: We currently throw an exception, in the unsupported cases there are multiple root specs. See #333
-        root_spec = root_specs[0]
-        if len(root_specs) > 1:
-            raise RuntimeError(f"Multiple root specs ({root_specs}) in one manifest detected. We don't yet support multiple root specs in one deployment.")
+
+    root_spec = root_specs[0]
 
     with open(output_path / "root-spec-pkg-hash.txt", 'w') as f:
         f.write(root_spec.format('{hash}'))
@@ -309,26 +296,6 @@ def main():
     with open(output_path / "root-spec-module-name.txt", 'w') as f:
         f.write(root_spec_module_name)
 
-def add_custom_spack_config_scopes(config_scopes_dir: str, config_scopes: list[str]) -> None:
-    """
-    Adds paths to custom spack config scopes to the command_line scope so we can find binaries for
-    certain environments that use custom installation directories.
-
-    :param config_scopes_dir: Absolute path that contains custom spack configuration scopes given by --custom-scopes
-    :type config_scopes_dir: str
-    :param config_scopes: Names of custom scopes from spack-configs custom/cd directory.
-    :type config_scopes: list[str]
-    """
-    config_scopes_path = Path(config_scopes_dir)
-    config_scope_paths: list[str] = [str(config_scopes_path / s) for s in config_scopes]
-
-    print(f"Attempting to load custom scopes: {config_scope_paths}")
-
-    try:
-        spack.main.add_command_line_scopes(spack.config.CONFIG, config_scope_paths)
-    except spack.error.ConfigError:
-        print(f"Failed to find valid config scope in paths {config_scope_paths}.")
-        raise
 
 def activate_spack_environment(spack_env_path: str) -> spack.environment.Environment:
     spack_env = spack.environment.Environment(spack_env_path)
@@ -388,20 +355,6 @@ def parse_args(args: list[str]) -> argparse.Namespace:
         type=str,
         required=True,
         help="Comma-separated list of packages to extract build metadata for",
-    )
-
-    parser.add_argument(
-        "--config-scopes-base-dir",
-        type=str,
-        required=False,
-        help="Absolute path to a directory that contains custom spack configuration scopes given by --custom-scopes"
-    )
-
-    parser.add_argument(
-        "--config-scopes",
-        type=str,
-        required=False,
-        help="Comma-separated list of custom spack config scopes defined in spack-configs custom/cd directory"
     )
 
     ## Args dealing with outputs
