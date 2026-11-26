@@ -75,7 +75,7 @@ runs:
         custom_scopes = defs.get_list("custom-scopes", default=[])
         provenance = defs.get_list("provenance")
         # Packages eligible for injection are both the packages needed for provenance and additional injection packages
-        injection = defs.get_list("provenance") + defs.get_list("injection")
+        injection = defs.get_list("provenance") + defs.get_list("injection", default=[])
 
         with open(os.environ['GITHUB_OUTPUT'], 'a') as o:
           o.write(f"name={name}\n")
