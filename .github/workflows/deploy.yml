@@ -165,8 +165,6 @@ jobs:
       # Information from the manifest itself
       # Info from reserved definitions in the manifest
       spack-version: ${{ steps.current.outputs.spack-version }}  # _spack-version
-      custom-scopes-space-separated: ${{ steps.current.outputs.custom-scopes-space-separated }}  # _custom-scopes
-      custom-scopes-comma-separated: ${{ steps.current.outputs.custom-scopes-comma-separated }}  # _custom-scopes
       packages-for-provenance: ${{ steps.current.outputs.provenance }}  # _provenance
       all-packages-for-injection: ${{ steps.current.outputs.injection }}  # the packages for injection are actually _provenance + _injection
       # Info from spack.repos section of the manifest
@@ -206,7 +204,6 @@ jobs:
           DEPLOYMENT_NAME: ${{ steps.current.outputs.deployment-name }}
           DEPLOYMENT_VERSION: ${{ steps.current.outputs.deployment-version }}
           SPACK_VERSION: ${{ steps.current.outputs.spack-version }}
-          CUSTOM_SCOPES: ${{ steps.current.outputs.custom-scopes-space-separated }}
           PROVENANCE: ${{ steps.current.outputs.provenance }}
           INJECTION: ${{ steps.current.outputs.injection }}
           ACCESS_SPACK_PACKAGES_VERSION: ${{ steps.current.outputs.access-spack-packages-version }}
@@ -215,18 +212,15 @@ jobs:
 
           # Shell-safe characters, deliberately excluding whitespace so that a value can
           # never split into extra arguments in the remote commands below.
-          GENERAL='^[A-Za-z0-9._/+,:-]+$'
-          # _custom-scopes is a space-separated list that is intentionally word-split on
-          # the remote, so spaces are allowed between otherwise shell-safe scope names.
-          SCOPES='^[A-Za-z0-9._-]+( [A-Za-z0-9._-]+)*$'
+          REGEX='^[A-Za-z0-9._/+,:-]+$'
 
           check() {
-            local name="$1" value="$2" pattern="${3:-$GENERAL}"
+            local name="$1" value="$2"
 
             # An empty value is shell-safe, and several of these definitions are optional.
             [[ -z "$value" ]] && return 0
 
-            if [[ ! "$value" =~ $pattern ]]; then
+            if [[ ! "$value" =~ $REGEX ]]; then
               echo "::error::Invalid value for $name in ${{ inputs.spack-manifest-path }}: '$value'"
               fail=1
             fi
@@ -235,7 +229,6 @@ jobs:
           check "_name" "$DEPLOYMENT_NAME"
           check "_version" "$DEPLOYMENT_VERSION"
           check "_spack-version" "$SPACK_VERSION"
-          check "_custom-scopes" "$CUSTOM_SCOPES" "$SCOPES"
           check "_provenance" "$PROVENANCE"
           check "_injection" "$INJECTION"
           check "spack.repos.access_spack_packages ref" "$ACCESS_SPACK_PACKAGES_VERSION"
@@ -526,22 +519,8 @@ jobs:
           done
           EOT
 
-      - name: Set spack-config scopes path
-        id: spack-config-scopes
-        run: |
-          deployment_target="${{ inputs.deployment-target }}"
-          # The below command is parameter substitution that lowercases the variable
-          lowercase_deployment_target="${deployment_target,,}"
-          deployment_path="${{ steps.path.outputs.spack-config }}/custom/cd/v${{ needs.check-spack-yaml.outputs.spack-version }}/${lowercase_deployment_target}"
-
-          echo "$deployment_path"
-
-          echo "path=$deployment_path" >> $GITHUB_OUTPUT
-
       - name: Deploy to ${{ inputs.deployment-target }} ${{ inputs.deployment-type }}
         id: deploy
-        env:
-          SCOPES: ${{ needs.check-spack-yaml.outputs.custom-scopes-space-separated }}
         # ssh into deployment environment, create and activate the env, install the spack manifest.
         run: |
           # TODO: Remove once we have enough failing IP addresses for NCI HELP-209915
@@ -562,13 +541,9 @@ jobs:
           spack env activate ${{ needs.check-spack-yaml.outputs.spack-env-name }} --create --envfile ${{ vars.SPACK_YAML_LOCATION }}/${{ inputs.expected-root-spec-name }}-${{ github.run_id }}.spack.yaml
 
           # Finally, install the spack manifest
-          spack --debug \
-            $(for s in ${{ env.SCOPES }}; do echo -n "--config-scope=${{ steps.spack-config-scopes.outputs.path }}/$s "; done) \
-            install --fail-fast --fresh ${{ vars.SPACK_INSTALL_ADDITIONAL_ARGS }} || exit $?
+          spack --debug install --fail-fast --fresh ${{ vars.SPACK_INSTALL_ADDITIONAL_ARGS }} || exit $?
 
-          spack \
-            $(for s in ${{ env.SCOPES }}; do echo -n "--config-scope=${{ steps.spack-config-scopes.outputs.path }}/$s "; done) \
-            module tcl refresh --upstream-modules -y
+          spack module tcl refresh --upstream-modules -y
           EOT
 
       - name: Move spack logs
@@ -602,8 +577,6 @@ jobs:
             --environment ${{ steps.path.outputs.spack-environment }} \
             --deployment-name ${{ inputs.expected-root-spec-name }} \
             --packages "${{ needs.check-spack-yaml.outputs.packages-for-provenance }}" \
-            --config-scopes-base-dir "${{ steps.spack-config-scopes.outputs.path }}" \
-            --config-scopes "${{ needs.check-spack-yaml.outputs.custom-scopes-comma-separated }}" \
             --output ${{ steps.path.outputs.spack-environment }}
           EOT
 
